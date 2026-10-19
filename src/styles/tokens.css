@@ -1,0 +1,12 @@
+/* 設計 token：對應 Figma 色彩變數的主色。完整色階待 Figma 定稿後由 JSON 匯出補齊 */
+:root {
+  --color-page: #0D1117;
+  --color-card: #161C26;
+  --color-tag: #202A3A;
+  --color-text: #8F9BAD;
+  --color-content: #E8ECF2;
+  --color-primary: #C8F25A;
+  --color-expense: #FF8C7A;
+  --color-income: #5FE0A8;
+  --color-supply: #FFD166;
+}

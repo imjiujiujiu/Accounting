@@ -1,0 +1,44 @@
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-content);
+  font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.center {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--color-card);
+  border-radius: 16px;
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+}
+
+h1 { margin: 0; font-size: 20px; }
+p { margin: 0; line-height: 1.6; }
+.muted { color: var(--color-text); }
+.ok { color: var(--color-income); }
+.error { color: var(--color-expense); }
+code { background: var(--color-tag); padding: 1px 6px; border-radius: 4px; }
+
+button {
+  font: inherit;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 16px;
+  background: var(--color-tag);
+  color: var(--color-content);
+  cursor: pointer;
+}
+button.primary { background: var(--color-primary); color: var(--color-page); font-weight: 600; }
