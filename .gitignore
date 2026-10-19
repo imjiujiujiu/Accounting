@@ -1,0 +1,16 @@
+node_modules/
+dist/
+
+# 密鑰與本機設定
+.env
+.env.*
+!.env.example
+
+# 公開 repo：任何匯出檔或真實資料都不可提交
+*.csv
+*.xlsx
+exports/
+backup*/
+
+.DS_Store
+*.log
