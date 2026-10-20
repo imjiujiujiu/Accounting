@@ -1,9 +1,10 @@
 <script setup>
 import { isConfigured } from './lib/supabase'
+import { isDemo } from './lib/api/index.js'
 </script>
 
 <template>
-  <main v-if="!isConfigured" class="center">
+  <main v-if="!isConfigured && !isDemo" class="center">
     <div class="card">
       <h1>尚未設定 Supabase</h1>
       <p class="muted">

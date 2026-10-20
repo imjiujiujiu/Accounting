@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "scripts": {
     "dev": "vite",
+    "demo": "VITE_DEMO=1 vite",
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",

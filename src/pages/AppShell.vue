@@ -1,0 +1,60 @@
+<script setup>
+// 電腦版外框：頂部（帳戶選單、頁籤、期間）＋內容＋浮動新增鈕＋交易對話框＋短提示
+import { ref, onMounted } from 'vue'
+import AppHeader from '../components/AppHeader.vue'
+import AccountDrawer from '../components/AccountDrawer.vue'
+import TransactionDialog from '../components/TransactionDialog.vue'
+import Icon from '../components/Icon.vue'
+import { refs, loadRefs, toast } from '../lib/store.js'
+import { openNewTransaction } from '../lib/dialog.js'
+import { isDemo } from '../lib/api/index.js'
+
+const drawer = ref(false)
+onMounted(loadRefs)
+</script>
+
+<template>
+  <div class="app">
+    <AppHeader @open-accounts="drawer = true" />
+    <p v-if="isDemo" class="demo caption">示範模式：資料只存在這個分頁，重新整理就還原</p>
+    <p v-if="refs.error" class="load-error body2">
+      資料讀取失敗：{{ refs.error }} <button class="btn small" type="button" @click="loadRefs">重試</button>
+    </p>
+    <main class="main">
+      <RouterView />
+    </main>
+    <button class="fab" type="button" aria-label="新增一筆" @click="openNewTransaction">
+      <Icon name="plus" :size="44" color="var(--color-tag)" />
+    </button>
+    <AccountDrawer :open="drawer" @close="drawer = false" />
+    <TransactionDialog />
+    <Transition name="toast">
+      <div v-if="toast.text" class="toast body1-bold" :class="toast.tone">{{ toast.text }}</div>
+    </Transition>
+  </div>
+</template>
+
+<style scoped>
+.app { max-width: 1440px; margin: 0 auto; min-height: 100vh; padding-bottom: 120px; }
+.main { padding: var(--sp-32) var(--sp-32) 0; }
+.demo { text-align: center; color: var(--color-supply); padding-top: var(--sp-8); }
+.load-error { margin: var(--sp-16) var(--sp-32) 0; color: var(--color-expense); display: flex; align-items: center; gap: var(--sp-12); }
+.fab {
+  position: fixed; z-index: 20; right: max(36px, calc((100vw - 1440px) / 2 + 36px)); bottom: 36px;
+  width: 80px; height: 80px; border-radius: var(--r-pill); background: var(--color-primary);
+  display: grid; place-items: center; box-shadow: 0 8px 24px rgba(0, 0, 0, .35); transition: transform .15s;
+}
+.fab:hover { transform: scale(1.05); }
+.toast {
+  position: fixed; z-index: 60; left: 50%; bottom: 40px; transform: translateX(-50%);
+  background: var(--color-content); color: var(--color-card); padding: var(--sp-12) var(--sp-24); border-radius: var(--r-pill);
+  box-shadow: var(--shadow-pop);
+}
+.toast.error { background: var(--color-expense); }
+.toast-enter-active, .toast-leave-active { transition: opacity .2s, transform .2s; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 8px); }
+@media (max-width: 760px) {
+  .main { padding: var(--sp-16) var(--sp-16) 0; }
+  .fab { right: 16px; bottom: 16px; width: 64px; height: 64px; }
+}
+</style>
