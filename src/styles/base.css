@@ -4,41 +4,125 @@ html, body {
   margin: 0;
   background: var(--color-page);
   color: var(--color-content);
-  font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
-.center {
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
-  padding: 16px;
-}
+p, h1, h2, h3 { margin: 0; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: .45; }
+input, select, textarea { font: inherit; color: inherit; }
+svg { display: block; flex-shrink: 0; }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
 
+/* ===== 字級（Figma Fonts） ===== */
+.h1 { font-size: 32px; font-weight: 800; line-height: 1.2; }
+.h3 { font-size: 24px; font-weight: 700; line-height: 1.2; }
+.h4 { font-size: 20px; font-weight: 700; line-height: 1.2; }
+.h6 { font-size: 16px; font-weight: 700; line-height: 1.2; }
+.body1 { font-size: 16px; }
+.body1-bold { font-size: 16px; font-weight: 700; }
+.body2 { font-size: 14px; }
+.body2-bold { font-size: 14px; font-weight: 700; }
+.caption { font-size: 12px; }
+
+.c-text { color: var(--color-text); }
+.c-content { color: var(--color-content); }
+.c-primary { color: var(--color-primary); }
+.c-expense { color: var(--color-expense); }
+.c-income { color: var(--color-income); }
+.c-supply { color: var(--color-supply); }
+
+/* ===== 共用元件 ===== */
 .card {
-  width: 100%;
-  max-width: 360px;
   background: var(--color-card);
-  border-radius: 16px;
-  padding: 24px;
-  display: grid;
-  gap: 12px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--r-20);
+  padding: var(--sp-24);
 }
 
-h1 { margin: 0; font-size: 20px; }
-p { margin: 0; line-height: 1.6; }
-.muted { color: var(--color-text); }
-.ok { color: var(--color-income); }
-.error { color: var(--color-expense); }
+/* 帶框按鈕（帳戶選單、期間箭頭） */
+.control {
+  display: inline-flex; align-items: center; gap: var(--sp-8); height: 44px;
+  background: var(--color-card); border: 1px solid var(--color-line); border-radius: var(--r-12);
+  padding: 0 var(--sp-16); white-space: nowrap;
+}
+.control.icon-only { width: 44px; padding: 0; justify-content: center; }
+.control:not(:disabled):hover { border-color: var(--color-line-hover); }
+
+/* 篩選鈕 */
+.chip {
+  display: inline-flex; align-items: center; gap: var(--sp-4);
+  padding: var(--sp-8) var(--sp-16); border: 1px solid var(--color-line); border-radius: var(--r-8);
+  background: var(--color-card); font-size: 16px; white-space: nowrap;
+}
+.chip:hover { border-color: var(--color-line-hover); }
+.chip.on { border-color: var(--color-primary); color: var(--color-primary); }
+
+/* 小標籤 */
+.tag {
+  display: inline-flex; align-items: center; gap: var(--sp-4);
+  background: var(--color-tag); border-radius: var(--r-4); padding: var(--sp-2) var(--sp-8);
+  font-size: 12px; color: var(--color-text); white-space: nowrap;
+}
+.tag.supply { color: var(--color-supply); }
+
+/* 一般按鈕 */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-8);
+  height: 44px; padding: 0 var(--sp-24); border-radius: var(--r-12);
+  background: var(--color-tag); font-weight: 700; white-space: nowrap;
+}
+.btn:not(:disabled):hover { filter: brightness(1.15); }
+.btn.primary { background: var(--color-primary); color: var(--color-card); }
+.btn.danger { background: transparent; color: var(--color-expense); border: 1px solid var(--color-expense); }
+.btn.danger.confirm { background: var(--color-expense); color: var(--color-card); }
+.btn.ghost { background: transparent; color: var(--color-text); }
+.btn.small { height: 32px; padding: 0 var(--sp-12); border-radius: var(--r-8); font-size: 14px; }
+
+/* 表單欄位 */
+.field { display: flex; flex-direction: column; gap: var(--sp-8); min-width: 0; }
+.field > .label { font-size: 14px; font-weight: 700; color: var(--color-text); }
+.field > .error { font-size: 12px; color: var(--color-expense); }
+.field > .hint { font-size: 12px; color: var(--color-text); }
+.input {
+  width: 100%; height: 44px; padding: 0 var(--sp-12);
+  background: var(--color-page); border: 1px solid var(--color-line); border-radius: var(--r-8);
+  outline: none; color-scheme: dark;
+}
+.input:focus { border-color: var(--color-primary); }
+.input.invalid { border-color: var(--color-expense); }
+.input::placeholder { color: var(--coldgray-500); }
+select.input { cursor: pointer; }
+
+/* 單選切換（支出／收入／轉帳） */
+.segmented { display: flex; background: var(--color-page); border: 1px solid var(--color-line); border-radius: var(--r-12); padding: var(--sp-4); }
+.segmented > button { flex: 1; height: 36px; border-radius: var(--r-8); font-weight: 700; color: var(--color-text); }
+.segmented > button.on { background: var(--color-primary); color: var(--color-card); }
+
+/* 浮出層 */
+.popover {
+  position: absolute; z-index: 30; min-width: 220px;
+  background: var(--color-card); border: 1px solid var(--color-line-hover); border-radius: var(--r-12);
+  box-shadow: var(--shadow-pop); padding: var(--sp-8);
+}
+.check-row {
+  display: flex; align-items: center; gap: var(--sp-8); width: 100%;
+  padding: var(--sp-8); border-radius: var(--r-8); text-align: left;
+}
+.check-row:hover { background: var(--color-tag); }
+.check-box {
+  width: 18px; height: 18px; border-radius: var(--r-4); border: 1.5px solid var(--color-text);
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.check-row.on .check-box { background: var(--color-primary); border-color: var(--color-primary); }
+
+.empty { color: var(--color-text); text-align: center; padding: var(--sp-32) 0; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+/* 登入／設定提示等置中畫面 */
+.center { min-height: 100dvh; display: grid; place-items: center; padding: 16px; }
+.center > .card { width: 100%; max-width: 360px; display: grid; gap: 12px; }
 code { background: var(--color-tag); padding: 1px 6px; border-radius: 4px; }
-
-button {
-  font: inherit;
-  border: 0;
-  border-radius: 10px;
-  padding: 10px 16px;
-  background: var(--color-tag);
-  color: var(--color-content);
-  cursor: pointer;
-}
-button.primary { background: var(--color-primary); color: var(--color-page); font-weight: 600; }

@@ -1,0 +1,99 @@
+<script setup>
+// 設定：外幣預設匯率（預估台幣的備用來源）、匯出 CSV、帳號
+import { ref, reactive, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { refs, loadRefs, showToast, baseCurrency } from '../lib/store.js'
+import { api, isDemo } from '../lib/api/index.js'
+import { session, signOut } from '../lib/auth.js'
+
+const router = useRouter()
+const foreign = computed(() => refs.currencies.filter((c) => c.code !== baseCurrency.value))
+const rates = reactive({})
+watch(
+  () => refs.defaultRates,
+  (list) => {
+    for (const c of refs.currencies) rates[c.code] = ''
+    for (const r of list) rates[r.currency] = String(r.rate)
+  },
+  { immediate: true },
+)
+
+const busy = ref(false)
+async function saveRate(code) {
+  const raw = String(rates[code] ?? '').trim()
+  busy.value = true
+  try {
+    if (!raw) await api.settings.removeDefaultRate(code)
+    else {
+      const n = Number(raw)
+      if (!(n > 0)) throw new Error('匯率必須是大於 0 的數字')
+      await api.settings.setDefaultRate(code, n)
+    }
+    await loadRefs()
+    showToast('已儲存匯率')
+  } catch (e) {
+    showToast(e.message, 'error')
+  } finally {
+    busy.value = false
+  }
+}
+
+async function exportCsv() {
+  busy.value = true
+  try {
+    const name = await api.export.download()
+    showToast(`已下載 ${name}`)
+  } catch (e) {
+    showToast(e.message, 'error')
+  } finally {
+    busy.value = false
+  }
+}
+
+async function logout() {
+  await signOut()
+  router.replace('/login')
+}
+</script>
+
+<template>
+  <div class="settings">
+    <section class="card block">
+      <p class="h4">外幣預設匯率</p>
+      <p class="body2 c-text">
+        外幣刷卡的預估台幣，優先用該幣別最近一次回壓的實際匯率；還沒有回壓紀錄時才用這裡的匯率。空白＝不預估。
+      </p>
+      <form v-for="c in foreign" :key="c.code" class="rate" @submit.prevent="saveRate(c.code)">
+        <span class="body1-bold code">{{ c.name_zh }} {{ c.code }}</span>
+        <span class="body2 c-text">1 {{ c.code }} ＝</span>
+        <input v-model="rates[c.code]" class="input" inputmode="decimal" placeholder="未設定" />
+        <span class="body2 c-text">{{ baseCurrency }}</span>
+        <button class="btn small" type="submit" :disabled="busy">儲存</button>
+      </form>
+    </section>
+
+    <section class="card block">
+      <p class="h4">資料匯出</p>
+      <p class="body2 c-text">
+        下載一個 zip，內含交易、帳戶、類別、標籤的 CSV（Excel 可直接開啟）。刪除與修改都無法復原，自動匯出上線前請<strong class="c-content">每月手動匯出一次</strong>。
+      </p>
+      <button class="btn primary" type="button" :disabled="busy || isDemo" @click="exportCsv">匯出 CSV</button>
+    </section>
+
+    <section class="card block">
+      <p class="h4">帳號</p>
+      <p class="body1">{{ isDemo ? '示範模式' : session?.user?.email }}</p>
+      <button class="btn" type="button" :disabled="isDemo" @click="logout">登出</button>
+    </section>
+  </div>
+</template>
+
+<style scoped>
+.settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-16); align-items: start; }
+.block { display: flex; flex-direction: column; gap: var(--sp-12); }
+.block .btn { align-self: flex-start; }
+.settings > .block:first-child { grid-row: span 2; }
+.rate { display: grid; grid-template-columns: 100px 76px 1fr auto auto; align-items: center; gap: var(--sp-8); }
+.rate .input { height: 36px; }
+@media (max-width: 1100px) { .settings { grid-template-columns: 1fr; } .settings > .block:first-child { grid-row: auto; } }
+</style>

@@ -11,6 +11,7 @@ import { createCategoriesApi } from './categories.js'
 import { createTagsApi } from './tags.js'
 import { createSettingsApi } from './settings.js'
 import { createExportApi } from './exportData.js'
+import { createDemoApi } from './demo.js'
 
 export { ApiError } from './errors.js'
 export { PAGE_SIZE } from './transactions.js'
@@ -27,4 +28,7 @@ export function createApi(db) {
   }
 }
 
-export const api = createApi(supabase)
+// 示範模式（VITE_DEMO=1）：本機預覽用，資料在記憶體
+export const isDemo = import.meta.env?.VITE_DEMO === '1'
+
+export const api = isDemo ? createDemoApi() : createApi(supabase)
