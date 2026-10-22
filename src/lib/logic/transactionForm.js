@@ -53,6 +53,57 @@ export function needsToAmount(form, ctx) {
   return !!(a && b && a.currency !== b.currency)
 }
 
+/**
+ * 從分類下拉選擇（分類同時決定類型）：{ type, categoryId }，轉帳的 categoryId 為 null。
+ * 換類型時清掉不適用的欄位：非支出不能外幣刷卡、非轉帳沒有轉入帳戶。
+ */
+export function applyCategory(form, { type, categoryId }) {
+  if (form.type !== type) {
+    form.type = type
+    if (type !== 'expense') {
+      if (form.isForeign && !form.amount) form.amount = form.originalAmount
+      form.isForeign = false
+      form.originalCurrency = null
+      form.originalAmount = ''
+      form.fee = ''
+    }
+    if (type !== 'transfer') {
+      form.toAccountId = null
+      form.toAmount = ''
+    }
+  }
+  form.categoryId = type === 'transfer' ? null : categoryId
+}
+
+/** 表單目前的幣別：外幣刷卡為原幣，否則為帳戶幣別 */
+export function formCurrency(form, accountCurrency) {
+  return isForeignForm(form) ? form.originalCurrency : accountCurrency
+}
+
+/**
+ * 選擇幣別（只有支出可改）：與帳戶幣別相同＝一般支出；不同＝外幣刷卡，金額改記為原幣金額。
+ * 「金額」欄位一次只對應一個值（外幣時為原幣），切換時把已輸入的數字搬過去。
+ */
+export function setCurrency(form, code, accountCurrency) {
+  const foreign = form.type === 'expense' && !!code && code !== accountCurrency
+  if (foreign) {
+    if (!form.isForeign) {
+      form.originalAmount = form.amount
+      form.amount = ''
+      form.fee = ''
+    }
+    form.isForeign = true
+    form.originalCurrency = code
+  } else {
+    // 已回壓的外幣交易保留實際金額；預估中的把原幣數字搬到金額
+    if (form.isForeign && !form.amount) form.amount = form.originalAmount
+    form.fee = ''
+    form.isForeign = false
+    form.originalCurrency = null
+    form.originalAmount = ''
+  }
+}
+
 /** 整理標籤：去空白、去重（不分大小寫，保留第一次出現的寫法） */
 export function normalizeTags(tags) {
   const seen = new Set()

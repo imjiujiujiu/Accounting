@@ -97,44 +97,50 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 <template>
   <Transition name="pop">
     <div v-if="txnDialog.open && form" class="overlay" @mousedown.self="close">
-      <div class="dialog card" role="dialog" aria-modal="true" :aria-label="editing ? '編輯交易' : '新增交易'">
-        <div class="head">
-          <p class="h4">{{ editing ? '編輯交易' : '新增交易' }}</p>
-          <button class="control icon-only" type="button" aria-label="關閉" @click="close">
-            <Icon name="close" :size="20" color="var(--color-text)" />
-          </button>
-        </div>
+      <div class="dialog" role="dialog" aria-modal="true" :aria-label="editing ? '編輯交易' : '新增交易'">
+        <button class="close" type="button" aria-label="關閉" @click="close">
+          <Icon name="close" :size="14" color="var(--gray-0)" />
+        </button>
 
-        <div v-if="noAccounts && !editing" class="body">
+        <div v-if="noAccounts && !editing" class="no-account">
           <p class="body1">還沒有帳戶，請先到「管理」建立帳戶。</p>
-          <BaseButton variant="primary" to="/manage" class="go-manage" @click="closeTransaction">前往管理</BaseButton>
+          <BaseButton variant="primary" to="/manage" @click="closeTransaction">前往管理</BaseButton>
         </div>
-        <template v-else>
-          <div class="body">
-            <TransactionForm :key="form.id" ref="formRef" :form="form" :errors="errors" :original="txnDialog.txn" />
-          </div>
-
-          <div class="foot">
-            <BaseButton v-if="editing" icon="trash" danger :disabled="saving" @click="remove">刪除</BaseButton>
+        <TransactionForm v-else :key="form.id" ref="formRef" :form="form" :errors="errors" :original="txnDialog.txn">
+          <template #actions>
             <span class="msg body2" :class="!isOnline || failMessage ? 'c-expense' : 'c-text'">
               {{ !isOnline ? OFFLINE_MESSAGE : failMessage }}
             </span>
-            <BaseButton :disabled="saving" @click="close">取消</BaseButton>
+            <!-- 編輯時「取消」換成「刪除」（關閉用右上角 ×） -->
+            <BaseButton v-if="editing" danger :disabled="saving" @click="remove">刪除</BaseButton>
+            <BaseButton v-else :disabled="saving" @click="close">取消</BaseButton>
             <BaseButton variant="primary" :disabled="saving || !isOnline" @click="save">{{ saving ? '儲存中…' : '儲存' }}</BaseButton>
-          </div>
-        </template>
+          </template>
+        </TransactionForm>
       </div>
     </div>
   </Transition>
 </template>
 
 <style scoped>
-.overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .55); display: grid; place-items: center; padding: var(--sp-24); }
-.dialog { width: 100%; max-width: 640px; max-height: calc(100dvh - 48px); display: flex; flex-direction: column; padding: 0; box-shadow: var(--shadow-pop); }
-.head { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-16) var(--sp-24); border-bottom: 1px solid var(--color-line); }
-.body { padding: var(--sp-24); overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-16); align-items: stretch; }
-.body > .go-manage { align-self: flex-start; }
-.foot { display: flex; align-items: center; gap: var(--sp-12); padding: var(--sp-16) var(--sp-24); border-top: 1px solid var(--color-line); }
+/* 遮罩：Gray/200 50%；彈窗距頂 100、水平置中（Figma Modal 71:1959） */
+.overlay {
+  position: fixed; inset: 0; z-index: 50; overflow-y: auto;
+  background: color-mix(in srgb, var(--gray-200) 50%, transparent);
+  display: flex; justify-content: center; align-items: flex-start; padding: var(--sp-100) var(--sp-16) var(--sp-24);
+}
+.dialog {
+  position: relative; max-width: 100%;
+  background: var(--color-card); border-radius: var(--r-20);
+  padding: var(--sp-24) var(--sp-20) var(--sp-20);
+}
+.close {
+  position: absolute; top: var(--sp-12); right: var(--sp-12); z-index: 1;
+  width: 20px; height: 20px; border-radius: var(--r-pill); background: var(--coldgray-500);
+  display: grid; place-items: center;
+}
+.close:hover { background: var(--coldgray-400); }
+.no-account { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-16); padding-right: var(--sp-24); }
 .msg { flex: 1; min-width: 0; text-align: right; }
 .pop-enter-active, .pop-leave-active { transition: opacity .15s; }
 .pop-enter-from, .pop-leave-to { opacity: 0; }
