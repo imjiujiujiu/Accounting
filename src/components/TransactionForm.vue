@@ -3,6 +3,7 @@
 // 外幣刷卡：新增時只填原幣金額與幣別；編輯時才出現「回壓」的實際金額與手續費。
 import { computed, ref, watch } from 'vue'
 import Icon from './Icon.vue'
+import { TextInput, SelectMenu, DatePicker, FormField } from './ui/index.js'
 import { refs, baseCurrency } from '../lib/store.js'
 import { api } from '../lib/api/index.js'
 import { TYPES, isForeignForm, needsToAmount, normalizeTags } from '../lib/logic/transactionForm.js'
@@ -28,6 +29,10 @@ const accountOptions = computed(() =>
   refs.accounts.filter((a) => a.is_active || a.id === f.accountId || a.id === f.toAccountId),
 )
 const accountLabel = (a) => (a.currency === baseCurrency.value ? a.name : `${a.name}（${a.currency}）`)
+const accountItems = computed(() =>
+  accountOptions.value.map((a) => ({ value: a.id, label: accountLabel(a) + (a.is_active ? '' : '（停用）') })),
+)
+const toAccountItems = computed(() => accountItems.value.map((o) => ({ ...o, disabled: o.value === f.accountId })))
 
 const kind = computed(() => (f.type === 'income' ? 'income' : 'expense'))
 const categoryOptions = computed(() =>
@@ -50,6 +55,7 @@ function setType(t) {
 const foreign = computed(() => isForeignForm(f))
 const showToAmount = computed(() => needsToAmount(f, ctx.value))
 const foreignCurrencies = computed(() => refs.currencies.filter((c) => c.code !== accCur.value))
+const currencyItems = computed(() => foreignCurrencies.value.map((c) => ({ value: c.code, label: `${c.name_zh} ${c.code}` })))
 const editingForeign = computed(() => !!props.original && props.original.original_amount != null)
 
 watch(
@@ -130,44 +136,25 @@ defineExpose({ flushTag })
 
     <!-- 欄位依類型增減，兩欄自動排列 -->
     <div class="row">
-      <label class="field">
-        <span class="label">日期</span>
-        <input v-model="f.date" type="date" class="input" :class="{ invalid: errors.date }" />
-        <span v-if="errors.date" class="error">{{ errors.date }}</span>
-      </label>
+      <FormField label="日期" as="div" :error="errors.date">
+        <DatePicker v-model="f.date" :invalid="!!errors.date" />
+      </FormField>
 
-      <label v-if="!foreign" class="field">
-        <span class="label">{{ f.type === 'transfer' ? '轉出金額' : '金額' }}（{{ accCur }}）</span>
-        <input v-model="f.amount" inputmode="decimal" class="input amount" :class="{ invalid: errors.amount }" placeholder="0" />
-        <span v-if="errors.amount" class="error">{{ errors.amount }}</span>
-      </label>
+      <FormField v-if="!foreign" :label="`${f.type === 'transfer' ? '轉出金額' : '金額'}（${accCur}）`" :error="errors.amount">
+        <TextInput v-model="f.amount" inputmode="decimal" class="amount" :invalid="!!errors.amount" placeholder="0" />
+      </FormField>
 
-      <label class="field">
-        <span class="label">{{ f.type === 'transfer' ? '轉出帳戶' : '帳戶' }}</span>
-        <select v-model="f.accountId" class="input" :class="{ invalid: errors.accountId }">
-          <option :value="null" disabled>請選擇</option>
-          <option v-for="a in accountOptions" :key="a.id" :value="a.id">{{ accountLabel(a) }}{{ a.is_active ? '' : '（停用）' }}</option>
-        </select>
-        <span v-if="errors.accountId" class="error">{{ errors.accountId }}</span>
-      </label>
+      <FormField :label="f.type === 'transfer' ? '轉出帳戶' : '帳戶'" as="div" :error="errors.accountId">
+        <SelectMenu v-model="f.accountId" :options="accountItems" :invalid="!!errors.accountId" />
+      </FormField>
 
-      <label v-if="f.type === 'transfer'" class="field">
-        <span class="label">轉入帳戶</span>
-        <select v-model="f.toAccountId" class="input" :class="{ invalid: errors.toAccountId }">
-          <option :value="null" disabled>請選擇</option>
-          <option v-for="a in accountOptions" :key="a.id" :value="a.id" :disabled="a.id === f.accountId">
-            {{ accountLabel(a) }}{{ a.is_active ? '' : '（停用）' }}
-          </option>
-        </select>
-        <span v-if="errors.toAccountId" class="error">{{ errors.toAccountId }}</span>
-      </label>
+      <FormField v-if="f.type === 'transfer'" label="轉入帳戶" as="div" :error="errors.toAccountId">
+        <SelectMenu v-model="f.toAccountId" :options="toAccountItems" :invalid="!!errors.toAccountId" />
+      </FormField>
 
-      <label v-if="showToAmount" class="field">
-        <span class="label">轉入金額（{{ toAccount?.currency }}）</span>
-        <input v-model="f.toAmount" inputmode="decimal" class="input amount" :class="{ invalid: errors.toAmount }" placeholder="0" />
-        <span class="hint">換錢：兩邊幣別不同，請分別填</span>
-        <span v-if="errors.toAmount" class="error">{{ errors.toAmount }}</span>
-      </label>
+      <FormField v-if="showToAmount" :label="`轉入金額（${toAccount?.currency}）`" hint="換錢：兩邊幣別不同，請分別填" :error="errors.toAmount">
+        <TextInput v-model="f.toAmount" inputmode="decimal" class="amount" :invalid="!!errors.toAmount" placeholder="0" />
+      </FormField>
     </div>
 
     <!-- 外幣刷卡 -->
@@ -178,18 +165,12 @@ defineExpose({ flushTag })
       </button>
       <template v-if="foreign">
         <div class="row">
-          <label class="field">
-            <span class="label">幣別</span>
-            <select v-model="f.originalCurrency" class="input" :class="{ invalid: errors.originalCurrency }">
-              <option v-for="c in foreignCurrencies" :key="c.code" :value="c.code">{{ c.name_zh }} {{ c.code }}</option>
-            </select>
-            <span v-if="errors.originalCurrency" class="error">{{ errors.originalCurrency }}</span>
-          </label>
-          <label class="field">
-            <span class="label">原幣金額</span>
-            <input v-model="f.originalAmount" inputmode="decimal" class="input amount" :class="{ invalid: errors.originalAmount }" placeholder="0" />
-            <span v-if="errors.originalAmount" class="error">{{ errors.originalAmount }}</span>
-          </label>
+          <FormField label="幣別" as="div" :error="errors.originalCurrency">
+            <SelectMenu v-model="f.originalCurrency" :options="currencyItems" :invalid="!!errors.originalCurrency" />
+          </FormField>
+          <FormField label="原幣金額" :error="errors.originalAmount">
+            <TextInput v-model="f.originalAmount" inputmode="decimal" class="amount" :invalid="!!errors.originalAmount" placeholder="0" />
+          </FormField>
         </div>
         <p v-if="!f.amount && estimate !== undefined" class="body2" :class="estimate === null ? 'c-expense' : 'c-supply'">
           {{ estimate === null ? '無法預估：請到「設定」填寫此幣別的預設匯率' : formatEstimated(estimate, accCur, refs.currencies) }}
@@ -198,16 +179,12 @@ defineExpose({ flushTag })
         <div v-if="editingForeign" class="settle">
           <p class="body2-bold">回壓（收到帳單後填）</p>
           <div class="row">
-            <label class="field">
-              <span class="label">實際金額（{{ accCur }}）</span>
-              <input v-model="f.amount" inputmode="decimal" class="input amount" :class="{ invalid: errors.amount }" placeholder="空白＝仍為預估" />
-              <span v-if="errors.amount" class="error">{{ errors.amount }}</span>
-            </label>
-            <label class="field">
-              <span class="label">手續費（可空白）</span>
-              <input v-model="f.fee" inputmode="decimal" class="input amount" :class="{ invalid: errors.fee }" />
-              <span v-if="errors.fee" class="error">{{ errors.fee }}</span>
-            </label>
+            <FormField :label="`實際金額（${accCur}）`" :error="errors.amount">
+              <TextInput v-model="f.amount" inputmode="decimal" class="amount" :invalid="!!errors.amount" placeholder="空白＝仍為預估" />
+            </FormField>
+            <FormField label="手續費（可空白）" :error="errors.fee">
+              <TextInput v-model="f.fee" inputmode="decimal" class="amount" :invalid="!!errors.fee" />
+            </FormField>
           </div>
           <p v-if="rate" class="caption c-text">實際匯率：1 {{ original.original_currency }} ＝ {{ rate }} {{ accCur }}</p>
         </div>
@@ -232,10 +209,9 @@ defineExpose({ flushTag })
       <span v-if="errors.categoryId" class="error">{{ errors.categoryId }}</span>
     </div>
 
-    <label class="field">
-      <span class="label">備註</span>
-      <input v-model="f.note" class="input" placeholder="例如：便當" maxlength="200" />
-    </label>
+    <FormField label="備註">
+      <TextInput v-model="f.note" placeholder="例如：便當" maxlength="200" />
+    </FormField>
 
     <div class="field">
       <span class="label">標籤</span>
@@ -280,8 +256,7 @@ defineExpose({ flushTag })
 }
 .cat:hover { border-color: var(--color-line-hover); }
 .cat.on { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-card); font-weight: 700; }
-.tags-input { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); height: auto; min-height: 44px; padding: var(--sp-4) var(--sp-8); }
-.tags-input.focus { border-color: var(--color-primary); }
+.tags-input { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-4); height: auto; min-height: 40px; padding: var(--sp-4) var(--sp-8); }
 .tags-input input { flex: 1; min-width: 120px; background: none; border: 0; outline: none; height: 32px; }
 .tags-input .tag button { display: grid; place-items: center; }
 .suggest { display: flex; flex-wrap: wrap; gap: var(--sp-4); }

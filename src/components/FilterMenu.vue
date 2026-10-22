@@ -18,7 +18,7 @@ const emit = defineEmits(['toggle', 'clear'])
 const open = ref(false)
 const q = ref('')
 const root = ref(null)
-useClickOutside(root, () => (open.value = false))
+useClickOutside(root, () => (open.value = false), () => open.value)
 
 const shown = computed(() => {
   const k = q.value.trim().toLowerCase()

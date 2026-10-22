@@ -6,7 +6,7 @@
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
-import SelectMenu from '../components/SelectMenu.vue'
+import { BaseButton, IconButton, TextInput, SelectMenu, FormField } from '../components/ui/index.js'
 import { refs, loadRefs, afterTransactionChange, showToast, baseCurrency } from '../lib/store.js'
 import { api, ACCOUNT_TYPES } from '../lib/api/index.js'
 import { parseAmount, toInputString, minorUnitOf } from '../lib/logic/money.js'
@@ -150,32 +150,21 @@ function toggleActive(kind, item) {
       <section class="card block">
         <div class="block-head">
           <p class="h5">帳戶</p>
-          <button class="btn sm" type="button" :disabled="busy" @click="editAccount(null)">
-            <Icon name="plus" :size="20" color="var(--color-content)" />新增帳戶
-          </button>
+          <BaseButton icon="plus" :disabled="busy" @click="editAccount(null)">新增帳戶</BaseButton>
         </div>
 
         <template v-for="a in [{ id: 'new' }, ...sortedAccounts]" :key="a.id">
           <form v-if="isEditing('account', a.id)" class="editor" @submit.prevent="saveAccount">
-            <label class="field"><span class="label">名稱</span><input v-model="acc.name" class="input" maxlength="40" /></label>
-            <div class="field">
-              <span class="label">類型</span>
-              <SelectMenu v-model="acc.type" :options="typeOptions" />
-            </div>
-            <div class="field">
-              <span class="label">幣別</span>
+            <FormField label="名稱"><TextInput v-model="acc.name" maxlength="40" /></FormField>
+            <FormField label="類型" as="div"><SelectMenu v-model="acc.type" :options="typeOptions" /></FormField>
+            <FormField label="幣別" as="div" :hint="acc.locked ? '已有交易，不可改幣別' : ''">
               <SelectMenu v-model="acc.currency" :options="currencyOptions" :disabled="acc.locked" />
-              <span v-if="acc.locked" class="hint">已有交易，不可改幣別</span>
-            </div>
-            <label class="field">
-              <span class="label">初始餘額</span>
-              <input v-model="acc.initial" class="input" inputmode="decimal" />
-              <span class="hint">信用卡欠款請填負數</span>
-            </label>
+            </FormField>
+            <FormField label="初始餘額" hint="信用卡欠款請填負數"><TextInput v-model="acc.initial" inputmode="decimal" /></FormField>
             <div class="editor-foot">
               <span class="body2 c-expense">{{ editing.error }}</span>
-              <button class="btn sm" type="button" @click="closeEditor">取消</button>
-              <button class="btn sm primary" type="submit" :disabled="busy">儲存</button>
+              <BaseButton @click="closeEditor">取消</BaseButton>
+              <BaseButton variant="primary" type="submit" :disabled="busy">儲存</BaseButton>
             </div>
           </form>
           <div v-else-if="a.id !== 'new'" class="item account" :class="{ dim: !a.is_active }">
@@ -185,15 +174,10 @@ function toggleActive(kind, item) {
             </span>
             <span class="h6 num" :class="a.balance < 0 ? 'c-expense' : ''">{{ formatSigned(a.balance, a.currency, refs.currencies) }}</span>
             <span class="actions">
-              <button class="icon-btn" type="button" title="編輯" aria-label="編輯" @click="editAccount(a)">
-                <Icon name="pen" :size="24" color="var(--color-text)" />
-              </button>
-              <button class="icon-btn" type="button" :title="a.is_active ? '停用' : '啟用'" :aria-label="a.is_active ? '停用' : '啟用'" :disabled="busy" @click="toggleActive('account', a)">
-                <Icon :name="a.is_active ? 'block' : 'restore'" :size="24" :color="a.is_active ? 'var(--color-expense)' : 'var(--color-primary)'" />
-              </button>
-              <button v-if="a.canDelete" class="icon-btn" type="button" title="刪除" aria-label="刪除" :disabled="busy" @click="removeAccount(a)">
-                <Icon name="trash" :size="24" color="var(--color-expense)" />
-              </button>
+              <IconButton icon="pen" label="編輯" @click="editAccount(a)" />
+              <IconButton v-if="a.is_active" icon="block" label="停用" tone="danger" :disabled="busy" @click="toggleActive('account', a)" />
+              <IconButton v-else icon="restore" label="啟用" tone="primary" :disabled="busy" @click="toggleActive('account', a)" />
+              <IconButton v-if="a.canDelete" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="removeAccount(a)" />
             </span>
           </div>
         </template>
@@ -205,22 +189,18 @@ function toggleActive(kind, item) {
         <div class="block-head"><p class="h5">標籤</p></div>
         <template v-for="t in refs.tags" :key="t.id">
           <form v-if="isEditing('tag', t.id)" class="editor" @submit.prevent="saveTag">
-            <label class="field"><span class="label">名稱</span><input v-model="tagName" class="input" maxlength="30" /></label>
+            <FormField label="名稱"><TextInput v-model="tagName" maxlength="30" /></FormField>
             <div class="editor-foot">
               <span class="body2 c-expense">{{ editing.error }}</span>
-              <button class="btn sm" type="button" @click="closeEditor">取消</button>
-              <button class="btn sm primary" type="submit" :disabled="busy">儲存</button>
+              <BaseButton @click="closeEditor">取消</BaseButton>
+              <BaseButton variant="primary" type="submit" :disabled="busy">儲存</BaseButton>
             </div>
           </form>
           <div v-else class="item">
             <span class="label-row"><Icon name="tag16" :size="16" color="var(--color-text)" /><span class="body1">{{ t.name }}</span></span>
             <span class="actions">
-              <button class="icon-btn" type="button" title="改名" aria-label="改名" @click="editTag(t)">
-                <Icon name="pen" :size="24" color="var(--color-text)" />
-              </button>
-              <button class="icon-btn" type="button" title="刪除" aria-label="刪除" :disabled="busy" @click="removeTag(t)">
-                <Icon name="trash" :size="24" color="var(--color-expense)" />
-              </button>
+              <IconButton icon="pen" label="改名" @click="editTag(t)" />
+              <IconButton icon="trash" label="刪除" tone="danger" :disabled="busy" @click="removeTag(t)" />
             </span>
           </div>
         </template>
@@ -233,28 +213,25 @@ function toggleActive(kind, item) {
     <section v-for="g in catGroups" :key="g.kind" class="card block">
       <div class="block-head">
         <p class="h5">{{ g.title }}</p>
-        <button class="btn sm" type="button" :disabled="busy" @click="editCategory(g.kind, null)">
-          <Icon name="plus" :size="20" color="var(--color-content)" />新增
-        </button>
+        <BaseButton icon="plus" :disabled="busy" @click="editCategory(g.kind, null)">新增</BaseButton>
       </div>
 
       <template v-for="c in [{ id: 'new' }, ...g.items]" :key="c.id">
         <form v-if="isEditing(g.kind, c.id)" class="editor" @submit.prevent="saveCategory(g.kind)">
           <div class="cat-fields">
-            <div class="field">
-              <span class="label">圖示</span>
+            <FormField label="圖示" as="div">
               <!-- MVP 不可自選圖示（之後改為下拉選擇） -->
               <button class="icon-select" type="button" disabled title="之後開放選擇圖示">
                 <Icon :name="cat.icon" :size="16" :color="g.color" />
                 <Icon name="down" :size="20" color="var(--color-text)" />
               </button>
-            </div>
-            <label class="field grow-field"><span class="label">名稱</span><input v-model="cat.name" class="input" maxlength="20" /></label>
+            </FormField>
+            <FormField label="名稱" class="grow-field"><TextInput v-model="cat.name" maxlength="20" /></FormField>
           </div>
           <div class="editor-foot">
             <span class="body2 c-expense">{{ editing.error }}</span>
-            <button class="btn sm" type="button" @click="closeEditor">取消</button>
-            <button class="btn sm primary" type="submit" :disabled="busy">儲存</button>
+            <BaseButton @click="closeEditor">取消</BaseButton>
+            <BaseButton variant="primary" type="submit" :disabled="busy">儲存</BaseButton>
           </div>
         </form>
         <div v-else-if="c.id !== 'new'" class="item" :class="{ dim: !c.is_active }">
@@ -264,18 +241,18 @@ function toggleActive(kind, item) {
             <span v-if="!c.is_active" class="tag">已停用</span>
           </span>
           <span class="actions">
-            <button class="icon-btn" type="button" title="改名" aria-label="改名" @click="editCategory(g.kind, c)">
-              <Icon name="pen" :size="24" color="var(--color-text)" />
-            </button>
-            <button v-if="!c.is_active" class="icon-btn" type="button" title="啟用" aria-label="啟用" :disabled="busy" @click="toggleActive('category', c)">
-              <Icon name="restore" :size="24" color="var(--color-primary)" />
-            </button>
-            <button v-else-if="c.canDelete" class="icon-btn" type="button" title="刪除" aria-label="刪除" :disabled="busy" @click="removeCategory(c)">
-              <Icon name="trash" :size="24" color="var(--color-expense)" />
-            </button>
-            <button v-else class="icon-btn" type="button" :title="c.txn_count ? `已有 ${c.txn_count} 筆交易，只能停用` : `停用`" aria-label="停用" :disabled="busy" @click="toggleActive('category', c)">
-              <Icon name="block" :size="24" color="var(--color-expense)" />
-            </button>
+            <IconButton icon="pen" label="改名" @click="editCategory(g.kind, c)" />
+            <IconButton v-if="!c.is_active" icon="restore" label="啟用" tone="primary" :disabled="busy" @click="toggleActive('category', c)" />
+            <IconButton v-else-if="c.canDelete" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="removeCategory(c)" />
+            <IconButton
+              v-else
+              icon="block"
+              label="停用"
+              :title="c.txn_count ? `已有 ${c.txn_count} 筆交易，只能停用` : '停用'"
+              tone="danger"
+              :disabled="busy"
+              @click="toggleActive('category', c)"
+            />
           </span>
         </div>
       </template>
@@ -290,10 +267,6 @@ function toggleActive(kind, item) {
 .col { display: flex; flex-direction: column; gap: var(--sp-24); min-width: 0; }
 .block { display: flex; flex-direction: column; gap: var(--sp-16); min-width: 0; }
 .block-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); }
-.h5 { font-size: 18px; font-weight: 700; line-height: 1.2; }
-
-/* 小按鈕：Tag 底（取消、新增）／主色（儲存） */
-.btn.sm { height: auto; padding: var(--sp-8) var(--sp-12); border-radius: var(--r-8); font-size: 14px; gap: var(--sp-4); line-height: 1.5; }
 
 /* 清單列 */
 .item { display: flex; align-items: center; gap: var(--sp-16); min-height: 32px; }
@@ -305,16 +278,9 @@ function toggleActive(kind, item) {
 .label-row > .body1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .num { white-space: nowrap; }
 .actions { display: flex; gap: var(--sp-16); flex-shrink: 0; }
-.icon-btn { display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-4); }
-.icon-btn:not(:disabled):hover { filter: brightness(1.25); }
-.icon-btn:disabled { opacity: .4; cursor: default; }
 
 /* 編輯框（新增在最上方；編輯就地取代該列） */
 .editor { display: flex; flex-direction: column; gap: var(--sp-16); padding: var(--sp-16); border: 1px solid var(--color-primary); border-radius: var(--r-12); }
-.editor .field { gap: var(--sp-4); }
-.editor .input { height: 40px; border-color: transparent; }
-.editor .input:focus { border-color: var(--color-primary); }
-.editor .input:disabled { color: var(--color-text); cursor: not-allowed; }
 .editor-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-12); }
 .editor-foot > span { flex: 1; min-width: 0; }
 .cat-fields { display: flex; gap: var(--sp-12); align-items: flex-start; }

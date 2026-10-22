@@ -5,7 +5,7 @@ import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import AccountDrawer from '../components/AccountDrawer.vue'
 import TransactionDialog from '../components/TransactionDialog.vue'
-import ConfirmDialog from '../components/ConfirmDialog.vue'
+import { ConfirmDialog, BaseButton } from '../components/ui/index.js'
 import Icon from '../components/Icon.vue'
 import { refs, loadRefs, toast } from '../lib/store.js'
 import { openNewTransaction } from '../lib/dialog.js'
@@ -31,9 +31,7 @@ async function retry() {
     <AppHeader @open-accounts="drawer = true" />
     <p v-if="isDemo" class="demo caption">示範模式：資料只存在這個分頁，重新整理就還原</p>
     <p v-if="refs.error" class="load-error body2">
-      資料讀取失敗：{{ refs.error }} <button class="btn small" type="button" :disabled="retrying" @click="retry">
-        {{ retrying ? '讀取中…' : '重試' }}
-      </button>
+      資料讀取失敗：{{ refs.error }} <BaseButton size="small" :disabled="retrying" @click="retry">{{ retrying ? '讀取中…' : '重試' }}</BaseButton>
     </p>
     <main class="main">
       <RouterView />

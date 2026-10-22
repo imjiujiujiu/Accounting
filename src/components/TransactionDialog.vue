@@ -4,6 +4,8 @@
 import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 import TransactionForm from './TransactionForm.vue'
+import { BaseButton } from './ui/index.js'
+import { confirmDialog, confirmState } from '../lib/confirm.js'
 import { txnDialog, closeTransaction } from '../lib/dialog.js'
 import { refs, baseCurrency, afterTransactionChange, showToast } from '../lib/store.js'
 import { api } from '../lib/api/index.js'
@@ -14,7 +16,6 @@ const form = ref(null)
 const errors = ref({})
 const saving = ref(false)
 const failMessage = ref('')
-const confirmDelete = ref(false)
 const formRef = ref(null)
 const editing = computed(() => !!txnDialog.txn)
 const ctx = () => ({ accounts: refs.accounts, currencies: refs.currencies, baseCurrency: baseCurrency.value })
@@ -26,7 +27,6 @@ watch(
     if (!open) return
     errors.value = {}
     failMessage.value = ''
-    confirmDelete.value = false
     if (txnDialog.txn) {
       form.value = txnToForm(txnDialog.txn, txnDialog.txn.tags ?? [], ctx())
       return
@@ -67,10 +67,7 @@ async function save() {
 }
 
 async function remove() {
-  if (!confirmDelete.value) {
-    confirmDelete.value = true
-    return
-  }
+  if (!(await confirmDialog({ title: '刪除這筆交易？', message: '刪除後無法復原。', confirmText: '刪除' }))) return
   saving.value = true
   failMessage.value = ''
   try {
@@ -89,7 +86,7 @@ function close() {
   if (!saving.value) closeTransaction()
 }
 const onKey = (e) => {
-  if (!txnDialog.open) return
+  if (!txnDialog.open || confirmState.open) return
   if (e.key === 'Escape') close()
   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save()
 }
@@ -110,7 +107,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 
         <div v-if="noAccounts && !editing" class="body">
           <p class="body1">還沒有帳戶，請先到「管理」建立帳戶。</p>
-          <RouterLink to="/manage" class="btn primary" @click="closeTransaction">前往管理</RouterLink>
+          <BaseButton variant="primary" to="/manage" class="go-manage" @click="closeTransaction">前往管理</BaseButton>
         </div>
         <template v-else>
           <div class="body">
@@ -118,16 +115,12 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
           </div>
 
           <div class="foot">
-            <button v-if="editing" class="btn danger" :class="{ confirm: confirmDelete }" type="button" :disabled="saving" @click="remove">
-              <Icon name="delete" :size="18" color="currentColor" />{{ confirmDelete ? '確定刪除？無法復原' : '刪除' }}
-            </button>
+            <BaseButton v-if="editing" icon="trash" danger :disabled="saving" @click="remove">刪除</BaseButton>
             <span class="msg body2" :class="!isOnline || failMessage ? 'c-expense' : 'c-text'">
               {{ !isOnline ? OFFLINE_MESSAGE : failMessage }}
             </span>
-            <button class="btn ghost" type="button" :disabled="saving" @click="close">取消</button>
-            <button class="btn primary" type="button" :disabled="saving || !isOnline" @click="save">
-              {{ saving ? '儲存中…' : '儲存' }}
-            </button>
+            <BaseButton :disabled="saving" @click="close">取消</BaseButton>
+            <BaseButton variant="primary" :disabled="saving || !isOnline" @click="save">{{ saving ? '儲存中…' : '儲存' }}</BaseButton>
           </div>
         </template>
       </div>
@@ -140,7 +133,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 .dialog { width: 100%; max-width: 640px; max-height: calc(100dvh - 48px); display: flex; flex-direction: column; padding: 0; box-shadow: var(--shadow-pop); }
 .head { display: flex; align-items: center; justify-content: space-between; padding: var(--sp-16) var(--sp-24); border-bottom: 1px solid var(--color-line); }
 .body { padding: var(--sp-24); overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-16); align-items: stretch; }
-.body > .btn { align-self: flex-start; text-decoration: none; }
+.body > .go-manage { align-self: flex-start; }
 .foot { display: flex; align-items: center; gap: var(--sp-12); padding: var(--sp-16) var(--sp-24); border-top: 1px solid var(--color-line); }
 .msg { flex: 1; min-width: 0; text-align: right; }
 .pop-enter-active, .pop-leave-active { transition: opacity .15s; }

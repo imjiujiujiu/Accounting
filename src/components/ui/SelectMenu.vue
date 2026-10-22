@@ -1,15 +1,16 @@
 <script setup>
 // 單選下拉（取代原生 <select>）。觸發鈕樣式同輸入框；展開面板沿用篩選下拉（FilterMenu）的樣式。
-// 用法：<SelectMenu v-model="type" :options="[{ value, label }]" />
+// 用法：<SelectMenu v-model="type" :options="[{ value, label, disabled? }]" :invalid="!!error" />
 // 鍵盤：Enter／空白／↓ 開啟，↑↓ 移動，Enter 選取，Esc 關閉。
 import { ref, computed, nextTick } from 'vue'
-import Icon from './Icon.vue'
-import { useClickOutside } from '../lib/useClickOutside.js'
+import Icon from '../Icon.vue'
+import { useClickOutside } from '../../lib/useClickOutside.js'
 
 const props = defineProps({
   modelValue: { type: [String, Number, null], default: null },
   options: { type: Array, default: () => [] },
   disabled: Boolean,
+  invalid: Boolean,
   placeholder: { type: String, default: '請選擇' },
 })
 const emit = defineEmits(['update:modelValue'])
@@ -18,7 +19,7 @@ const open = ref(false)
 const active = ref(-1)
 const root = ref(null)
 const list = ref(null)
-useClickOutside(root, () => (open.value = false))
+useClickOutside(root, () => (open.value = false), () => open.value)
 
 const selected = computed(() => props.options.find((o) => o.value === props.modelValue))
 
@@ -30,6 +31,7 @@ async function show() {
   list.value?.children[active.value]?.scrollIntoView({ block: 'nearest' })
 }
 function pick(o) {
+  if (o.disabled) return
   emit('update:modelValue', o.value)
   open.value = false
 }
@@ -44,7 +46,13 @@ function onKey(e) {
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     e.preventDefault()
     const n = props.options.length
-    active.value = (active.value + (e.key === 'ArrowDown' ? 1 : -1) + n) % n
+    const step = e.key === 'ArrowDown' ? 1 : -1
+    let i = active.value
+    for (let k = 0; k < n; k++) {
+      i = (i + step + n) % n
+      if (!props.options[i].disabled) break
+    }
+    active.value = i
     list.value?.children[active.value]?.scrollIntoView({ block: 'nearest' })
   } else if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
@@ -56,7 +64,7 @@ function onKey(e) {
 </script>
 
 <template>
-  <div ref="root" class="select-menu" :class="{ open, disabled }">
+  <div ref="root" class="select-menu" :class="{ open, disabled, invalid }">
     <button
       class="trigger body2"
       type="button"
@@ -75,9 +83,11 @@ function onKey(e) {
         :key="o.value"
         type="button"
         class="option body2"
-        :class="{ on: o.value === modelValue, active: i === active }"
+        :class="{ on: o.value === modelValue, active: i === active && !o.disabled }"
         role="option"
         :aria-selected="o.value === modelValue"
+        :aria-disabled="o.disabled"
+        :disabled="o.disabled"
         tabindex="-1"
         @mouseenter="active = i"
         @click="pick(o)"
@@ -97,6 +107,7 @@ function onKey(e) {
   text-align: left; color: var(--color-content);
 }
 .trigger:focus-visible, .open .trigger { border-color: var(--color-primary); outline: none; }
+.invalid .trigger { border-color: var(--color-expense); }
 .trigger:disabled { color: var(--color-text); cursor: not-allowed; }
 .value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .open .trigger :deep(svg) { transform: rotate(180deg); }
@@ -115,5 +126,6 @@ function onKey(e) {
 }
 .option .text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .option.active { background: var(--color-tag); }
+.option:disabled { color: var(--color-text); opacity: .5; cursor: not-allowed; }
 .option.on { color: var(--color-primary); font-weight: 700; }
 </style>
