@@ -1,5 +1,5 @@
 <script setup>
-// 統計：隨期間與帳戶選單變動的收入、支出、結餘，以及依類別加總（含筆數與占比）
+// 統計：隨期間與帳戶選單變動的收入、支出、結餘，以及依分類加總（含筆數與占比）
 import SummaryCards from '../components/SummaryCards.vue'
 import CategoryBreakdown from '../components/CategoryBreakdown.vue'
 import PeriodPicker from '../components/PeriodPicker.vue'

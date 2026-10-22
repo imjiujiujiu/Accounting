@@ -1,7 +1,7 @@
 <script setup>
-// 管理：帳戶、標籤（左欄）、支出類別、收入類別。設計稿：Figma Manage（node 57:621）。
+// 管理：帳戶、標籤（左欄）、支出分類、收入分類。設計稿：Figma Manage（node 57:621）。
 // 帳戶：有交易後不可改幣別、不可刪除（只能停用）。
-// 類別：可新增、改名、停用；沒有交易使用才能刪除（垃圾桶），有交易使用時該位置改為停用。
+// 分類：可新增、改名、停用；沒有交易使用才能刪除（垃圾桶），有交易使用時該位置改為停用。
 // 標籤：改名、刪除（只移除關聯）。
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
 import { ref, computed, reactive } from 'vue'
@@ -82,34 +82,34 @@ async function removeAccount(a) {
   await act(() => api.accounts.remove(a.id), '已刪除帳戶')
 }
 
-/* ===== 類別 ===== */
+/* ===== 分類 ===== */
 const catGroups = computed(() =>
   [
-    { kind: 'expense', title: '支出類別', color: 'var(--color-expense)' },
-    { kind: 'income', title: '收入類別', color: 'var(--color-income)' },
+    { kind: 'expense', title: '支出分類', color: 'var(--color-expense)' },
+    { kind: 'income', title: '收入分類', color: 'var(--color-income)' },
   ].map((g) => ({ ...g, items: refs.categories.filter((c) => c.kind === g.kind).sort(byActive) })),
 )
-// 還沒執行 20261022_manage_categories.sql：讀不到使用次數，類別暫時都不能刪除
+// 還沒執行 20261022_manage_categories.sql：讀不到使用次數，分類暫時都不能刪除
 const usageUnavailable = computed(() => refs.categories.some((c) => c.txn_count === null))
 const cat = reactive({ name: '', icon: '' })
 function editCategory(kind, c) {
-  // MVP：圖示依名稱對應、不可自選；新增的類別一律用該收支的「其他」圖示
+  // MVP：圖示依名稱對應、不可自選；新增的分類一律用該收支的「其他」圖示
   Object.assign(cat, { name: c ? c.name : '', icon: categoryIcon(c ?? { kind, name: '其他' }) })
   openEditor(kind, c ? c.id : 'new')
 }
 async function saveCategory(kind) {
-  if (!cat.name.trim()) return (editing.error = '請輸入類別名稱')
+  if (!cat.name.trim()) return (editing.error = '請輸入分類名稱')
   const isNew = editing.id === 'new'
   const id = editing.id
   const ok = await act(
     () => (isNew ? api.categories.create({ name: cat.name, kind }) : api.categories.update(id, { name: cat.name })),
-    isNew ? '已新增類別' : '已更新類別',
+    isNew ? '已新增分類' : '已更新分類',
   )
   if (ok) closeEditor()
 }
 async function removeCategory(c) {
-  if (!(await confirmDialog({ title: `刪除類別「${c.name}」？`, message: '刪除後無法復原。', confirmText: '刪除' }))) return
-  await act(() => api.categories.remove(c.id), '已刪除類別')
+  if (!(await confirmDialog({ title: `刪除分類「${c.name}」？`, message: '刪除後無法復原。', confirmText: '刪除' }))) return
+  await act(() => api.categories.remove(c.id), '已刪除分類')
 }
 
 /* ===== 標籤 ===== */
@@ -136,7 +136,7 @@ async function removeTag(t) {
   if (await act(() => api.tags.remove(t.id), '已刪除標籤')) afterTransactionChange()
 }
 
-/** 停用／啟用（帳戶與類別共用） */
+/** 停用／啟用（帳戶與分類共用） */
 function toggleActive(kind, item) {
   const fn = kind === 'account' ? api.accounts.setActive : api.categories.setActive
   return act(() => fn(item.id, !item.is_active), item.is_active ? '已停用' : '已啟用')
@@ -229,7 +229,7 @@ function toggleActive(kind, item) {
       </section>
     </div>
 
-    <!-- 支出類別、收入類別 -->
+    <!-- 支出分類、收入分類 -->
     <section v-for="g in catGroups" :key="g.kind" class="card block">
       <div class="block-head">
         <p class="h5">{{ g.title }}</p>
@@ -279,8 +279,8 @@ function toggleActive(kind, item) {
           </span>
         </div>
       </template>
-      <p v-if="usageUnavailable" class="caption c-supply">資料庫尚未更新，類別暫時都不能刪除。請到 Supabase 執行 20261022_manage_categories.sql。</p>
-      <p class="caption c-text">有交易使用的類別不能刪除，避免歷史交易失去分類；不用的請停用。</p>
+      <p v-if="usageUnavailable" class="caption c-supply">資料庫尚未更新，分類暫時都不能刪除。請到 Supabase 執行 20261022_manage_categories.sql。</p>
+      <p class="caption c-text">有交易使用的分類不能刪除，避免歷史交易失去歸屬；不用的請停用。</p>
     </section>
   </div>
 </template>

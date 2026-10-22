@@ -75,7 +75,7 @@ async function logout() {
     <section class="card block">
       <p class="h4">資料匯出</p>
       <p class="body2 c-text">
-        下載一個 zip，內含交易、帳戶、類別、標籤的 CSV（Excel 可直接開啟）。刪除與修改都無法復原，自動匯出上線前請<strong class="c-content">每月手動匯出一次</strong>。
+        下載一個 zip，內含交易、帳戶、分類、標籤的 CSV（Excel 可直接開啟）。刪除與修改都無法復原，自動匯出上線前請<strong class="c-content">每月手動匯出一次</strong>。
       </p>
       <button class="btn primary" type="button" :disabled="busy || isDemo" @click="exportCsv">匯出 CSV</button>
     </section>

@@ -1,4 +1,4 @@
-// 類別：區分收入／支出；可新增、修改、停用；沒有交易使用才能刪除（有交易時資料庫的外鍵會擋下）。
+// 分類：區分收入／支出；可新增、修改、停用；沒有交易使用才能刪除（有交易時資料庫的外鍵會擋下）。
 import { run, assertOnline, ApiError } from './errors.js'
 
 // 資料表或 view 不存在（PostgREST／PostgreSQL）
@@ -7,7 +7,7 @@ const MISSING_RELATION = ['PGRST205', '42P01']
 export function createCategoriesApi(db) {
   return {
     /**
-     * 全部類別（含停用），依收支、排序、名稱。表單只顯示 is_active 的；清單仍要能顯示停用類別的名稱。
+     * 全部分類（含停用），依收支、排序、名稱。表單只顯示 is_active 的；清單仍要能顯示停用分類的名稱。
      * 每筆含 txn_count（被幾筆交易使用）與 canDelete（txn_count 為 0 才能刪除）。
      */
     async list() {
@@ -30,12 +30,12 @@ export function createCategoriesApi(db) {
       return (data ?? []).map((c) => ({ ...c, txn_count: Number(c.txn_count ?? 0), canDelete: Number(c.txn_count ?? 0) === 0 }))
     },
 
-    /** kind：'income' 或 'expense'；新類別排在「其他」之前 */
+    /** kind：'income' 或 'expense'；新分類排在「其他」之前 */
     async create({ name, kind, sort_order = 50 }) {
       assertOnline()
       const { data } = await run(
         db.from('categories').insert({ name: name.trim(), kind, sort_order }).select().single(),
-        { duplicate: '已有同名類別' },
+        { duplicate: '已有同名分類' },
       )
       return data
     },
@@ -47,7 +47,7 @@ export function createCategoriesApi(db) {
       if (name !== undefined) patch.name = name.trim()
       if (sort_order !== undefined) patch.sort_order = sort_order
       const { data } = await run(db.from('categories').update(patch).eq('id', id).select().single(), {
-        duplicate: '已有同名類別',
+        duplicate: '已有同名分類',
       })
       return data
     },
@@ -58,11 +58,11 @@ export function createCategoriesApi(db) {
       return data
     },
 
-    /** 有交易使用時資料庫擋下，訊息「這個類別已有交易使用，無法刪除，只能停用」 */
+    /** 有交易使用時資料庫擋下，訊息「這個分類已有交易使用，無法刪除，只能停用」 */
     async remove(id) {
       assertOnline()
       const { data } = await run(db.from('categories').delete().eq('id', id).select('id'), {
-        in_use: '這個類別已有交易使用，無法刪除，只能停用',
+        in_use: '這個分類已有交易使用，無法刪除，只能停用',
       })
       // 沒有刪除權限時資料庫不會報錯，只是刪了 0 筆
       if (!data?.length) throw new ApiError('auth', '無法刪除：資料庫尚未更新，請先執行 20261022_manage_categories.sql')

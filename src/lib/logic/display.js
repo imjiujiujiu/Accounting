@@ -41,8 +41,8 @@ export function rangeLabel(range) {
   return range.from === range.to ? f(range.from) : `${f(range.from)} ~ ${f(range.to)}`
 }
 
-// 預設類別 → 圖示（依名稱）；對不到的（自訂類別）用該收支的「其他」圖示。
-// 之後若開放自選圖示，會改成存在類別上的 icon，這裡只當沒選時的預設。
+// 預設分類 → 圖示（依名稱）；對不到的（自訂分類）用該收支的「其他」圖示。
+// 之後若開放自選圖示，會改成存在分類上的 icon，這裡只當沒選時的預設。
 const CATEGORY_ICONS = {
   expense: {
     餐飲: 'food', 交通: 'bus', 購物: 'shopping', 居住: 'home', 娛樂: 'entertainment', 醫療: 'medical',

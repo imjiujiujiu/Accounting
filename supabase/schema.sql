@@ -65,7 +65,7 @@ create table public.accounts (
 
 
 -- ---------------------------------------------------------------------
--- 3. 類別（沒有交易使用才能刪除：有交易時由 transactions 的外鍵擋下，錯誤碼 23503；只能停用）
+-- 3. 分類（沒有交易使用才能刪除：有交易時由 transactions 的外鍵擋下，錯誤碼 23503；只能停用）
 -- ---------------------------------------------------------------------
 create table public.categories (
   id         uuid primary key default gen_random_uuid(),
@@ -75,7 +75,7 @@ create table public.categories (
   is_active  boolean not null default true,
   sort_order int not null default 0,
   unique (user_id, kind, name),
-  unique (id, user_id, kind)      -- 讓交易的類別必須與交易類型同為收入或支出
+  unique (id, user_id, kind)      -- 讓交易的分類必須與交易類型同為收入或支出
 );
 
 
@@ -124,12 +124,12 @@ create table public.transactions (
 
   unique (id, user_id),
 
-  -- 複合外鍵：只能參照「自己的」帳戶／類別（RLS 擋不到外鍵檢查，所以用這招）
+  -- 複合外鍵：只能參照「自己的」帳戶／分類（RLS 擋不到外鍵檢查，所以用這招）
   foreign key (account_id, user_id)    references public.accounts (id, user_id),
   foreign key (to_account_id, user_id) references public.accounts (id, user_id),
   foreign key (category_id, user_id, category_kind) references public.categories (id, user_id, kind),
 
-  -- 轉帳：有轉入帳戶與兩個金額、沒有類別、不能同帳戶、不能是外幣刷卡
+  -- 轉帳：有轉入帳戶與兩個金額、沒有分類、不能同帳戶、不能是外幣刷卡
   constraint transfer_shape check (
     type <> 'transfer' or (
       to_account_id is not null and to_account_id <> account_id
@@ -137,7 +137,7 @@ create table public.transactions (
       and original_amount is null and fee is null and estimated_amount is null
     )
   ),
-  -- 收入／支出：必須有類別、沒有轉入
+  -- 收入／支出：必須有分類、沒有轉入
   constraint income_expense_shape check (
     type = 'transfer' or (category_id is not null and to_account_id is null and to_amount is null)
   ),
@@ -415,10 +415,10 @@ end;
 $$;
 
 
--- 8.6 篩選（清單、合計、類別加總共用同一套條件）
+-- 8.6 篩選（清單、合計、分類加總共用同一套條件）
 --   參數為 null 或空陣列 = 不篩選
 --   p_account_id：左上角帳戶選單；轉帳的轉出或轉入任一邊符合即列出
---   p_category_ids：不套用在轉帳上（轉帳沒有類別；要不要列出轉帳由 p_types 決定）
+--   p_category_ids：不套用在轉帳上（轉帳沒有分類；要不要列出轉帳由 p_types 決定）
 --   p_tag_ids：含任一標籤即符合
 --   p_keyword：只比對備註，不分大小寫，部分符合
 --   清單用法：rpc('filter_transactions', {...}, { count: 'exact' })
@@ -508,7 +508,7 @@ as $$
 $$;
 
 
--- 8.8 依類別加總（預設支出）
+-- 8.8 依分類加總（預設支出）
 create function public.summarize_by_category(
   p_from         date    default null,
   p_to           date    default null,
@@ -604,7 +604,7 @@ select a.id,
   ) i on true;
 
 
--- 類別使用次數 view（管理頁用）：txn_count 為 0 才能刪除
+-- 分類使用次數 view（管理頁用）：txn_count 為 0 才能刪除
 create view public.category_usage
 with (security_invoker = true) as
 select c.id,
@@ -623,7 +623,7 @@ select c.id,
 
 
 -- =====================================================================
--- 10. 新使用者預設資料（設定列＋預設類別）
+-- 10. 新使用者預設資料（設定列＋預設分類）
 --   第一次 Google 登入建立帳號時自動執行。可重複執行，不會產生重複資料。
 --   若你在執行這份 SQL 之前就已經登入過，手動補跑一次：
 --     select public.seed_user_defaults(id) from auth.users;
@@ -696,7 +696,7 @@ create policy own_accounts on public.accounts
   for all to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 
--- 類別：可讀、新增、修改、刪除（有交易使用的刪除會被外鍵擋下）
+-- 分類：可讀、新增、修改、刪除（有交易使用的刪除會被外鍵擋下）
 create policy own_categories_select on public.categories
   for select to authenticated using (user_id = (select auth.uid()));
 create policy own_categories_insert on public.categories

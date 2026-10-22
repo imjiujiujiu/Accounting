@@ -1,5 +1,5 @@
 <script setup>
-// 篩選鈕＋多選下拉（類別、標籤共用）。勾選邏輯由使用的地方決定，這裡只負責呈現。
+// 篩選鈕＋多選下拉（分類、標籤共用）。勾選邏輯由使用的地方決定，這裡只負責呈現。
 import { ref, computed } from 'vue'
 import Icon from './Icon.vue'
 import { useClickOutside } from '../lib/useClickOutside.js'

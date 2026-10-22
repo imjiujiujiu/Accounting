@@ -1,5 +1,5 @@
 <script setup>
-// 清單頁篩選列：搜尋（只比對備註，在目前期間內）＋類別（含收支與轉帳）／標籤／預估＋期間選擇器
+// 清單頁篩選列：搜尋（只比對備註，在目前期間內）＋分類（含收支與轉帳）／標籤／預估＋期間選擇器
 import { ref, computed, watch } from 'vue'
 import Icon from './Icon.vue'
 import FilterMenu from './FilterMenu.vue'
@@ -17,7 +17,7 @@ watch(keyword, (v) => {
 })
 watch(() => filters.keyword, (v) => v !== keyword.value && (keyword.value = v))
 
-// ---- 類別：支出／收入各有「全部」，轉帳一個選項 ----
+// ---- 分類：支出／收入各有「全部」，轉帳一個選項 ----
 const GROUP_STATE = { all: 'on', some: 'mixed', none: 'off' }
 const sortedCats = (kind) =>
   refs.categories
@@ -82,7 +82,7 @@ function onTagToggle(id) {
         <input v-model="keyword" type="search" placeholder="搜尋" />
       </label>
       <FilterMenu
-        label="類別"
+        label="分類"
         :count="categoryCount"
         :groups="categoryGroups"
         @toggle="onCategoryToggle"

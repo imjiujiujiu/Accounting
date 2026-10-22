@@ -1,4 +1,4 @@
-// 畫面共用狀態：目前的篩選條件、帳戶／類別／標籤等參考資料、短提示。
+// 畫面共用狀態：目前的篩選條件、帳戶／分類／標籤等參考資料、短提示。
 // 手機與電腦共用；資料一律經由 api 讀寫。
 import { reactive, computed, ref } from 'vue'
 import { api } from './api/index.js'
@@ -63,7 +63,7 @@ export async function loadRefs() {
   }
 }
 
-/** 寫入交易之後：重新讀清單、合計，以及帳戶餘額、類別使用次數與標籤 */
+/** 寫入交易之後：重新讀清單、合計，以及帳戶餘額、分類使用次數與標籤 */
 export async function afterTransactionChange() {
   dataVersion.value++
   try {

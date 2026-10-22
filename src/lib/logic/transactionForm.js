@@ -15,7 +15,7 @@ export function newId() {
 
 /**
  * 空白表單。開表單時就產生 id：儲存失敗再按一次也只會覆蓋同一筆（見需求 3.9）。
- * 預設：日期今天、類型支出、帳戶帶入上一筆使用的帳戶、類別每次重選。
+ * 預設：日期今天、類型支出、帳戶帶入上一筆使用的帳戶、分類每次重選。
  */
 export function createEmptyForm({ lastAccountId = null, date = today() } = {}) {
   return {
@@ -97,7 +97,7 @@ export function validateForm(form, ctx = {}) {
   }
 
   if (form.type === 'income' || form.type === 'expense') {
-    if (!form.categoryId) errors.categoryId = '請選擇類別'
+    if (!form.categoryId) errors.categoryId = '請選擇分類'
 
     if (isForeignForm(form)) {
       if (!form.originalCurrency) errors.originalCurrency = '請選擇外幣幣別'

@@ -44,8 +44,8 @@ describe('日期與期間文字', () => {
   })
 })
 
-describe('類別圖示', () => {
-  it('預設類別有專屬圖示，自訂類別用該收支的「其他」圖示', () => {
+describe('分類圖示', () => {
+  it('預設分類有專屬圖示，自訂分類用該收支的「其他」圖示', () => {
     expect(categoryIcon(categories[0])).toBe('food')
     expect(categoryIcon(categories[1])).toBe('salary')
     expect(categoryIcon({ name: '投資', kind: 'expense' })).toBe('invest')
@@ -58,7 +58,7 @@ describe('類別圖示', () => {
 })
 
 describe('清單列', () => {
-  it('備註當標題，空白時用類別名稱', () => {
+  it('備註當標題，空白時用分類名稱', () => {
     const base = { type: 'expense', account_id: 'cash', category_id: 'food', counted_amount: 120 }
     expect(rowView({ ...base, note: '便當' }, ctx()).title).toBe('便當')
     expect(rowView({ ...base, note: '' }, ctx()).title).toBe('餐飲')

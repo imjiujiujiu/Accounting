@@ -13,14 +13,14 @@ const cats = [
 const empty = { types: [], categoryIds: [] }
 const apply = (f, patch) => ({ ...f, ...patch })
 
-describe('類別篩選（合併類型）', () => {
+describe('分類篩選（合併類型）', () => {
   it('沒勾任何東西＝不篩選', () => {
     expect(groupState('expense', empty, cats)).toBe('none')
     expect(selectionCount(empty, cats)).toBe(0)
     expect(toQueryFilters(empty, cats)).toMatchObject({ types: [], categoryIds: [] })
   })
 
-  it('勾「支出 › 全部」＝類型支出，不存類別清單', () => {
+  it('勾「支出 › 全部」＝類型支出，不存分類清單', () => {
     const f = apply(empty, toggleGroup('expense', empty, cats))
     expect(f).toEqual({ types: ['expense'], categoryIds: [] })
     expect(groupState('expense', f, cats)).toBe('all')
@@ -28,7 +28,7 @@ describe('類別篩選（合併類型）', () => {
     expect(selectionCount(f, cats)).toBe(1)
   })
 
-  it('全部之後取消一個類別 → 減號，只剩其餘類別', () => {
+  it('全部之後取消一個分類 → 減號，只剩其餘分類', () => {
     let f = apply(empty, toggleGroup('expense', empty, cats))
     f = apply(f, toggleCategory(cats[0], f, cats))
     expect(groupState('expense', f, cats)).toBe('some')
@@ -51,18 +51,18 @@ describe('類別篩選（合併類型）', () => {
     expect(f.categoryIds).toEqual([])
   })
 
-  it('跨群組為「或」：支出全部＋薪水 → 查詢時展開成當下所有支出類別＋薪水', () => {
+  it('跨群組為「或」：支出全部＋薪水 → 查詢時展開成當下所有支出分類＋薪水', () => {
     let f = apply(empty, toggleGroup('expense', empty, cats))
     f = apply(f, toggleCategory(cats[3], f, cats))
     const q = toQueryFilters(f, cats)
     expect(q.types.sort()).toEqual(['expense', 'income'])
     expect(q.categoryIds.sort()).toEqual(['bus', 'food', 'salary', 'shop'])
-    // 之後新增的支出類別也包含在內
+    // 之後新增的支出分類也包含在內
     const more = [...cats, { id: 'new', kind: 'expense' }]
     expect(toQueryFilters(f, more).categoryIds).toContain('new')
   })
 
-  it('只有「全部」時不送類別條件', () => {
+  it('只有「全部」時不送分類條件', () => {
     const f = { types: ['expense', 'income'], categoryIds: [] }
     expect(toQueryFilters(f, cats).categoryIds).toEqual([])
   })

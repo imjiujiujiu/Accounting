@@ -20,7 +20,7 @@ export function createExportApi(db) {
   return {
     /**
      * 讀出匯出所需的全部資料。range 有值時只匯出該期間的交易（之後每月自動匯出用），
-     * 帳戶、類別、標籤一律全部匯出。
+     * 帳戶、分類、標籤一律全部匯出。
      */
     async fetchAll({ range = null } = {}) {
       const txnQuery = () => {
