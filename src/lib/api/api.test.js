@@ -138,6 +138,11 @@ describe('accounts', () => {
     expect(res[0]).toMatchObject({ balance: -1500, canDelete: false })
     expect(res[1].canDelete).toBe(true)
   })
+  it('被固定收支使用的帳戶不能刪除', async () => {
+    const db = fakeDb(() => ({ data: [{ id: 'a', balance: 0, initial_balance: 0, txn_count: 0, rule_count: 1 }], error: null }))
+    const res = await createApi(db).accounts.list()
+    expect(res[0]).toMatchObject({ rule_count: 1, canDelete: false })
+  })
   it('有交易時刪除顯示具體訊息', async () => {
     const db = fakeDb(() => ({ data: null, error: { code: '23503', message: 'violates foreign key constraint' } }))
     await expect(createApi(db).accounts.remove('a')).rejects.toMatchObject({
@@ -163,6 +168,11 @@ describe('categories / tags / settings', () => {
     const list = await createApi(db).categories.list()
     expect(db.calls[0].table).toBe('category_usage')
     expect(list.map((c) => c.canDelete)).toEqual([true, false])
+  })
+  it('被固定收支使用的分類不能刪除', async () => {
+    const db = fakeDb(() => ({ data: [{ id: 'a', txn_count: 0, rule_count: 2 }, { id: 'b', txn_count: 0 }], error: null }))
+    const list = await createApi(db).categories.list()
+    expect(list.map((c) => c.canDelete)).toEqual([false, true])
   })
   it('還沒有 category_usage 時退回讀 categories，暫時不能刪除', async () => {
     const db = fakeDb((call) =>

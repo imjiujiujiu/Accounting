@@ -26,7 +26,9 @@ export function createAccountsApi(db) {
      *   balance                   目前餘額（預估以預估值計入）
      *   pending_count             幾筆預估 → 「另有 N 筆預估」
      *   pending_unestimated_count 其中幾筆沒有預估值、未計入
-     *   txn_count                 0 才能刪除
+     *   txn_count                 被幾筆交易使用
+     *   rule_count                被幾條固定收支使用（未套用 20261023_recurring_rules.sql 時視為 0）
+     *   canDelete                 兩者皆為 0 才能刪除
      */
     async list() {
       const { data } = await run(
@@ -42,7 +44,8 @@ export function createAccountsApi(db) {
         ...a,
         balance: Number(a.balance),
         initial_balance: Number(a.initial_balance),
-        canDelete: a.txn_count === 0,
+        rule_count: Number(a.rule_count ?? 0),
+        canDelete: a.txn_count === 0 && Number(a.rule_count ?? 0) === 0,
       }))
     },
 

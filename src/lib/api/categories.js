@@ -8,7 +8,7 @@ export function createCategoriesApi(db) {
   return {
     /**
      * 全部分類（含停用），依收支、排序、名稱。表單只顯示 is_active 的；清單仍要能顯示停用分類的名稱。
-     * 每筆含 txn_count（被幾筆交易使用）與 canDelete（txn_count 為 0 才能刪除）。
+     * 每筆含 txn_count（被幾筆交易使用）、rule_count（被幾條固定收支使用）與 canDelete（兩者皆為 0 才能刪除）。
      */
     async list() {
       const query = (from) =>
@@ -27,7 +27,11 @@ export function createCategoriesApi(db) {
         ;({ data } = await run(query('categories')))
         return (data ?? []).map((c) => ({ ...c, txn_count: null, canDelete: false }))
       }
-      return (data ?? []).map((c) => ({ ...c, txn_count: Number(c.txn_count ?? 0), canDelete: Number(c.txn_count ?? 0) === 0 }))
+      return (data ?? []).map((c) => {
+        const txn_count = Number(c.txn_count ?? 0)
+        const rule_count = Number(c.rule_count ?? 0)
+        return { ...c, txn_count, rule_count, canDelete: txn_count === 0 && rule_count === 0 }
+      })
     },
 
     /** kind：'income' 或 'expense'；新分類排在「其他」之前 */
