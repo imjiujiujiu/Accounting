@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { signInWithGoogle } from '../lib/auth'
+import { BaseButton } from '../components/ui/index.js'
 
 const error = ref('')
 async function login() {
@@ -14,8 +15,8 @@ async function login() {
   <main class="center">
     <div class="card">
       <h1>記帳</h1>
-      <button class="primary" @click="login">使用 Google 登入</button>
-      <p v-if="error" class="error">{{ error }}</p>
+      <BaseButton variant="primary" @click="login">使用 Google 登入</BaseButton>
+      <p v-if="error" class="body2 c-expense">{{ error }}</p>
     </div>
   </main>
 </template>
