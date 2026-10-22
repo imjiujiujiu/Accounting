@@ -152,13 +152,13 @@ describe('accounts', () => {
 })
 
 describe('categories / tags / settings', () => {
-  it('同名類別', async () => {
+  it('同名分類', async () => {
     const db = fakeDb(() => ({ data: null, error: { code: '23505', message: 'duplicate key' } }))
     await expect(createApi(db).categories.create({ name: '餐飲', kind: 'expense' })).rejects.toMatchObject({
-      kind: 'duplicate', message: '已有同名類別',
+      kind: 'duplicate', message: '已有同名分類',
     })
   })
-  it('類別列表含使用次數，0 筆才能刪除', async () => {
+  it('分類列表含使用次數，0 筆才能刪除', async () => {
     const db = fakeDb(() => ({ data: [{ id: 'a', txn_count: 0 }, { id: 'b', txn_count: 3 }], error: null }))
     const list = await createApi(db).categories.list()
     expect(db.calls[0].table).toBe('category_usage')
@@ -174,10 +174,10 @@ describe('categories / tags / settings', () => {
     expect(db.calls.map((c) => c.table)).toEqual(['category_usage', 'categories'])
     expect(list[0].canDelete).toBe(false)
   })
-  it('類別已有交易時刪除失敗', async () => {
+  it('分類已有交易時刪除失敗', async () => {
     const db = fakeDb(() => ({ data: null, error: { code: '23503', message: 'violates foreign key' } }))
     await expect(createApi(db).categories.remove('c')).rejects.toMatchObject({
-      kind: 'in_use', message: '這個類別已有交易使用，無法刪除，只能停用',
+      kind: 'in_use', message: '這個分類已有交易使用，無法刪除，只能停用',
     })
     expect(argsOf(db.calls[0], 'eq')[0]).toEqual(['id', 'c'])
   })

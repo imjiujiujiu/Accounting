@@ -1,5 +1,5 @@
 <script setup>
-// 依類別加總（支出、收入），長條依各組最大值比例
+// 依分類加總（支出、收入），長條依各組最大值比例
 import { computed } from 'vue'
 import Icon from './Icon.vue'
 import { refs, categoriesById } from '../lib/store.js'

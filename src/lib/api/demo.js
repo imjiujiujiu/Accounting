@@ -30,7 +30,7 @@ function seed() {
     ['娛樂', 'expense', 5], ['醫療', 'expense', 6], ['學習', 'expense', 7], ['捐贈', 'expense', 8],
     ['投資', 'expense', 9], ['送禮', 'expense', 10], ['其他', 'expense', 99],
     ['薪水', 'income', 1], ['回饋', 'income', 2], ['投資', 'income', 3], ['其他', 'income', 99],
-    ['獎金', 'income', 4, false], // 示範停用的類別
+    ['獎金', 'income', 4, false], // 示範停用的分類
   ]
   const categories = cats.map(([name, kind, sort_order, is_active = true]) => ({ id: `c-${kind}-${name}`, name, kind, sort_order, is_active }))
   const c = (kind, name) => `c-${kind}-${name}`
@@ -236,7 +236,7 @@ export function createDemoApi() {
         )
       },
       async create({ name, kind, sort_order = 50 }) {
-        if (db.categories.some((c) => c.kind === kind && c.name === name.trim())) throw new ApiError('duplicate', '已有同名類別')
+        if (db.categories.some((c) => c.kind === kind && c.name === name.trim())) throw new ApiError('duplicate', '已有同名分類')
         const row = { id: uid(), name: name.trim(), kind, sort_order, is_active: true }
         db.categories.push(row)
         return delay(row)
@@ -253,7 +253,7 @@ export function createDemoApi() {
       },
       async remove(id) {
         if (db.transactions.some((t) => t.category_id === id)) {
-          throw new ApiError('in_use', '這個類別已有交易使用，無法刪除，只能停用')
+          throw new ApiError('in_use', '這個分類已有交易使用，無法刪除，只能停用')
         }
         db.categories = db.categories.filter((c) => c.id !== id)
         return delay(null)

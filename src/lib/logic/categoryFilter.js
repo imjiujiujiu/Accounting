@@ -1,11 +1,11 @@
-// 「類別」篩選（合併原本的「類型」）：群組＝支出／收入／轉帳，群組內可勾「全部」或個別類別。
+// 「分類」篩選（合併原本的「類型」）：群組＝支出／收入／轉帳，群組內可勾「全部」或個別分類。
 //
 // 狀態沿用 filters.types 與 filters.categoryIds：
-//   - 某收支在 types 裡、且 categoryIds 沒有該收支的類別 → 該群組「全部」
-//   - 某收支在 types 裡、且 categoryIds 有該收支的部分類別 → 只選那些類別（「全部」顯示減號）
+//   - 某收支在 types 裡、且 categoryIds 沒有該收支的分類 → 該群組「全部」
+//   - 某收支在 types 裡、且 categoryIds 有該收支的部分分類 → 只選那些分類（「全部」顯示減號）
 //   - 'transfer' 在 types 裡 → 轉帳
 //   - 都沒勾 → 不篩選
-// 「全部」不存類別清單，送出查詢時才展開，所以之後新增的類別也會自動包含。
+// 「全部」不存分類清單，送出查詢時才展開，所以之後新增的分類也會自動包含。
 
 const KINDS = ['expense', 'income']
 
@@ -18,13 +18,13 @@ export function groupState(kind, f, categories) {
   return f.categoryIds.some((id) => kindIds.has(id)) ? 'some' : 'all'
 }
 
-/** 某類別是否顯示為勾選 */
+/** 某分類是否顯示為勾選 */
 export function isCategoryChecked(category, f, categories) {
   const s = groupState(category.kind, f, categories)
   return s === 'all' || (s === 'some' && f.categoryIds.includes(category.id))
 }
 
-// 依某收支要勾的類別，回傳新的 { types, categoryIds }（勾滿＝全部、勾空＝不選）
+// 依某收支要勾的分類，回傳新的 { types, categoryIds }（勾滿＝全部、勾空＝不選）
 function setKind(kind, picked, f, categories) {
   const all = idsOfKind(categories, kind)
   const allSet = new Set(all)
@@ -42,7 +42,7 @@ export function toggleGroup(kind, f, categories) {
   return setKind(kind, groupState(kind, f, categories) === 'all' ? [] : 'all', f, categories)
 }
 
-/** 點單一類別 */
+/** 點單一分類 */
 export function toggleCategory(category, f, categories) {
   const { kind, id } = category
   const all = idsOfKind(categories, kind)
@@ -69,9 +69,9 @@ export function selectionCount(f, categories) {
 }
 
 /**
- * 送出查詢用的條件。資料庫是「類型 AND 類別」：
- * 有任何群組只選部分類別時，把選了「全部」的群組展開成當下所有類別，才能做出跨群組的「或」。
- * 轉帳沒有類別，類別條件不套用在轉帳上（見 filter_transactions）。
+ * 送出查詢用的條件。資料庫是「類型 AND 分類」：
+ * 有任何群組只選部分分類時，把選了「全部」的群組展開成當下所有分類，才能做出跨群組的「或」。
+ * 轉帳沒有分類，分類條件不套用在轉帳上（見 filter_transactions）。
  */
 export function toQueryFilters(f, categories) {
   const partial = KINDS.some((k) => groupState(k, f, categories) === 'some')

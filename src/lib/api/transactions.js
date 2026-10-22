@@ -1,4 +1,4 @@
-// 交易：清單、合計、類別加總、近兩天清單、存檔、刪除、預估金額。
+// 交易：清單、合計、分類加總、近兩天清單、存檔、刪除、預估金額。
 import { run, assertOnline } from './errors.js'
 
 export const PAGE_SIZE = 50
@@ -89,7 +89,7 @@ export function createTransactionsApi(db) {
     },
 
     /**
-     * 依類別加總（預設支出），由大到小。
+     * 依分類加總（預設支出），由大到小。
      * 回傳 [{ categoryId, total, count, estimatedCount }]
      */
     async byCategory(filters = {}, kind = 'expense') {

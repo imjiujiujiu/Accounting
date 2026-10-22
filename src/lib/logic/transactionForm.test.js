@@ -35,7 +35,7 @@ describe('createEmptyForm', () => {
 })
 
 describe('validateForm', () => {
-  it('支出：金額、類別、帳戶必填', () => {
+  it('支出：金額、分類、帳戶必填', () => {
     const r = validateForm(form({ accountId: null }), ctx)
     expect(r.ok).toBe(false)
     expect(Object.keys(r.errors).sort()).toEqual(['accountId', 'amount', 'categoryId'])
@@ -52,7 +52,7 @@ describe('validateForm', () => {
   it('日期必填', () => {
     expect(validateForm(form({ categoryId: 'c', amount: '1', date: '' }), ctx).errors.date).toBeTruthy()
   })
-  it('轉帳：帳戶不可相同，不需要類別', () => {
+  it('轉帳：帳戶不可相同，不需要分類', () => {
     const r = validateForm(form({ type: 'transfer', accountId: 'bank', toAccountId: 'bank', amount: '100' }), ctx)
     expect(r.errors).toEqual({ toAccountId: '轉出與轉入帳戶不可相同' })
     expect(validateForm(form({ type: 'transfer', accountId: 'bank', toAccountId: 'card', amount: '100' }), ctx).ok).toBe(true)

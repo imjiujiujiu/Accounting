@@ -215,7 +215,7 @@ defineExpose({ flushTag })
     </div>
 
     <div v-if="f.type !== 'transfer'" class="field">
-      <span class="label">類別</span>
+      <span class="label">分類</span>
       <div class="cats">
         <button
           v-for="c in categoryOptions"

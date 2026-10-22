@@ -1,14 +1,14 @@
-// 依目前篩選條件讀取合計與類別加總（清單頁與統計頁共用）。篩選或資料變動時自動重讀。
+// 依目前篩選條件讀取合計與分類加總（清單頁與統計頁共用）。篩選或資料變動時自動重讀。
 import { ref, watch } from 'vue'
 import { api } from './api/index.js'
 import { filters, refs, dataVersion } from './store.js'
 import { toQueryFilters } from './logic/categoryFilter.js'
 
-/** 目前篩選條件 → 查詢條件（類別的「全部」在這裡展開） */
+/** 目前篩選條件 → 查詢條件（分類的「全部」在這裡展開） */
 const query = () => toQueryFilters({ ...filters }, refs.categories)
 const queryKey = () => JSON.stringify(query())
 
-/** 合計＋類別加總。只取最後一次請求的結果，避免快速切換時舊資料蓋掉新資料 */
+/** 合計＋分類加總。只取最後一次請求的結果，避免快速切換時舊資料蓋掉新資料 */
 export function useSummary() {
   const summary = ref(null)
   const expense = ref([])

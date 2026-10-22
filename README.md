@@ -22,7 +22,7 @@
 3. 推送到 `main` 即自動建置與發布。
 
 ### 3. 第一次登入後
-用自己的 Google 帳號登入、確認首頁顯示「資料庫連線正常，共 13 個類別」後，
+用自己的 Google 帳號登入、確認首頁顯示「資料庫連線正常，共 13 個分類」後，
 到 Supabase **Authentication → Sign In / Providers** 關閉 **Allow new users to sign up**。
 
 ## 本機開發
