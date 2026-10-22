@@ -181,6 +181,14 @@ describe('categories / tags / settings', () => {
     })
     expect(argsOf(db.calls[0], 'eq')[0]).toEqual(['id', 'c'])
   })
+  it('刪除了 0 筆（沒有刪除權限）時報錯', async () => {
+    const db = fakeDb(() => ({ data: [], error: null }))
+    await expect(createApi(db).categories.remove('c')).rejects.toMatchObject({ kind: 'auth' })
+  })
+  it('刪除成功', async () => {
+    const db = fakeDb(() => ({ data: [{ id: 'c' }], error: null }))
+    await expect(createApi(db).categories.remove('c')).resolves.toBeUndefined()
+  })
   it('標籤依名稱排序', async () => {
     const db = fakeDb(() => ({ data: [{ id: 1, name: 'b' }, { id: 2, name: 'A' }], error: null }))
     expect((await createApi(db).tags.list()).map((t) => t.name)).toEqual(['A', 'b'])

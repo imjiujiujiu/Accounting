@@ -86,6 +86,8 @@ const catGroups = computed(() =>
     { kind: 'income', title: '收入類別', color: 'var(--color-income)' },
   ].map((g) => ({ ...g, items: refs.categories.filter((c) => c.kind === g.kind).sort(byActive) })),
 )
+// 還沒執行 20261022_manage_categories.sql：讀不到使用次數，類別暫時都不能刪除
+const usageUnavailable = computed(() => refs.categories.some((c) => c.txn_count === null))
 const cat = reactive({ name: '', icon: '' })
 function editCategory(kind, c) {
   // MVP：圖示依名稱對應、不可自選；新增的類別一律用該收支的「其他」圖示
@@ -286,6 +288,7 @@ function toggleActive(kind, item) {
           </span>
         </div>
       </template>
+      <p v-if="usageUnavailable" class="caption c-supply">資料庫尚未更新，類別暫時都不能刪除。請到 Supabase 執行 20261022_manage_categories.sql。</p>
       <p class="caption c-text">有交易使用的類別不能刪除，避免歷史交易失去分類；不用的請停用。</p>
     </section>
   </div>

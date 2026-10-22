@@ -1,5 +1,5 @@
 // 類別：區分收入／支出；可新增、修改、停用；沒有交易使用才能刪除（有交易時資料庫的外鍵會擋下）。
-import { run, assertOnline } from './errors.js'
+import { run, assertOnline, ApiError } from './errors.js'
 
 // 資料表或 view 不存在（PostgREST／PostgreSQL）
 const MISSING_RELATION = ['PGRST205', '42P01']
@@ -61,7 +61,11 @@ export function createCategoriesApi(db) {
     /** 有交易使用時資料庫擋下，訊息「這個類別已有交易使用，無法刪除，只能停用」 */
     async remove(id) {
       assertOnline()
-      await run(db.from('categories').delete().eq('id', id), { in_use: '這個類別已有交易使用，無法刪除，只能停用' })
+      const { data } = await run(db.from('categories').delete().eq('id', id).select('id'), {
+        in_use: '這個類別已有交易使用，無法刪除，只能停用',
+      })
+      // 沒有刪除權限時資料庫不會報錯，只是刪了 0 筆
+      if (!data?.length) throw new ApiError('auth', '無法刪除：資料庫尚未更新，請先執行 20261022_manage_categories.sql')
     },
   }
 }
