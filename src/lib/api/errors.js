@@ -64,6 +64,8 @@ export function toApiError(err, overrides = {}) {
   if (code === '42501' || code === 'PGRST301' || code === 'PGRST303' || err?.status === 401 || /JWT/i.test(text)) {
     return new ApiError('auth', msg('auth'), err)
   }
+  // 未歸類的錯誤把原始內容印到主控台，方便除錯
+  if (typeof console !== 'undefined') console.error('[api] 未歸類的錯誤', err)
   return new ApiError('unknown', msg('unknown'), err)
 }
 
