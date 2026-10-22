@@ -261,5 +261,5 @@ defineExpose({ flushTag })
 .tags-input .tag button { display: grid; place-items: center; }
 .suggest { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
 .suggest .tag { cursor: pointer; }
-.suggest .tag:hover { color: var(--color-content); }
+.suggest .tag:hover { color: var(--color-title); }
 </style>

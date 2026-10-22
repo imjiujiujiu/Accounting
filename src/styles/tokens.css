@@ -1,45 +1,61 @@
-/* 設計 token：對應 Figma「UI Library」頁（Colors／Semantic - Dark／Fonts） */
+/* 設計 token：與 Figma Variables 同步（Color／Size collection；2026-10-23 匯出） */
 :root {
-  /* ColdGray 色階 */
-  --coldgray-50: #E8ECF2;
-  --coldgray-100: #DBE0E8;
-  --coldgray-150: #CBD2DC;
-  --coldgray-200: #B8C0CD;
-  --coldgray-300: #8F9BAD;
-  --coldgray-400: #7C8797;
-  --coldgray-500: #697381;
-  --coldgray-600: #555D6A;
-  --coldgray-700: #202A3A;
-  --coldgray-800: #161C26;
-  --coldgray-900: #0D1117;
+  /* ===== 色階（Color › Value） ===== */
+  /* Gray */
+  --gray-0: #FFFFFF; --gray-50: #F3F3F3; --gray-100: #E7E7E7; --gray-150: #DBDBDB;
+  --gray-200: #CFCFCF; --gray-300: #B8B8B8; --gray-400: #A0A0A0; --gray-500: #888888;
+  --gray-600: #6D6D6D; --gray-700: #525252; --gray-800: #363636; --gray-850: #292929;
+  --gray-900: #1B1B1B; --gray-950: #0E0E0E; --gray-1000: #000000;
 
-  /* 主色 500 與常用深淺 */
-  --lime-500: #C8F25A;
-  --lime-600: #A0C248;
-  --lime-900: #283012;
-  --red-500: #FF8C7A;
-  --red-900: #331C18;
-  --green-500: #5FE0A8;
-  --green-900: #132D22;
-  --yellow-500: #FFD166;
-  --yellow-900: #30250A;
+  /* ColdGray */
+  --coldgray-50: #E8ECF2; --coldgray-100: #DBE0E8; --coldgray-150: #CBD2DC; --coldgray-200: #B8C0CD;
+  --coldgray-300: #8F9BAD; --coldgray-400: #7C8797; --coldgray-500: #697381; --coldgray-600: #555D6A;
+  --coldgray-700: #202A3A; --coldgray-800: #161C26; --coldgray-900: #0D1117;
 
-  /* Semantic - Dark */
+  /* Red */
+  --red-50: #FFF4F2; --red-100: #FFE8E4; --red-150: #FFDDD7; --red-200: #FFD1CA;
+  --red-300: #FFBAAF; --red-400: #FFA395; --red-500: #FF8C7A; --red-600: #CC7062;
+  --red-700: #995449; --red-800: #663831; --red-900: #331C18;
+
+  /* Yellow */
+  --yellow-50: #FFFAF0; --yellow-100: #FFF6E0; --yellow-150: #FFF1D1; --yellow-200: #FFEDC2;
+  --yellow-300: #FFE3A3; --yellow-400: #FFDA85; --yellow-500: #FFD166; --yellow-600: #D1AB52;
+  --yellow-700: #A3853D; --yellow-800: #755E29; --yellow-900: #30250A;
+
+  /* Lime */
+  --lime-50: #FAFEEF; --lime-100: #F4FCDE; --lime-150: #EFFBCE; --lime-200: #E9FABD;
+  --lime-300: #DEF79C; --lime-400: #D3F57B; --lime-500: #C8F25A; --lime-600: #A0C248;
+  --lime-700: #789136; --lime-800: #506124; --lime-900: #283012;
+
+  /* Green */
+  --green-50: #EFFCF6; --green-100: #DFF9EE; --green-150: #CFF6E5; --green-200: #BFF3DC;
+  --green-300: #9FECCB; --green-400: #7FE6B9; --green-500: #5FE0A8; --green-600: #4CB386;
+  --green-700: #398665; --green-800: #265A43; --green-900: #132D22;
+
+  /* ===== Semantic（Color › Semantic） ===== */
   --color-page: var(--coldgray-900);
   --color-card: var(--coldgray-800);
   --color-tag: var(--coldgray-700);
   --color-line: var(--coldgray-600);
-  --color-line-hover: var(--coldgray-500);
+  --color-title: var(--coldgray-50);
   --color-text: var(--coldgray-300);
-  --color-content: var(--coldgray-50);
+  --color-placeholder: var(--coldgray-600);
   --color-primary: var(--lime-500);
   --color-expense: var(--red-500);
   --color-income: var(--green-500);
   --color-supply: var(--yellow-500);
+  --color-success: var(--green-500);
+  --color-error: var(--red-500);
+  /* 程式補充（Figma 未定義）：框線 hover */
+  --color-line-hover: var(--coldgray-500);
 
-  /* 間距與圓角 */
-  --sp-2: 2px; --sp-4: 4px; --sp-8: 8px; --sp-12: 12px; --sp-16: 16px; --sp-24: 24px; --sp-32: 32px;
-  --r-4: 4px; --r-8: 8px; --r-12: 12px; --r-20: 20px; --r-pill: 100px;
+  /* ===== 間距（Size › Size） ===== */
+  --sp-2: 2px; --sp-4: 4px; --sp-8: 8px; --sp-10: 10px; --sp-12: 12px; --sp-16: 16px;
+  --sp-20: 20px; --sp-24: 24px; --sp-32: 32px; --sp-40: 40px; --sp-100: 100px;
+
+  /* ===== 圓角（Size › Rounded） ===== */
+  --r-4: var(--sp-4); --r-8: var(--sp-8); --r-10: var(--sp-10); --r-12: var(--sp-12);
+  --r-20: var(--sp-20); --r-pill: var(--sp-100);
 
   /* 字體：英數 Manrope，中文自動落到 Noto Sans TC */
   --font: "Manrope", "Noto Sans TC", system-ui, sans-serif;

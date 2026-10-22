@@ -15,7 +15,7 @@ const props = defineProps({
   disabled: Boolean,
 })
 const color = computed(
-  () => ({ danger: 'var(--color-expense)', primary: 'var(--color-primary)' })[props.tone] ?? 'var(--color-text)',
+  () => ({ danger: 'var(--color-error)', primary: 'var(--color-primary)' })[props.tone] ?? 'var(--color-text)',
 )
 </script>
 

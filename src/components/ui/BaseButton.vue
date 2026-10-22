@@ -20,7 +20,7 @@ const props = defineProps({
   disabled: Boolean,
 })
 const iconColor = computed(() =>
-  props.variant === 'primary' ? 'var(--color-card)' : props.danger ? 'var(--color-expense)' : 'var(--color-content)',
+  props.variant === 'primary' ? 'var(--color-card)' : props.danger ? 'var(--color-error)' : 'var(--color-title)',
 )
 </script>
 
@@ -41,8 +41,8 @@ const iconColor = computed(() =>
 }
 .base-btn.small { height: 32px; padding: 0 var(--sp-12); }
 .base-btn.primary { background: var(--color-primary); color: var(--color-card); }
-.base-btn.secondary { background: var(--color-tag); color: var(--color-content); }
-.base-btn.secondary.danger { color: var(--color-expense); }
+.base-btn.secondary { background: var(--color-tag); color: var(--color-title); }
+.base-btn.secondary.danger { color: var(--color-error); }
 .base-btn:not(:disabled):hover { filter: brightness(1.15); }
 .base-btn:disabled { opacity: .4; cursor: not-allowed; }
 </style>

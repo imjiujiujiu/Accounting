@@ -114,7 +114,7 @@ function onTagToggle(id) {
 }
 .search:hover { border-color: var(--color-line-hover); }
 .search input { flex: 1; min-width: 0; background: none; border: 0; outline: none; font-size: 16px; }
-.search input::placeholder { color: var(--color-text); }
+.search input::placeholder { color: var(--color-placeholder); }
 .search:focus-within { border-color: var(--color-primary); }
 @media (max-width: 1100px) {
   .filter { flex-wrap: wrap; }

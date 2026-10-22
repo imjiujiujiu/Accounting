@@ -52,7 +52,7 @@ async function retry() {
 .app { min-height: 100vh; padding-bottom: 120px; }
 .main { max-width: 1440px; margin: 0 auto; padding: var(--sp-32) var(--sp-32) 0; }
 .demo { text-align: center; color: var(--color-supply); padding-top: var(--sp-8); }
-.load-error { max-width: 1440px; margin: var(--sp-16) auto 0; padding: 0 var(--sp-32); color: var(--color-expense); display: flex; align-items: center; gap: var(--sp-12); }
+.load-error { max-width: 1440px; margin: var(--sp-16) auto 0; padding: 0 var(--sp-32); color: var(--color-error); display: flex; align-items: center; gap: var(--sp-12); }
 .fab {
   position: fixed; z-index: 20; right: max(32px, calc((100vw - 1440px) / 2 + 32px)); bottom: 32px;
   width: 60px; height: 60px; border-radius: var(--r-pill); background: var(--color-primary);
@@ -60,11 +60,11 @@ async function retry() {
 }
 .fab:hover { transform: scale(1.05); }
 .toast {
-  position: fixed; z-index: 60; left: 50%; bottom: 40px; transform: translateX(-50%);
-  background: var(--color-content); color: var(--color-card); padding: var(--sp-12) var(--sp-24); border-radius: var(--r-pill);
+  position: fixed; z-index: 60; left: 50%; bottom: var(--sp-40); transform: translateX(-50%);
+  background: var(--color-title); color: var(--color-card); padding: var(--sp-12) var(--sp-24); border-radius: var(--r-pill);
   box-shadow: var(--shadow-pop);
 }
-.toast.error { background: var(--color-expense); }
+.toast.error { background: var(--color-error); }
 .toast-enter-active, .toast-leave-active { transition: opacity .2s, transform .2s; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 8px); }
 @media (max-width: 760px) {

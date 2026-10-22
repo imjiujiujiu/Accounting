@@ -59,7 +59,7 @@ const groups = computed(() =>
 .category { display: flex; flex-direction: column; gap: var(--sp-32); }
 .cat-group { display: flex; flex-direction: column; gap: var(--sp-16); }
 .cat-row { display: flex; flex-direction: column; gap: var(--sp-8); }
-.cat-row-head { display: flex; align-items: center; gap: 10px; }
+.cat-row-head { display: flex; align-items: center; gap: var(--sp-10); }
 .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .val { min-width: 80px; text-align: right; color: var(--color-text); }
 .bar { height: 6px; background: var(--color-line); border-radius: var(--r-pill); overflow: hidden; }

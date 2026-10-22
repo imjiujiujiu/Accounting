@@ -141,7 +141,7 @@ const current = computed(() => matchPreset(filters.range))
 .panel { right: 0; top: calc(100% + 8px); display: flex; gap: var(--sp-16); padding: var(--sp-16); }
 .presets { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 96px; border-right: 1px solid var(--color-line); padding-right: var(--sp-16); }
 .preset { text-align: left; padding: var(--sp-8) var(--sp-12); border-radius: var(--r-8); color: var(--color-text); font-weight: 700; }
-.preset:hover { background: var(--color-tag); color: var(--color-content); }
+.preset:hover { background: var(--color-tag); color: var(--color-title); }
 .preset.on { color: var(--color-primary); }
 .cal-wrap { position: relative; display: flex; flex-direction: column; gap: var(--sp-12); }
 .cal-nav { position: absolute; inset: 0 0 auto 0; display: flex; justify-content: space-between; pointer-events: none; }
