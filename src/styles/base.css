@@ -52,10 +52,10 @@ svg { display: block; flex-shrink: 0; }
 .control.icon-only { width: 44px; padding: 0; justify-content: center; }
 .control:not(:disabled):hover { border-color: var(--color-line-hover); }
 
-/* 篩選鈕 */
+/* 篩選鈕（類別、標籤、預估） */
 .chip {
-  display: inline-flex; align-items: center; gap: var(--sp-4);
-  padding: var(--sp-8) var(--sp-16); border: 1px solid var(--color-line); border-radius: var(--r-8);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-4); height: 48px;
+  padding: 0 var(--sp-16); border: 1px solid var(--color-line); border-radius: var(--r-8);
   background: var(--color-card); font-size: 16px; white-space: nowrap;
 }
 .chip:hover { border-color: var(--color-line-hover); }
@@ -114,10 +114,10 @@ select.input { cursor: pointer; }
 }
 .check-row:hover { background: var(--color-tag); }
 .check-box {
-  width: 18px; height: 18px; border-radius: var(--r-4); border: 1.5px solid var(--color-text);
+  width: 16px; height: 16px; border-radius: var(--r-4); border: 1px solid var(--color-line);
   display: grid; place-items: center; flex-shrink: 0;
 }
-.check-row.on .check-box { background: var(--color-primary); border-color: var(--color-primary); }
+.check-row.on .check-box, .check-row.mixed .check-box { background: var(--color-primary); border-color: var(--color-primary); }
 
 .empty { color: var(--color-text); text-align: center; padding: var(--sp-32) 0; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

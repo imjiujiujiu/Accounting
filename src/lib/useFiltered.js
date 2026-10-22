@@ -1,7 +1,12 @@
 // 依目前篩選條件讀取合計與類別加總（清單頁與統計頁共用）。篩選或資料變動時自動重讀。
 import { ref, watch } from 'vue'
 import { api } from './api/index.js'
-import { filters, dataVersion } from './store.js'
+import { filters, refs, dataVersion } from './store.js'
+import { toQueryFilters } from './logic/categoryFilter.js'
+
+/** 目前篩選條件 → 查詢條件（類別的「全部」在這裡展開） */
+const query = () => toQueryFilters({ ...filters }, refs.categories)
+const queryKey = () => JSON.stringify(query())
 
 /** 合計＋類別加總。只取最後一次請求的結果，避免快速切換時舊資料蓋掉新資料 */
 export function useSummary() {
@@ -14,7 +19,7 @@ export function useSummary() {
   async function load() {
     const my = ++seq
     error.value = ''
-    const f = { ...filters }
+    const f = query()
     const wants = (k) => !f.types.length || f.types.includes(k)
     try {
       const [s, e, i] = await Promise.all([
@@ -31,7 +36,7 @@ export function useSummary() {
     }
   }
 
-  watch([() => JSON.stringify(filters), dataVersion], load, { immediate: true })
+  watch([queryKey, dataVersion], load, { immediate: true })
   return { summary, expense, income, error, reload: load }
 }
 
@@ -50,7 +55,7 @@ export function useTransactionList() {
     loading.value = true
     error.value = ''
     try {
-      const r = await api.transactions.list({ ...filters }, page.value)
+      const r = await api.transactions.list(query(), page.value)
       if (my !== seq) return
       rows.value = r.rows
       total.value = r.total
@@ -63,7 +68,7 @@ export function useTransactionList() {
     }
   }
 
-  watch(() => JSON.stringify(filters), () => {
+  watch(queryKey, () => {
     page.value = 0
     load()
   })

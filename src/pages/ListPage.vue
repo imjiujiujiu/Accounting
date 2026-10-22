@@ -19,11 +19,11 @@ function go(p) {
 
 <template>
   <div class="page">
+    <FilterBar />
     <SummaryCards :summary="summary" />
     <p v-if="sumError || listError" class="body2 c-expense">{{ sumError || listError }}</p>
     <section class="content">
       <div class="card main">
-        <FilterBar />
         <TransactionList :rows="rows" :loading="loading" @open="openTransaction" />
         <Pager :page="page" :page-count="pageCount" :total="total" @go="go" />
       </div>
@@ -33,7 +33,7 @@ function go(p) {
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: var(--sp-16); }
+.page { display: flex; flex-direction: column; gap: var(--sp-24); }
 .content { display: grid; grid-template-columns: minmax(0, 912fr) minmax(0, 448fr); gap: var(--sp-16); align-items: start; }
 .main { display: flex; flex-direction: column; gap: var(--sp-24); }
 @media (max-width: 1100px) { .content { grid-template-columns: 1fr; } }

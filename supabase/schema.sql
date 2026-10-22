@@ -418,6 +418,7 @@ $$;
 -- 8.6 篩選（清單、合計、類別加總共用同一套條件）
 --   參數為 null 或空陣列 = 不篩選
 --   p_account_id：左上角帳戶選單；轉帳的轉出或轉入任一邊符合即列出
+--   p_category_ids：不套用在轉帳上（轉帳沒有類別；要不要列出轉帳由 p_types 決定）
 --   p_tag_ids：含任一標籤即符合
 --   p_keyword：只比對備註，不分大小寫，部分符合
 --   清單用法：rpc('filter_transactions', {...}, { count: 'exact' })
@@ -444,7 +445,7 @@ as $$
      and (p_to   is null or t.date <= p_to)
      and (p_account_id is null or t.account_id = p_account_id or t.to_account_id = p_account_id)
      and (coalesce(cardinality(p_types), 0) = 0        or t.type = any (p_types))
-     and (coalesce(cardinality(p_category_ids), 0) = 0 or t.category_id = any (p_category_ids))
+     and (coalesce(cardinality(p_category_ids), 0) = 0 or t.type = 'transfer' or t.category_id = any (p_category_ids))
      and (coalesce(cardinality(p_tag_ids), 0) = 0 or exists (
             select 1 from public.transaction_tags tt
              where tt.transaction_id = t.id and tt.tag_id = any (p_tag_ids)))
