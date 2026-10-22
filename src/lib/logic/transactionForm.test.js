@@ -7,6 +7,9 @@ import {
   normalizeTags,
   deltaForAccount,
   needsToAmount,
+  applyCategory,
+  setCurrency,
+  formCurrency,
 } from './transactionForm.js'
 
 const ctx = {
@@ -133,5 +136,73 @@ describe('deltaForAccount', () => {
     expect(deltaForAccount(t, 'bank')).toBe(-6300)
     expect(deltaForAccount(t, 'jpy')).toBe(30000)
     expect(deltaForAccount(t, 'cash')).toBe(0)
+  })
+})
+
+describe('applyCategory', () => {
+  it('選分類決定類型', () => {
+    const f = createEmptyForm()
+    applyCategory(f, { type: 'income', categoryId: 'c-salary' })
+    expect(f.type).toBe('income')
+    expect(f.categoryId).toBe('c-salary')
+  })
+  it('選轉帳：沒有分類', () => {
+    const f = createEmptyForm()
+    f.categoryId = 'c-food'
+    applyCategory(f, { type: 'transfer', categoryId: null })
+    expect(f.type).toBe('transfer')
+    expect(f.categoryId).toBeNull()
+  })
+  it('離開轉帳時清掉轉入帳戶；離開支出時取消外幣並保留數字', () => {
+    const f = createEmptyForm()
+    applyCategory(f, { type: 'transfer', categoryId: null })
+    f.toAccountId = 'a2'
+    f.toAmount = '10'
+    applyCategory(f, { type: 'expense', categoryId: 'c-food' })
+    expect(f.toAccountId).toBeNull()
+    expect(f.toAmount).toBe('')
+    setCurrency(f, 'JPY', 'TWD')
+    f.originalAmount = '3000'
+    applyCategory(f, { type: 'income', categoryId: 'c-salary' })
+    expect(f.isForeign).toBe(false)
+    expect(f.amount).toBe('3000')
+  })
+})
+
+describe('setCurrency', () => {
+  it('不同幣別＝外幣刷卡，金額搬到原幣', () => {
+    const f = createEmptyForm()
+    f.amount = '3000'
+    setCurrency(f, 'JPY', 'TWD')
+    expect(f.isForeign).toBe(true)
+    expect(f.originalCurrency).toBe('JPY')
+    expect(f.originalAmount).toBe('3000')
+    expect(f.amount).toBe('')
+    expect(formCurrency(f, 'TWD')).toBe('JPY')
+  })
+  it('改回帳戶幣別＝一般支出', () => {
+    const f = createEmptyForm()
+    setCurrency(f, 'JPY', 'TWD')
+    f.originalAmount = '3000'
+    setCurrency(f, 'TWD', 'TWD')
+    expect(f.isForeign).toBe(false)
+    expect(f.amount).toBe('3000')
+    expect(formCurrency(f, 'TWD')).toBe('TWD')
+  })
+  it('已回壓的外幣改回帳戶幣別時保留實際金額', () => {
+    const f = createEmptyForm()
+    setCurrency(f, 'JPY', 'TWD')
+    f.originalAmount = '3000'
+    f.amount = '650'
+    f.fee = '10'
+    setCurrency(f, 'TWD', 'TWD')
+    expect(f.amount).toBe('650')
+    expect(f.fee).toBe('')
+  })
+  it('收入不能改成外幣', () => {
+    const f = createEmptyForm()
+    applyCategory(f, { type: 'income', categoryId: 'c' })
+    setCurrency(f, 'JPY', 'TWD')
+    expect(f.isForeign).toBe(false)
   })
 })

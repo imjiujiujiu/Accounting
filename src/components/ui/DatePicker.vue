@@ -11,6 +11,7 @@ const props = defineProps({
   invalid: Boolean,
   disabled: Boolean,
   placeholder: { type: String, default: '選擇日期' },
+  iconSize: { type: Number, default: 20 },
 })
 const model = defineModel({ type: [String, null] })
 
@@ -56,7 +57,7 @@ function goToday() {
   <div ref="root" class="date-picker" :class="{ open, invalid }">
     <button class="trigger body2" type="button" :disabled="disabled" aria-haspopup="dialog" :aria-expanded="open" @click="open ? (open = false) : show()" @keydown="onKey">
       <span class="value" :class="{ 'c-text': !label }">{{ label || placeholder }}</span>
-      <Icon name="calendar" :size="20" color="var(--color-text)" />
+      <Icon name="calendar" :size="iconSize" color="var(--color-text)" />
     </button>
 
     <div v-if="open" class="panel" role="dialog" aria-label="選擇日期">

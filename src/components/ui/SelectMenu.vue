@@ -1,6 +1,6 @@
 <script setup>
 // 單選下拉（取代原生 <select>）。觸發鈕樣式同輸入框；展開面板沿用篩選下拉（FilterMenu）的樣式。
-// 用法：<SelectMenu v-model="type" :options="[{ value, label, disabled? }]" :invalid="!!error" />
+// 用法：<SelectMenu v-model="type" :options="[{ value, label, disabled?, icon?, iconColor? }]" :invalid="!!error" />
 // 鍵盤：Enter／空白／↓ 開啟，↑↓ 移動，Enter 選取，Esc 關閉。
 import { ref, computed, nextTick } from 'vue'
 import Icon from '../Icon.vue'
@@ -12,6 +12,8 @@ const props = defineProps({
   disabled: Boolean,
   invalid: Boolean,
   placeholder: { type: String, default: '請選擇' },
+  /** 觸發鈕左側圖示（16，Text 色），例如帳戶用 wallet */
+  icon: String,
 })
 const emit = defineEmits(['update:modelValue'])
 
@@ -74,6 +76,7 @@ function onKey(e) {
       @click="open ? (open = false) : show()"
       @keydown="onKey"
     >
+      <Icon v-if="icon" :name="icon" :size="16" color="var(--color-text)" />
       <span class="value" :class="{ 'c-text': !selected }">{{ selected?.label ?? placeholder }}</span>
       <Icon name="down" :size="20" color="var(--color-text)" />
     </button>
@@ -92,6 +95,7 @@ function onKey(e) {
         @mouseenter="active = i"
         @click="pick(o)"
       >
+        <Icon v-if="o.icon" :name="o.icon" :size="16" :color="o.iconColor ?? 'var(--color-text)'" />
         <span class="text">{{ o.label }}</span>
         <Icon v-if="o.value === modelValue" name="check" :size="16" color="var(--color-primary)" />
       </button>
@@ -114,7 +118,7 @@ function onKey(e) {
 
 /* 面板：同 FilterMenu（Card 底、Line 框、圓角 8、內距 12） */
 .panel {
-  position: absolute; z-index: 30; left: 0; right: 0; top: calc(100% + 8px);
+  position: absolute; z-index: 30; left: 0; min-width: 100%; width: max-content; max-width: 320px; top: calc(100% + 8px);
   max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-2);
   background: var(--color-card); border: 1px solid var(--color-line); border-radius: var(--r-8); padding: var(--sp-8);
   box-shadow: var(--shadow-pop);
