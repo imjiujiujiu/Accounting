@@ -6,6 +6,7 @@
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
+import SelectMenu from '../components/SelectMenu.vue'
 import { refs, loadRefs, afterTransactionChange, showToast, baseCurrency } from '../lib/store.js'
 import { api, ACCOUNT_TYPES } from '../lib/api/index.js'
 import { parseAmount, toInputString, minorUnitOf } from '../lib/logic/money.js'
@@ -43,6 +44,8 @@ const byActive = (a, b) => b.is_active - a.is_active || a.sort_order - b.sort_or
 
 /* ===== 帳戶 ===== */
 const typeLabel = (k) => ACCOUNT_TYPES.find((t) => t.key === k)?.label ?? k
+const typeOptions = ACCOUNT_TYPES.map((t) => ({ value: t.key, label: t.label }))
+const currencyOptions = computed(() => refs.currencies.map((c) => ({ value: c.code, label: `${c.name_zh} ${c.code}` })))
 const sortedAccounts = computed(() => [...refs.accounts].sort(byActive))
 const acc = reactive({ name: '', type: 'bank', currency: 'TWD', initial: '0', locked: false })
 
@@ -155,25 +158,15 @@ function toggleActive(kind, item) {
         <template v-for="a in [{ id: 'new' }, ...sortedAccounts]" :key="a.id">
           <form v-if="isEditing('account', a.id)" class="editor" @submit.prevent="saveAccount">
             <label class="field"><span class="label">名稱</span><input v-model="acc.name" class="input" maxlength="40" /></label>
-            <label class="field">
+            <div class="field">
               <span class="label">類型</span>
-              <span class="select">
-                <select v-model="acc.type" class="input">
-                  <option v-for="t in ACCOUNT_TYPES" :key="t.key" :value="t.key">{{ t.label }}</option>
-                </select>
-                <Icon name="down" :size="20" color="var(--color-text)" />
-              </span>
-            </label>
-            <label class="field">
+              <SelectMenu v-model="acc.type" :options="typeOptions" />
+            </div>
+            <div class="field">
               <span class="label">幣別</span>
-              <span class="select">
-                <select v-model="acc.currency" class="input" :disabled="acc.locked">
-                  <option v-for="c in refs.currencies" :key="c.code" :value="c.code">{{ c.name_zh }} {{ c.code }}</option>
-                </select>
-                <Icon name="down" :size="20" color="var(--color-text)" />
-              </span>
+              <SelectMenu v-model="acc.currency" :options="currencyOptions" :disabled="acc.locked" />
               <span v-if="acc.locked" class="hint">已有交易，不可改幣別</span>
-            </label>
+            </div>
             <label class="field">
               <span class="label">初始餘額</span>
               <input v-model="acc.initial" class="input" inputmode="decimal" />
@@ -201,8 +194,6 @@ function toggleActive(kind, item) {
               <button v-if="a.canDelete" class="icon-btn" type="button" title="刪除" aria-label="刪除" :disabled="busy" @click="removeAccount(a)">
                 <Icon name="trash" :size="24" color="var(--color-expense)" />
               </button>
-              <!-- 已有交易不能刪除：留空位讓各列圖示對齊 -->
-              <span v-else class="icon-btn" :title="`已有 ${a.txn_count} 筆交易，只能停用`" />
             </span>
           </div>
         </template>
@@ -326,9 +317,6 @@ function toggleActive(kind, item) {
 .editor .input:disabled { color: var(--color-text); cursor: not-allowed; }
 .editor-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-12); }
 .editor-foot > span { flex: 1; min-width: 0; }
-.select { position: relative; display: block; }
-.select > select { appearance: none; padding-right: 40px; }
-.select > :deep(svg) { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }
 .cat-fields { display: flex; gap: var(--sp-12); align-items: flex-start; }
 .grow-field { flex: 1; }
 .icon-select {
