@@ -41,15 +41,21 @@ export function rangeLabel(range) {
   return range.from === range.to ? f(range.from) : `${f(range.from)} ~ ${f(range.to)}`
 }
 
-// 預設類別 → 圖示；自訂類別用通用圖示
+// 預設類別 → 圖示（依名稱）；對不到的（自訂類別）用該收支的「其他」圖示。
+// 之後若開放自選圖示，會改成存在類別上的 icon，這裡只當沒選時的預設。
 const CATEGORY_ICONS = {
-  expense: { 餐飲: 'food', 交通: 'bus', 購物: 'shopping', 居住: 'home', 娛樂: 'game', 醫療: 'medical', 學習: 'school', 其他: 'more' },
-  income: { 薪水: 'salary', 獎金: 'gift', 投資收益: 'trending', 回饋: 'redeem', 其他: 'more' },
+  expense: {
+    餐飲: 'food', 交通: 'bus', 購物: 'shopping', 居住: 'home', 娛樂: 'entertainment', 醫療: 'medical',
+    學習: 'learn', 捐贈: 'donate', 投資: 'invest', 送禮: 'gift', 其他: 'otherExpense',
+  },
+  // 獎金、投資收益為舊版預設，保留對應
+  income: { 薪水: 'salary', 回饋: 'redeem', 投資: 'stock', 其他: 'otherIncome', 獎金: 'gift', 投資收益: 'stock' },
 }
+const FALLBACK_ICON = { expense: 'otherExpense', income: 'otherIncome' }
 
 export function categoryIcon(category) {
   if (!category) return 'category'
-  return CATEGORY_ICONS[category.kind]?.[category.name] ?? 'category'
+  return CATEGORY_ICONS[category.kind]?.[category.name] ?? FALLBACK_ICON[category.kind] ?? 'category'
 }
 
 /**

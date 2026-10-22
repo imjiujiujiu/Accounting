@@ -158,6 +158,29 @@ describe('categories / tags / settings', () => {
       kind: 'duplicate', message: '已有同名類別',
     })
   })
+  it('類別列表含使用次數，0 筆才能刪除', async () => {
+    const db = fakeDb(() => ({ data: [{ id: 'a', txn_count: 0 }, { id: 'b', txn_count: 3 }], error: null }))
+    const list = await createApi(db).categories.list()
+    expect(db.calls[0].table).toBe('category_usage')
+    expect(list.map((c) => c.canDelete)).toEqual([true, false])
+  })
+  it('還沒有 category_usage 時退回讀 categories，暫時不能刪除', async () => {
+    const db = fakeDb((call) =>
+      call.table === 'category_usage'
+        ? { data: null, error: { code: 'PGRST205', message: "Could not find the table 'public.category_usage'" } }
+        : { data: [{ id: 'a' }], error: null },
+    )
+    const list = await createApi(db).categories.list()
+    expect(db.calls.map((c) => c.table)).toEqual(['category_usage', 'categories'])
+    expect(list[0].canDelete).toBe(false)
+  })
+  it('類別已有交易時刪除失敗', async () => {
+    const db = fakeDb(() => ({ data: null, error: { code: '23503', message: 'violates foreign key' } }))
+    await expect(createApi(db).categories.remove('c')).rejects.toMatchObject({
+      kind: 'in_use', message: '這個類別已有交易使用，無法刪除，只能停用',
+    })
+    expect(argsOf(db.calls[0], 'eq')[0]).toEqual(['id', 'c'])
+  })
   it('標籤依名稱排序', async () => {
     const db = fakeDb(() => ({ data: [{ id: 1, name: 'b' }, { id: 2, name: 'A' }], error: null }))
     expect((await createApi(db).tags.list()).map((t) => t.name)).toEqual(['A', 'b'])

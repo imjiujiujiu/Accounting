@@ -1,12 +1,16 @@
 <script setup>
-// 管理：帳戶、類別、標籤。
-// 帳戶：有交易後不可改幣別、不可刪除（只能停用）。類別：可新增、改名、停用，不可刪除。標籤：改名、刪除（只移除關聯）。
+// 管理：帳戶、標籤（左欄）、支出類別、收入類別。設計稿：Figma Manage（node 57:621）。
+// 帳戶：有交易後不可改幣別、不可刪除（只能停用）。
+// 類別：可新增、改名、停用；沒有交易使用才能刪除（垃圾桶），有交易使用時該位置改為停用。
+// 標籤：改名、刪除（只移除關聯）。
+// 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
 import { refs, loadRefs, afterTransactionChange, showToast, baseCurrency } from '../lib/store.js'
 import { api, ACCOUNT_TYPES } from '../lib/api/index.js'
 import { parseAmount, toInputString, minorUnitOf } from '../lib/logic/money.js'
 import { formatSigned, categoryIcon } from '../lib/logic/display.js'
+import { confirmDialog } from '../lib/confirm.js'
 
 const busy = ref(false)
 async function act(fn, okText) {
@@ -24,39 +28,54 @@ async function act(fn, okText) {
   }
 }
 
+/** 目前開著的編輯框：section＝'account' | 'expense' | 'income' | 'tag'；id＝'new' 或項目 id */
+const editing = reactive({ section: null, id: null, error: '' })
+const isEditing = (section, id) => editing.section === section && editing.id === id
+function openEditor(section, id) {
+  Object.assign(editing, { section, id, error: '' })
+}
+function closeEditor() {
+  Object.assign(editing, { section: null, id: null, error: '' })
+}
+
+// 停用的排最後
+const byActive = (a, b) => b.is_active - a.is_active || a.sort_order - b.sort_order
+
 /* ===== 帳戶 ===== */
 const typeLabel = (k) => ACCOUNT_TYPES.find((t) => t.key === k)?.label ?? k
-const sortedAccounts = computed(() => [...refs.accounts].sort((a, b) => b.is_active - a.is_active || a.sort_order - b.sort_order))
-const acc = reactive({ id: null, draft: null, error: '' }) // id = 'new' 為新增
+const sortedAccounts = computed(() => [...refs.accounts].sort(byActive))
+const acc = reactive({ name: '', type: 'bank', currency: 'TWD', initial: '0', locked: false })
 
 function editAccount(a) {
-  acc.error = ''
-  acc.id = a ? a.id : 'new'
-  acc.draft = a
-    ? { name: a.name, type: a.type, currency: a.currency, initial: toInputString(a.initial_balance, minorUnitOf(a.currency, refs.currencies)), locked: a.txn_count > 0 }
-    : { name: '', type: 'bank', currency: baseCurrency.value, initial: '0', locked: false }
+  Object.assign(
+    acc,
+    a
+      ? { name: a.name, type: a.type, currency: a.currency, initial: toInputString(a.initial_balance, minorUnitOf(a.currency, refs.currencies)), locked: a.txn_count > 0 }
+      : { name: '', type: 'bank', currency: baseCurrency.value, initial: '0', locked: false },
+  )
+  openEditor('account', a ? a.id : 'new')
 }
 async function saveAccount() {
-  const d = acc.draft
-  if (!d.name.trim()) return (acc.error = '請輸入帳戶名稱')
-  const initial = parseAmount(d.initial === '' ? '0' : String(d.initial).replace(/^-/, ''), minorUnitOf(d.currency, refs.currencies))
-  if (Number.isNaN(initial)) return (acc.error = '初始餘額格式不正確')
-  const sign = String(d.initial).trim().startsWith('-') ? -1 : 1
-  const payload = { name: d.name, type: d.type, initial_balance: sign * initial }
-  if (!d.locked) payload.currency = d.currency
+  if (!acc.name.trim()) return (editing.error = '請輸入帳戶名稱')
+  const raw = String(acc.initial).trim()
+  const initial = parseAmount(raw === '' ? '0' : raw.replace(/^-/, ''), minorUnitOf(acc.currency, refs.currencies))
+  if (Number.isNaN(initial)) return (editing.error = '初始餘額格式不正確')
+  const sign = raw.startsWith('-') ? -1 : 1
+  const payload = { name: acc.name, type: acc.type, initial_balance: sign * initial }
+  if (!acc.locked) payload.currency = acc.currency
+  const isNew = editing.id === 'new'
+  const id = editing.id
   const ok = await act(
-    () => (acc.id === 'new' ? api.accounts.create({ ...payload, sort_order: refs.accounts.length + 1 }) : api.accounts.update(acc.id, payload)),
-    acc.id === 'new' ? '已新增帳戶' : '已更新帳戶',
+    () => (isNew ? api.accounts.create({ ...payload, sort_order: refs.accounts.length + 1 }) : api.accounts.update(id, payload)),
+    isNew ? '已新增帳戶' : '已更新帳戶',
   )
   if (ok) {
-    acc.id = null
+    closeEditor()
     afterTransactionChange()
   }
 }
-const confirmDel = ref(null)
 async function removeAccount(a) {
-  if (confirmDel.value !== a.id) return (confirmDel.value = a.id)
-  confirmDel.value = null
+  if (!(await confirmDialog({ title: `刪除帳戶「${a.name}」？`, message: '刪除後無法復原。', confirmText: '刪除' }))) return
   await act(() => api.accounts.remove(a.id), '已刪除帳戶')
 }
 
@@ -65,164 +84,255 @@ const catGroups = computed(() =>
   [
     { kind: 'expense', title: '支出類別', color: 'var(--color-expense)' },
     { kind: 'income', title: '收入類別', color: 'var(--color-income)' },
-  ].map((g) => ({
-    ...g,
-    items: refs.categories.filter((c) => c.kind === g.kind).sort((a, b) => b.is_active - a.is_active || a.sort_order - b.sort_order),
-  })),
+  ].map((g) => ({ ...g, items: refs.categories.filter((c) => c.kind === g.kind).sort(byActive) })),
 )
-const cat = reactive({ id: null, name: '' })
-const newCat = reactive({ expense: '', income: '' })
-async function saveCategory() {
-  if (!cat.name.trim()) return
-  if (await act(() => api.categories.update(cat.id, { name: cat.name }), '已更新類別')) cat.id = null
+const cat = reactive({ name: '', icon: '' })
+function editCategory(kind, c) {
+  // MVP：圖示依名稱對應、不可自選；新增的類別一律用該收支的「其他」圖示
+  Object.assign(cat, { name: c ? c.name : '', icon: categoryIcon(c ?? { kind, name: '其他' }) })
+  openEditor(kind, c ? c.id : 'new')
 }
-async function addCategory(kind) {
-  if (!newCat[kind].trim()) return
-  if (await act(() => api.categories.create({ name: newCat[kind], kind }), '已新增類別')) newCat[kind] = ''
+async function saveCategory(kind) {
+  if (!cat.name.trim()) return (editing.error = '請輸入類別名稱')
+  const isNew = editing.id === 'new'
+  const id = editing.id
+  const ok = await act(
+    () => (isNew ? api.categories.create({ name: cat.name, kind }) : api.categories.update(id, { name: cat.name })),
+    isNew ? '已新增類別' : '已更新類別',
+  )
+  if (ok) closeEditor()
+}
+async function removeCategory(c) {
+  if (!(await confirmDialog({ title: `刪除類別「${c.name}」？`, message: '刪除後無法復原。', confirmText: '刪除' }))) return
+  await act(() => api.categories.remove(c.id), '已刪除類別')
 }
 
 /* ===== 標籤 ===== */
-const tag = reactive({ id: null, name: '' })
+const tagName = ref('')
+function editTag(t) {
+  tagName.value = t.name
+  openEditor('tag', t.id)
+}
 async function saveTag() {
-  if (!tag.name.trim()) return
-  if (await act(() => api.tags.rename(tag.id, tag.name), '已更新標籤')) {
-    tag.id = null
+  if (!tagName.value.trim()) return (editing.error = '請輸入標籤名稱')
+  const id = editing.id
+  if (await act(() => api.tags.rename(id, tagName.value), '已更新標籤')) {
+    closeEditor()
     afterTransactionChange()
   }
 }
 async function removeTag(t) {
-  if (confirmDel.value !== t.id) return (confirmDel.value = t.id)
-  confirmDel.value = null
+  const ok = await confirmDialog({
+    title: `刪除標籤「${t.name}」？`,
+    message: '只會移除標籤本身，使用這個標籤的交易不受影響。',
+    confirmText: '刪除',
+  })
+  if (!ok) return
   if (await act(() => api.tags.remove(t.id), '已刪除標籤')) afterTransactionChange()
+}
+
+/** 停用／啟用（帳戶與類別共用） */
+function toggleActive(kind, item) {
+  const fn = kind === 'account' ? api.accounts.setActive : api.categories.setActive
+  return act(() => fn(item.id, !item.is_active), item.is_active ? '已停用' : '已啟用')
 }
 </script>
 
 <template>
   <div class="manage">
     <div class="col">
-    <!-- 帳戶 -->
-    <section class="card block">
+      <!-- 帳戶 -->
+      <section class="card block">
+        <div class="block-head">
+          <p class="h5">帳戶</p>
+          <button class="btn sm" type="button" :disabled="busy" @click="editAccount(null)">
+            <Icon name="plus" :size="20" color="var(--color-content)" />新增帳戶
+          </button>
+        </div>
+
+        <template v-for="a in [{ id: 'new' }, ...sortedAccounts]" :key="a.id">
+          <form v-if="isEditing('account', a.id)" class="editor" @submit.prevent="saveAccount">
+            <label class="field"><span class="label">名稱</span><input v-model="acc.name" class="input" maxlength="40" /></label>
+            <label class="field">
+              <span class="label">類型</span>
+              <span class="select">
+                <select v-model="acc.type" class="input">
+                  <option v-for="t in ACCOUNT_TYPES" :key="t.key" :value="t.key">{{ t.label }}</option>
+                </select>
+                <Icon name="down" :size="20" color="var(--color-text)" />
+              </span>
+            </label>
+            <label class="field">
+              <span class="label">幣別</span>
+              <span class="select">
+                <select v-model="acc.currency" class="input" :disabled="acc.locked">
+                  <option v-for="c in refs.currencies" :key="c.code" :value="c.code">{{ c.name_zh }} {{ c.code }}</option>
+                </select>
+                <Icon name="down" :size="20" color="var(--color-text)" />
+              </span>
+              <span v-if="acc.locked" class="hint">已有交易，不可改幣別</span>
+            </label>
+            <label class="field">
+              <span class="label">初始餘額</span>
+              <input v-model="acc.initial" class="input" inputmode="decimal" />
+              <span class="hint">信用卡欠款請填負數</span>
+            </label>
+            <div class="editor-foot">
+              <span class="body2 c-expense">{{ editing.error }}</span>
+              <button class="btn sm" type="button" @click="closeEditor">取消</button>
+              <button class="btn sm primary" type="submit" :disabled="busy">儲存</button>
+            </div>
+          </form>
+          <div v-else-if="a.id !== 'new'" class="item account" :class="{ dim: !a.is_active }">
+            <span class="grow">
+              <span class="name body1-bold">{{ a.name }}<span v-if="!a.is_active" class="tag">已停用</span></span>
+              <span class="caption c-text">{{ typeLabel(a.type) }} • {{ a.currency }} • {{ a.txn_count }} 筆</span>
+            </span>
+            <span class="h6 num" :class="a.balance < 0 ? 'c-expense' : ''">{{ formatSigned(a.balance, a.currency, refs.currencies) }}</span>
+            <span class="actions">
+              <button class="icon-btn" type="button" title="編輯" aria-label="編輯" @click="editAccount(a)">
+                <Icon name="pen" :size="24" color="var(--color-text)" />
+              </button>
+              <button class="icon-btn" type="button" :title="a.is_active ? '停用' : '啟用'" :aria-label="a.is_active ? '停用' : '啟用'" :disabled="busy" @click="toggleActive('account', a)">
+                <Icon :name="a.is_active ? 'block' : 'restore'" :size="24" :color="a.is_active ? 'var(--color-expense)' : 'var(--color-primary)'" />
+              </button>
+              <button v-if="a.canDelete" class="icon-btn" type="button" title="刪除" aria-label="刪除" :disabled="busy" @click="removeAccount(a)">
+                <Icon name="trash" :size="24" color="var(--color-expense)" />
+              </button>
+              <!-- 已有交易不能刪除：留空位讓各列圖示對齊 -->
+              <span v-else class="icon-btn" :title="`已有 ${a.txn_count} 筆交易，只能停用`" />
+            </span>
+          </div>
+        </template>
+        <p v-if="!refs.accounts.length && editing.section !== 'account'" class="body2 c-text">還沒有帳戶。先建立常用的現金、銀行與信用卡帳戶。</p>
+      </section>
+
+      <!-- 標籤 -->
+      <section class="card block">
+        <div class="block-head"><p class="h5">標籤</p></div>
+        <template v-for="t in refs.tags" :key="t.id">
+          <form v-if="isEditing('tag', t.id)" class="editor" @submit.prevent="saveTag">
+            <label class="field"><span class="label">名稱</span><input v-model="tagName" class="input" maxlength="30" /></label>
+            <div class="editor-foot">
+              <span class="body2 c-expense">{{ editing.error }}</span>
+              <button class="btn sm" type="button" @click="closeEditor">取消</button>
+              <button class="btn sm primary" type="submit" :disabled="busy">儲存</button>
+            </div>
+          </form>
+          <div v-else class="item">
+            <span class="label-row"><Icon name="tag16" :size="16" color="var(--color-text)" /><span class="body1">{{ t.name }}</span></span>
+            <span class="actions">
+              <button class="icon-btn" type="button" title="改名" aria-label="改名" @click="editTag(t)">
+                <Icon name="pen" :size="24" color="var(--color-text)" />
+              </button>
+              <button class="icon-btn" type="button" title="刪除" aria-label="刪除" :disabled="busy" @click="removeTag(t)">
+                <Icon name="trash" :size="24" color="var(--color-expense)" />
+              </button>
+            </span>
+          </div>
+        </template>
+        <p v-if="!refs.tags.length" class="body2 c-text">還沒有標籤。記帳時在「標籤」欄位輸入就會自動建立。</p>
+        <p class="caption c-text">刪除標籤只會移除標籤本身，交易不受影響。</p>
+      </section>
+    </div>
+
+    <!-- 支出類別、收入類別 -->
+    <section v-for="g in catGroups" :key="g.kind" class="card block">
       <div class="block-head">
-        <p class="h4">帳戶</p>
-        <button class="btn small" type="button" :disabled="busy" @click="editAccount(null)"><Icon name="add" :size="18" />新增帳戶</button>
+        <p class="h5">{{ g.title }}</p>
+        <button class="btn sm" type="button" :disabled="busy" @click="editCategory(g.kind, null)">
+          <Icon name="plus" :size="20" color="var(--color-content)" />新增
+        </button>
       </div>
 
-      <template v-for="a in [{ id: 'new' }, ...sortedAccounts]" :key="a.id">
-        <form v-if="acc.id === a.id" class="editor" @submit.prevent="saveAccount">
-          <label class="field"><span class="label">名稱</span><input v-model="acc.draft.name" class="input" maxlength="40" /></label>
-          <label class="field">
-            <span class="label">類型</span>
-            <select v-model="acc.draft.type" class="input"><option v-for="t in ACCOUNT_TYPES" :key="t.key" :value="t.key">{{ t.label }}</option></select>
-          </label>
-          <label class="field">
-            <span class="label">幣別</span>
-            <select v-model="acc.draft.currency" class="input" :disabled="acc.draft.locked">
-              <option v-for="c in refs.currencies" :key="c.code" :value="c.code">{{ c.name_zh }} {{ c.code }}</option>
-            </select>
-            <span v-if="acc.draft.locked" class="hint">已有交易，不可改幣別</span>
-          </label>
-          <label class="field">
-            <span class="label">初始餘額</span>
-            <input v-model="acc.draft.initial" class="input" inputmode="decimal" />
-            <span class="hint">信用卡欠款請填負數</span>
-          </label>
+      <template v-for="c in [{ id: 'new' }, ...g.items]" :key="c.id">
+        <form v-if="isEditing(g.kind, c.id)" class="editor" @submit.prevent="saveCategory(g.kind)">
+          <div class="cat-fields">
+            <div class="field">
+              <span class="label">圖示</span>
+              <!-- MVP 不可自選圖示（之後改為下拉選擇） -->
+              <button class="icon-select" type="button" disabled title="之後開放選擇圖示">
+                <Icon :name="cat.icon" :size="16" :color="g.color" />
+                <Icon name="down" :size="20" color="var(--color-text)" />
+              </button>
+            </div>
+            <label class="field grow-field"><span class="label">名稱</span><input v-model="cat.name" class="input" maxlength="20" /></label>
+          </div>
           <div class="editor-foot">
-            <span class="body2 c-expense">{{ acc.error }}</span>
-            <button class="btn ghost small" type="button" @click="acc.id = null">取消</button>
-            <button class="btn primary small" type="submit" :disabled="busy">儲存</button>
+            <span class="body2 c-expense">{{ editing.error }}</span>
+            <button class="btn sm" type="button" @click="closeEditor">取消</button>
+            <button class="btn sm primary" type="submit" :disabled="busy">儲存</button>
           </div>
         </form>
-        <div v-else-if="a.id !== 'new'" class="item" :class="{ dim: !a.is_active }">
-          <span class="grow">
-            <span class="body1-bold">{{ a.name }}</span>
-            <span class="caption c-text">{{ typeLabel(a.type) }} · {{ a.currency }}{{ a.is_active ? '' : ' · 已停用' }} · {{ a.txn_count }} 筆</span>
+        <div v-else-if="c.id !== 'new'" class="item" :class="{ dim: !c.is_active }">
+          <span class="label-row">
+            <Icon :name="categoryIcon(c)" :size="16" :color="g.color" />
+            <span class="body1">{{ c.name }}</span>
+            <span v-if="!c.is_active" class="tag">已停用</span>
           </span>
-          <span class="body1-bold" :class="a.balance < 0 ? 'c-expense' : ''">{{ formatSigned(a.balance, a.currency, refs.currencies) }}</span>
           <span class="actions">
-            <button class="btn ghost small" type="button" @click="editAccount(a)">編輯</button>
-            <button class="btn ghost small" type="button" :disabled="busy" @click="act(() => api.accounts.setActive(a.id, !a.is_active), a.is_active ? '已停用' : '已啟用')">
-              {{ a.is_active ? '停用' : '啟用' }}
+            <button class="icon-btn" type="button" title="改名" aria-label="改名" @click="editCategory(g.kind, c)">
+              <Icon name="pen" :size="24" color="var(--color-text)" />
             </button>
-            <button v-if="a.canDelete" class="btn danger small" :class="{ confirm: confirmDel === a.id }" type="button" :disabled="busy" @click="removeAccount(a)">
-              {{ confirmDel === a.id ? '確定刪除？' : '刪除' }}
+            <button v-if="!c.is_active" class="icon-btn" type="button" title="啟用" aria-label="啟用" :disabled="busy" @click="toggleActive('category', c)">
+              <Icon name="restore" :size="24" color="var(--color-primary)" />
+            </button>
+            <button v-else-if="c.canDelete" class="icon-btn" type="button" title="刪除" aria-label="刪除" :disabled="busy" @click="removeCategory(c)">
+              <Icon name="trash" :size="24" color="var(--color-expense)" />
+            </button>
+            <button v-else class="icon-btn" type="button" :title="c.txn_count ? `已有 ${c.txn_count} 筆交易，只能停用` : `停用`" aria-label="停用" :disabled="busy" @click="toggleActive('category', c)">
+              <Icon name="block" :size="24" color="var(--color-expense)" />
             </button>
           </span>
         </div>
       </template>
-      <p v-if="!refs.accounts.length && acc.id !== 'new'" class="body2 c-text">還沒有帳戶。先建立常用的現金、銀行與信用卡帳戶。</p>
+      <p class="caption c-text">有交易使用的類別不能刪除，避免歷史交易失去分類；不用的請停用。</p>
     </section>
-
-    <!-- 標籤 -->
-    <section class="card block">
-      <p class="h4">標籤</p>
-      <div v-for="t in refs.tags" :key="t.id" class="item">
-        <Icon name="tag" :size="20" color="var(--color-text)" />
-        <form v-if="tag.id === t.id" class="grow inline" @submit.prevent="saveTag">
-          <input v-model="tag.name" class="input small-input" maxlength="30" />
-          <button class="btn primary small" type="submit" :disabled="busy">儲存</button>
-          <button class="btn ghost small" type="button" @click="tag.id = null">取消</button>
-        </form>
-        <template v-else>
-          <span class="grow body1">{{ t.name }}</span>
-          <span class="actions">
-            <button class="btn ghost small" type="button" @click="Object.assign(tag, { id: t.id, name: t.name })">改名</button>
-            <button class="btn danger small" :class="{ confirm: confirmDel === t.id }" type="button" :disabled="busy" @click="removeTag(t)">
-              {{ confirmDel === t.id ? '確定刪除？' : '刪除' }}
-            </button>
-          </span>
-        </template>
-      </div>
-      <p v-if="!refs.tags.length" class="body2 c-text">還沒有標籤。記帳時在「標籤」欄位輸入就會自動建立。</p>
-      <p class="caption c-text">刪除標籤只會移除標籤本身，交易不受影響。</p>
-    </section>
-    </div>
-    <div class="col">
-    <!-- 類別 -->
-    <section v-for="g in catGroups" :key="g.kind" class="card block">
-      <p class="h4">{{ g.title }}</p>
-      <div v-for="c in g.items" :key="c.id" class="item" :class="{ dim: !c.is_active }">
-        <Icon :name="categoryIcon(c)" :size="20" :color="g.color" />
-        <form v-if="cat.id === c.id" class="grow inline" @submit.prevent="saveCategory">
-          <input v-model="cat.name" class="input small-input" maxlength="20" />
-          <button class="btn primary small" type="submit" :disabled="busy">儲存</button>
-          <button class="btn ghost small" type="button" @click="cat.id = null">取消</button>
-        </form>
-        <template v-else>
-          <span class="grow body1">{{ c.name }}<span v-if="!c.is_active" class="caption c-text">（停用）</span></span>
-          <span class="actions">
-            <button class="btn ghost small" type="button" @click="Object.assign(cat, { id: c.id, name: c.name })">改名</button>
-            <button class="btn ghost small" type="button" :disabled="busy" @click="act(() => api.categories.setActive(c.id, !c.is_active), c.is_active ? '已停用' : '已啟用')">
-              {{ c.is_active ? '停用' : '啟用' }}
-            </button>
-          </span>
-        </template>
-      </div>
-      <form class="inline add" @submit.prevent="addCategory(g.kind)">
-        <input v-model="newCat[g.kind]" class="input small-input" placeholder="新增類別" maxlength="20" />
-        <button class="btn small" type="submit" :disabled="busy || !newCat[g.kind].trim()">新增</button>
-      </form>
-      <p class="caption c-text">類別不能刪除，避免歷史交易失去分類；不用的請停用。</p>
-    </section>
-
-    </div>
   </div>
 </template>
 
 <style scoped>
-.manage { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-16); align-items: start; }
-.col { display: flex; flex-direction: column; gap: var(--sp-16); min-width: 0; }
-.block { display: flex; flex-direction: column; gap: var(--sp-8); }
-.block-head { display: flex; align-items: center; justify-content: space-between; }
-.block > .h4 { margin-bottom: var(--sp-8); }
-.item { display: flex; align-items: center; gap: var(--sp-12); min-height: 48px; padding: var(--sp-4) 0; border-bottom: 1px solid var(--color-line); }
-.item.dim { opacity: .55; }
-.grow { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.actions { display: flex; gap: var(--sp-4); }
-.inline { flex-direction: row; align-items: center; gap: var(--sp-8); display: flex; }
-.add { margin-top: var(--sp-8); }
-.small-input { height: 36px; }
-.editor { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-12); padding: var(--sp-16); border: 1px solid var(--color-primary); border-radius: var(--r-12); margin: var(--sp-8) 0; }
-.editor-foot { grid-column: 1 / -1; display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-8); }
-.editor-foot > span { flex: 1; }
-@media (max-width: 1100px) { .manage { grid-template-columns: 1fr; } }
+.manage { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-24); align-items: start; }
+.col { display: flex; flex-direction: column; gap: var(--sp-24); min-width: 0; }
+.block { display: flex; flex-direction: column; gap: var(--sp-16); min-width: 0; }
+.block-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); }
+.h5 { font-size: 18px; font-weight: 700; line-height: 1.2; }
+
+/* 小按鈕：Tag 底（取消、新增）／主色（儲存） */
+.btn.sm { height: auto; padding: var(--sp-8) var(--sp-12); border-radius: var(--r-8); font-size: 14px; gap: var(--sp-4); line-height: 1.5; }
+
+/* 清單列 */
+.item { display: flex; align-items: center; gap: var(--sp-16); min-height: 32px; }
+.item.dim > :not(.actions) { opacity: .45; }
+.item.account { min-height: 0; }
+.grow { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.name { display: flex; align-items: center; gap: var(--sp-8); }
+.label-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-8); }
+.label-row > .body1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.num { white-space: nowrap; }
+.actions { display: flex; gap: var(--sp-16); flex-shrink: 0; }
+.icon-btn { display: grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-4); }
+.icon-btn:not(:disabled):hover { filter: brightness(1.25); }
+.icon-btn:disabled { opacity: .4; cursor: default; }
+
+/* 編輯框（新增在最上方；編輯就地取代該列） */
+.editor { display: flex; flex-direction: column; gap: var(--sp-16); padding: var(--sp-16); border: 1px solid var(--color-primary); border-radius: var(--r-12); }
+.editor .field { gap: var(--sp-4); }
+.editor .input { height: 40px; border-color: transparent; }
+.editor .input:focus { border-color: var(--color-primary); }
+.editor .input:disabled { color: var(--color-text); cursor: not-allowed; }
+.editor-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-12); }
+.editor-foot > span { flex: 1; min-width: 0; }
+.select { position: relative; display: block; }
+.select > select { appearance: none; padding-right: 40px; }
+.select > :deep(svg) { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.cat-fields { display: flex; gap: var(--sp-12); align-items: flex-start; }
+.grow-field { flex: 1; }
+.icon-select {
+  display: inline-flex; align-items: center; gap: var(--sp-4); height: 40px; padding: 0 var(--sp-12);
+  background: var(--color-page); border-radius: var(--r-8); cursor: not-allowed;
+}
+
+@media (max-width: 1100px) { .manage { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .manage { grid-template-columns: 1fr; } }
 </style>
