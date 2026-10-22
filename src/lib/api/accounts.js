@@ -34,7 +34,9 @@ export function createAccountsApi(db) {
           .from('account_balances')
           .select('*')
           .order('sort_order', { ascending: true })
-          .order('created_at', { ascending: true }),
+          // account_balances view 沒有 created_at，不能用它排序
+          .order('name', { ascending: true })
+          .order('id', { ascending: true }),
       )
       return (data ?? []).map((a) => ({
         ...a,

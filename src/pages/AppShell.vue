@@ -10,7 +10,15 @@ import { openNewTransaction } from '../lib/dialog.js'
 import { isDemo } from '../lib/api/index.js'
 
 const drawer = ref(false)
+const retrying = ref(false)
 onMounted(loadRefs)
+
+// 重試時按鈕顯示「讀取中…」，避免再次失敗時看起來像沒反應
+async function retry() {
+  retrying.value = true
+  await Promise.all([loadRefs(), new Promise((r) => setTimeout(r, 400))])
+  retrying.value = false
+}
 </script>
 
 <template>
@@ -18,7 +26,9 @@ onMounted(loadRefs)
     <AppHeader @open-accounts="drawer = true" />
     <p v-if="isDemo" class="demo caption">示範模式：資料只存在這個分頁，重新整理就還原</p>
     <p v-if="refs.error" class="load-error body2">
-      資料讀取失敗：{{ refs.error }} <button class="btn small" type="button" @click="loadRefs">重試</button>
+      資料讀取失敗：{{ refs.error }} <button class="btn small" type="button" :disabled="retrying" @click="retry">
+        {{ retrying ? '讀取中…' : '重試' }}
+      </button>
     </p>
     <main class="main">
       <RouterView />
