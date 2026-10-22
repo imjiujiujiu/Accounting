@@ -205,7 +205,7 @@ function toggleActive(kind, item) {
           </div>
         </template>
         <p v-if="!refs.tags.length" class="body2 c-text">還沒有標籤。記帳時在「標籤」欄位輸入就會自動建立。</p>
-        <p class="caption c-text">刪除標籤只會移除標籤本身，交易不受影響。</p>
+        <p class="caption c-text">刪除標籤只會移除標籤本身，交易不受影響。沒有交易使用的標籤會自動移除。</p>
       </section>
     </div>
 

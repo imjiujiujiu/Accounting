@@ -1,4 +1,5 @@
 // 標籤：記帳時邊打邊建；管理頁可改名、刪除（刪除只移除關聯，不影響交易）。
+// 曾被使用、後來沒有任何交易使用的標籤，由資料庫自動刪除（見 migrations/20261023_tag_auto_cleanup.sql）。
 import { run, assertOnline } from './errors.js'
 
 export function createTagsApi(db) {
