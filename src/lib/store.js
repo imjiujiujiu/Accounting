@@ -63,12 +63,13 @@ export async function loadRefs() {
   }
 }
 
-/** 寫入交易之後：重新讀清單、合計，以及帳戶餘額與標籤 */
+/** 寫入交易之後：重新讀清單、合計，以及帳戶餘額、類別使用次數與標籤 */
 export async function afterTransactionChange() {
   dataVersion.value++
   try {
-    const [accounts, tags] = await Promise.all([api.accounts.list(), api.tags.list()])
+    const [accounts, categories, tags] = await Promise.all([api.accounts.list(), api.categories.list(), api.tags.list()])
     refs.accounts = accounts
+    refs.categories = categories
     refs.tags = tags
   } catch {
     /* 下次 loadRefs 再補 */

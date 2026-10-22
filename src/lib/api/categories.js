@@ -1,19 +1,33 @@
-// 類別：區分收入／支出；可新增、修改、停用，不可刪除（資料庫也不開放刪除）。
+// 類別：區分收入／支出；可新增、修改、停用；沒有交易使用才能刪除（有交易時資料庫的外鍵會擋下）。
 import { run, assertOnline } from './errors.js'
+
+// 資料表或 view 不存在（PostgREST／PostgreSQL）
+const MISSING_RELATION = ['PGRST205', '42P01']
 
 export function createCategoriesApi(db) {
   return {
-    /** 全部類別（含停用），依收支、排序、名稱。表單只顯示 is_active 的；清單仍要能顯示停用類別的名稱。 */
+    /**
+     * 全部類別（含停用），依收支、排序、名稱。表單只顯示 is_active 的；清單仍要能顯示停用類別的名稱。
+     * 每筆含 txn_count（被幾筆交易使用）與 canDelete（txn_count 為 0 才能刪除）。
+     */
     async list() {
-      const { data } = await run(
+      const query = (from) =>
         db
-          .from('categories')
+          .from(from)
           .select('*')
           .order('kind', { ascending: true })
           .order('sort_order', { ascending: true })
-          .order('name', { ascending: true }),
-      )
-      return data ?? []
+          .order('name', { ascending: true })
+      let data
+      try {
+        ;({ data } = await run(query('category_usage')))
+      } catch (e) {
+        // 還沒執行 20261022_manage_categories.sql（沒有 category_usage）：退回讀 categories，暫時都不能刪除
+        if (!MISSING_RELATION.includes(e.code)) throw e
+        ;({ data } = await run(query('categories')))
+        return (data ?? []).map((c) => ({ ...c, txn_count: null, canDelete: false }))
+      }
+      return (data ?? []).map((c) => ({ ...c, txn_count: Number(c.txn_count ?? 0), canDelete: Number(c.txn_count ?? 0) === 0 }))
     },
 
     /** kind：'income' 或 'expense'；新類別排在「其他」之前 */
@@ -42,6 +56,12 @@ export function createCategoriesApi(db) {
       assertOnline()
       const { data } = await run(db.from('categories').update({ is_active: isActive }).eq('id', id).select().single())
       return data
+    },
+
+    /** 有交易使用時資料庫擋下，訊息「這個類別已有交易使用，無法刪除，只能停用」 */
+    async remove(id) {
+      assertOnline()
+      await run(db.from('categories').delete().eq('id', id), { in_use: '這個類別已有交易使用，無法刪除，只能停用' })
     },
   }
 }

@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import AccountDrawer from '../components/AccountDrawer.vue'
 import TransactionDialog from '../components/TransactionDialog.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import Icon from '../components/Icon.vue'
 import { refs, loadRefs, toast } from '../lib/store.js'
 import { openNewTransaction } from '../lib/dialog.js'
@@ -42,6 +43,7 @@ async function retry() {
     </button>
     <AccountDrawer :open="drawer" @close="drawer = false" />
     <TransactionDialog />
+    <ConfirmDialog />
     <Transition name="toast">
       <div v-if="toast.text" class="toast body1-bold" :class="toast.tone">{{ toast.text }}</div>
     </Transition>

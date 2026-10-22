@@ -31,7 +31,7 @@ if (ok) await api.transactions.save(formToPayload(form, ctx))
 |---|---|
 | `api.transactions` | `list` `summary` `byCategory` `recent` `get` `save` `remove` `estimate` `lastUsedAccountId` |
 | `api.accounts` | `list`（含餘額、預估筆數、`canDelete`）`create` `update` `setActive` `remove` |
-| `api.categories` | `list` `create` `update` `setActive`（不可刪除） |
+| `api.categories` | `list`（含 txn_count、canDelete）`create` `update` `setActive` `remove`（有交易使用時不可刪） |
 | `api.tags` | `list` `getOrCreate` `rename` `remove` |
 | `api.settings` | `currencies` `get` `defaultRates` `setDefaultRate` `removeDefaultRate` |
 | `api.export` | `fetchAll` `download`（設定頁「匯出 CSV」） |

@@ -65,7 +65,7 @@ create table public.accounts (
 
 
 -- ---------------------------------------------------------------------
--- 3. 類別（不開放刪除：不給 delete 權限也不設 delete policy）
+-- 3. 類別（沒有交易使用才能刪除：有交易時由 transactions 的外鍵擋下，錯誤碼 23503；只能停用）
 -- ---------------------------------------------------------------------
 create table public.categories (
   id         uuid primary key default gen_random_uuid(),
@@ -604,6 +604,24 @@ select a.id,
   ) i on true;
 
 
+-- 類別使用次數 view（管理頁用）：txn_count 為 0 才能刪除
+create view public.category_usage
+with (security_invoker = true) as
+select c.id,
+       c.user_id,
+       c.name,
+       c.kind,
+       c.is_active,
+       c.sort_order,
+       coalesce(u.txn_count, 0) as txn_count
+  from public.categories c
+  left join lateral (
+    select count(*)::int as txn_count
+      from public.transactions t
+     where t.category_id = c.id
+  ) u on true;
+
+
 -- =====================================================================
 -- 10. 新使用者預設資料（設定列＋預設類別）
 --   第一次 Google 登入建立帳號時自動執行。可重複執行，不會產生重複資料。
@@ -625,9 +643,10 @@ begin
     from (values
       ('餐飲', 'expense', 1), ('交通', 'expense', 2), ('購物', 'expense', 3),
       ('居住', 'expense', 4), ('娛樂', 'expense', 5), ('醫療', 'expense', 6),
-      ('學習', 'expense', 7), ('其他', 'expense', 99),
-      ('薪水', 'income', 1), ('獎金', 'income', 2), ('投資收益', 'income', 3),
-      ('回饋', 'income', 4), ('其他', 'income', 99)
+      ('學習', 'expense', 7), ('捐贈', 'expense', 8), ('投資', 'expense', 9),
+      ('送禮', 'expense', 10), ('其他', 'expense', 99),
+      ('薪水', 'income', 1), ('回饋', 'income', 2), ('投資', 'income', 3),
+      ('其他', 'income', 99)
     ) as x (name, kind, ord)
   on conflict (user_id, kind, name) do nothing;
 end;
@@ -677,7 +696,7 @@ create policy own_accounts on public.accounts
   for all to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 
--- 類別：可讀、新增、修改，不可刪除
+-- 類別：可讀、新增、修改、刪除（有交易使用的刪除會被外鍵擋下）
 create policy own_categories_select on public.categories
   for select to authenticated using (user_id = (select auth.uid()));
 create policy own_categories_insert on public.categories
@@ -685,6 +704,8 @@ create policy own_categories_insert on public.categories
 create policy own_categories_update on public.categories
   for update to authenticated
   using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+create policy own_categories_delete on public.categories
+  for delete to authenticated using (user_id = (select auth.uid()));
 
 create policy own_tags on public.tags
   for all to authenticated
@@ -708,11 +729,12 @@ grant select                         on public.currencies       to authenticated
 grant select, insert, update         on public.settings         to authenticated;
 grant select, insert, update, delete on public.default_rates    to authenticated;
 grant select, insert, update, delete on public.accounts         to authenticated;
-grant select, insert, update         on public.categories       to authenticated;
+grant select, insert, update, delete on public.categories       to authenticated;
 grant select, insert, update, delete on public.tags             to authenticated;
 grant select, insert, update, delete on public.transactions     to authenticated;
 grant select, insert, update, delete on public.transaction_tags to authenticated;
 grant select                         on public.account_balances to authenticated;
+grant select                         on public.category_usage   to authenticated;
 
 revoke execute on all functions in schema public from public, anon, authenticated;
 

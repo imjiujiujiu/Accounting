@@ -45,11 +45,15 @@ describe('日期與期間文字', () => {
 })
 
 describe('類別圖示', () => {
-  it('預設類別有專屬圖示，自訂類別用通用圖示', () => {
+  it('預設類別有專屬圖示，自訂類別用該收支的「其他」圖示', () => {
     expect(categoryIcon(categories[0])).toBe('food')
     expect(categoryIcon(categories[1])).toBe('salary')
-    expect(categoryIcon(categories[2])).toBe('category')
-    expect(categoryIcon({ name: '其他', kind: 'income' })).toBe('more')
+    expect(categoryIcon({ name: '投資', kind: 'expense' })).toBe('invest')
+    expect(categoryIcon({ name: '投資', kind: 'income' })).toBe('stock')
+    expect(categoryIcon({ name: '其他', kind: 'income' })).toBe('otherIncome')
+    expect(categoryIcon({ name: '寵物', kind: 'expense' })).toBe('otherExpense')
+    expect(categoryIcon({ name: '股利', kind: 'income' })).toBe('otherIncome')
+    expect(categoryIcon(null)).toBe('category')
   })
 })
 
