@@ -3,7 +3,7 @@
 html, body {
   margin: 0;
   background: var(--color-page);
-  color: var(--color-content);
+  color: var(--color-title);
   font-family: var(--font);
   font-size: 14px;
   line-height: 1.5;
@@ -30,7 +30,7 @@ svg { display: block; flex-shrink: 0; }
 .caption { font-size: 12px; }
 
 .c-text { color: var(--color-text); }
-.c-content { color: var(--color-content); }
+.c-title { color: var(--color-title); }
 .c-primary { color: var(--color-primary); }
 .c-expense { color: var(--color-expense); }
 .c-income { color: var(--color-income); }
@@ -73,7 +73,7 @@ svg { display: block; flex-shrink: 0; }
 /* 表單欄位（元件：components/ui/FormField、TextInput） */
 .field { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 0; }
 .field > .label { font-size: 14px; font-weight: 700; color: var(--color-text); }
-.field > .error { font-size: 12px; color: var(--color-expense); }
+.field > .error { font-size: 12px; color: var(--color-error); }
 .field > .hint { font-size: 12px; color: var(--color-text); }
 /* 輸入框：高 40、頁面底色、無框線；聚焦主色框、錯誤紅框 */
 .input {
@@ -82,9 +82,9 @@ svg { display: block; flex-shrink: 0; }
   outline: none; color-scheme: dark;
 }
 .input:focus, .input.focus { border-color: var(--color-primary); }
-.input.invalid { border-color: var(--color-expense); }
+.input.invalid { border-color: var(--color-error); }
 .input:disabled { color: var(--color-text); cursor: not-allowed; }
-.input::placeholder { color: var(--coldgray-500); }
+.input::placeholder { color: var(--color-placeholder); }
 
 /* 單選切換（支出／收入／轉帳） */
 .segmented { display: flex; background: var(--color-page); border: 1px solid var(--color-line); border-radius: var(--r-12); padding: var(--sp-4); }

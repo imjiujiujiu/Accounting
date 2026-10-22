@@ -104,10 +104,10 @@ function onKey(e) {
 .trigger {
   width: 100%; height: 40px; display: flex; align-items: center; gap: var(--sp-4);
   padding: 0 var(--sp-12); background: var(--color-page); border: 1px solid transparent; border-radius: var(--r-8);
-  text-align: left; color: var(--color-content);
+  text-align: left; color: var(--color-title);
 }
 .trigger:focus-visible, .open .trigger { border-color: var(--color-primary); outline: none; }
-.invalid .trigger { border-color: var(--color-expense); }
+.invalid .trigger { border-color: var(--color-error); }
 .trigger:disabled { color: var(--color-text); cursor: not-allowed; }
 .value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .open .trigger :deep(svg) { transform: rotate(180deg); }
@@ -118,11 +118,11 @@ function onKey(e) {
   max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-2);
   background: var(--color-card); border: 1px solid var(--color-line); border-radius: var(--r-8); padding: var(--sp-8);
   box-shadow: var(--shadow-pop);
-  scrollbar-width: thin; scrollbar-color: var(--coldgray-600) transparent;
+  scrollbar-width: thin; scrollbar-color: var(--color-line) transparent;
 }
 .option {
   display: flex; align-items: center; gap: var(--sp-8); width: 100%; min-height: 36px;
-  padding: 0 var(--sp-8); border-radius: var(--r-4); text-align: left; color: var(--color-content);
+  padding: 0 var(--sp-8); border-radius: var(--r-4); text-align: left; color: var(--color-title);
 }
 .option .text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .option.active { background: var(--color-tag); }

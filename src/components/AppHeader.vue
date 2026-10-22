@@ -41,12 +41,12 @@ const TABS = [
 }
 .account-btn { padding: 0 var(--sp-12); font-weight: 700; font-size: 14px; max-width: 260px; }
 .account-btn .name { overflow: hidden; text-overflow: ellipsis; }
-.tabs { position: absolute; right: var(--sp-32); bottom: 0; display: flex; gap: 20px; padding: 0 var(--sp-12); }
+.tabs { position: absolute; right: var(--sp-32); bottom: 0; display: flex; gap: var(--sp-20); padding: 0 var(--sp-12); }
 .tab {
   position: relative; padding: var(--sp-8) var(--sp-24); border-radius: var(--r-12) var(--r-12) 0 0;
   font-size: 14px; font-weight: 700; color: var(--color-text); text-decoration: none; transition: color .15s;
 }
-.tab:hover { color: var(--color-content); }
+.tab:hover { color: var(--color-title); }
 .tab.active { background: var(--color-primary); color: var(--color-card); }
 .flare { position: absolute; bottom: 0; display: none; fill: var(--color-primary); }
 .flare.l { left: -12px; }

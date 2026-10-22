@@ -90,10 +90,10 @@ function goToday() {
 .trigger {
   width: 100%; height: 40px; display: flex; align-items: center; gap: var(--sp-4);
   padding: 0 var(--sp-12); background: var(--color-page); border: 1px solid transparent; border-radius: var(--r-8);
-  text-align: left; color: var(--color-content);
+  text-align: left; color: var(--color-title);
 }
 .trigger:focus-visible, .open .trigger { border-color: var(--color-primary); outline: none; }
-.invalid .trigger { border-color: var(--color-expense); }
+.invalid .trigger { border-color: var(--color-error); }
 .trigger:disabled { color: var(--color-text); cursor: not-allowed; }
 .value { flex: 1; min-width: 0; }
 
@@ -115,5 +115,5 @@ function goToday() {
 .day.on { background: var(--color-primary); color: var(--color-card); font-weight: 700; }
 .foot { display: flex; justify-content: flex-end; border-top: 1px solid var(--color-line); padding-top: var(--sp-8); }
 .today-btn { color: var(--color-text); padding: var(--sp-4) var(--sp-8); border-radius: var(--r-4); }
-.today-btn:hover { color: var(--color-content); background: var(--color-tag); }
+.today-btn:hover { color: var(--color-title); background: var(--color-tag); }
 </style>

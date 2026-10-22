@@ -57,7 +57,7 @@ watch(() => props.open, (v) => v && (showInactive.value = inactive.value.some((a
             <span class="body1-bold">{{ a.name }}</span>
             <span v-if="a.pending_count" class="caption c-supply">另有 {{ a.pending_count }} 筆預估</span>
           </span>
-          <span class="body1-bold" :class="a.balance < 0 ? 'c-expense' : 'c-content'">
+          <span class="body1-bold" :class="a.balance < 0 ? 'c-expense' : 'c-title'">
             {{ formatSigned(a.balance, a.currency, refs.currencies) }}
           </span>
         </button>

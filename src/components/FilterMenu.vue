@@ -77,11 +77,11 @@ const shown = computed(() => {
 /* 捲軸：寬 4、ColdGray/600、距右框 6 */
 .scroll {
   min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--sp-8);
-  margin-right: -6px; padding-right: 10px;
-  scrollbar-width: thin; scrollbar-color: var(--coldgray-600) transparent;
+  margin-right: -6px; padding-right: var(--sp-10);
+  scrollbar-width: thin; scrollbar-color: var(--color-line) transparent;
 }
 .scroll::-webkit-scrollbar { width: 4px; }
-.scroll::-webkit-scrollbar-thumb { background: var(--coldgray-600); border-radius: var(--r-8); }
+.scroll::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: var(--r-8); }
 .scroll::-webkit-scrollbar-track { background: transparent; }
 .group { display: flex; flex-direction: column; gap: var(--sp-4); }
 .row { display: flex; align-items: center; gap: var(--sp-8); width: 100%; text-align: left; white-space: nowrap; }
@@ -96,5 +96,5 @@ const shown = computed(() => {
 .dim .text { opacity: .55; }
 .foot { display: flex; justify-content: flex-end; border-top: 1px solid var(--color-line); padding-top: var(--sp-8); flex-shrink: 0; }
 .clear { color: var(--color-text); padding: 0 var(--sp-4); }
-.clear:hover { color: var(--color-content); }
+.clear:hover { color: var(--color-title); }
 </style>
