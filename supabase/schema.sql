@@ -352,6 +352,7 @@ $$;
 
 
 -- 8.5 儲存交易＋標籤（同一個資料庫交易，全部成功或全部失敗）
+--   標籤只移除這次被拿掉的，沒變動的不動（搭配 8.6 的自動刪除，避免標籤被刪掉重建）。
 --   前端：開啟表單時 crypto.randomUUID() 產生 id 一起送出。
 --   這樣「儲存失敗、手動再按一次」時，若第一次其實已寫入，只會覆蓋同一筆，不會重複新增。
 --   p_txn 欄位：id, date, type, account_id, to_account_id, category_id,
@@ -362,8 +363,9 @@ language plpgsql
 set search_path = ''
 as $$
 declare
-  v_id  uuid := coalesce((p_txn ->> 'id')::uuid, gen_random_uuid());
-  v_tag text;
+  v_id      uuid := coalesce((p_txn ->> 'id')::uuid, gen_random_uuid());
+  v_tag     text;
+  v_tag_ids uuid[] := '{}';
 begin
   insert into public.transactions as t (
     id, date, type, account_id, to_account_id, category_id,
@@ -400,22 +402,47 @@ begin
     raise exception '找不到這筆交易' using errcode = 'no_data_found';
   end if;
 
-  delete from public.transaction_tags where transaction_id = v_id;
-
   foreach v_tag in array coalesce(p_tag_names, '{}') loop
     if trim(v_tag) <> '' then
-      insert into public.transaction_tags (transaction_id, tag_id)
-      values (v_id, public.get_or_create_tag(v_tag))
-      on conflict do nothing;
+      v_tag_ids := v_tag_ids || public.get_or_create_tag(v_tag);
     end if;
   end loop;
+
+  delete from public.transaction_tags
+   where transaction_id = v_id
+     and not (tag_id = any (v_tag_ids));
+
+  insert into public.transaction_tags (transaction_id, tag_id)
+  select v_id, x from unnest(v_tag_ids) as x
+  on conflict do nothing;
 
   return v_id;
 end;
 $$;
 
 
--- 8.6 篩選（清單、合計、分類加總共用同一套條件）
+-- 8.6 標籤不再被任何交易使用時自動刪除
+--   只有「曾被使用、最後一筆關聯被移除」的標籤才會刪除；尚未被使用的標籤不受影響。
+--   觸發時機：刪除交易（關聯連帶刪除）、編輯交易拿掉標籤。以呼叫者身分執行，受 RLS 限制。
+create function public.transaction_tags_after_delete()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  delete from public.tags tg
+   where tg.id = old.tag_id
+     and not exists (select 1 from public.transaction_tags tt where tt.tag_id = old.tag_id);
+  return null;
+end;
+$$;
+
+create trigger transaction_tags_after_delete
+after delete on public.transaction_tags
+for each row execute function public.transaction_tags_after_delete();
+
+
+-- 8.7 篩選（清單、合計、分類加總共用同一套條件）
 --   參數為 null 或空陣列 = 不篩選
 --   p_account_id：左上角帳戶選單；轉帳的轉出或轉入任一邊符合即列出
 --   p_category_ids：不套用在轉帳上（轉帳沒有分類；要不要列出轉帳由 p_types 決定）
@@ -455,7 +482,7 @@ as $$
 $$;
 
 
--- 8.7 收支合計（不受分頁影響）
+-- 8.8 收支合計（不受分頁影響）
 --   幣別範圍：選了單一帳戶 → 該帳戶幣別；選「全部帳戶」→ 只算主幣別帳戶（外幣錢包不併入）
 --   轉帳一律不計
 --   estimated_count：含幾筆預估（畫面顯示「含 N 筆預估」）
@@ -508,7 +535,7 @@ as $$
 $$;
 
 
--- 8.8 依分類加總（預設支出）
+-- 8.9 依分類加總（預設支出）
 create function public.summarize_by_category(
   p_from         date    default null,
   p_to           date    default null,
@@ -548,7 +575,7 @@ as $$
 $$;
 
 
--- 8.9 手機精簡清單：日期在最近兩天內，或最近兩天內新增（今天＋昨天，依台北時間）
+-- 8.10 手機精簡清單：日期在最近兩天內，或最近兩天內新增（今天＋昨天，依台北時間）
 create function public.recent_transactions(p_tz text default 'Asia/Taipei')
 returns setof public.transactions
 language sql stable

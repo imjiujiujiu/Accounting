@@ -73,6 +73,13 @@ export function createDemoApi() {
   }
   const acc = (id) => db.accounts.find((a) => a.id === id)
 
+  /** 與資料庫相同：被移除關聯的標籤若已沒有交易使用，就刪除 */
+  function dropUnusedTags(tagIds) {
+    for (const id of new Set(tagIds)) {
+      if (!db.transactions.some((t) => t.tags.includes(id))) db.tags = db.tags.filter((x) => x.id !== id)
+    }
+  }
+
   function estimate(currency, original) {
     const settled = db.transactions
       .filter((t) => t.original_currency === currency && t.amount != null)
@@ -158,12 +165,16 @@ export function createDemoApi() {
           if (!tag) db.tags.push((tag = { id: uid(), name }))
           return tag.id
         })
+        const removedTags = (prev?.tags ?? []).filter((id) => !row.tags.includes(id))
         if (prev) Object.assign(prev, row)
         else db.transactions.push(row)
+        dropUnusedTags(removedTags)
         return delay(row.id)
       },
       async remove(id) {
+        const removedTags = db.transactions.find((x) => x.id === id)?.tags ?? []
         db.transactions = db.transactions.filter((x) => x.id !== id)
+        dropUnusedTags(removedTags)
         return delay(null)
       },
       async estimate(currency, original) {
