@@ -28,8 +28,8 @@
   --color-page: var(--coldgray-900);
   --color-card: var(--coldgray-800);
   --color-tag: var(--coldgray-700);
-  --color-line: var(--coldgray-700);
-  --color-line-hover: #2C394F;
+  --color-line: var(--coldgray-600);
+  --color-line-hover: var(--coldgray-500);
   --color-text: var(--coldgray-300);
   --color-content: var(--coldgray-50);
   --color-primary: var(--lime-500);

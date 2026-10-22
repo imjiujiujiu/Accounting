@@ -1,6 +1,5 @@
 <script setup>
 import Icon from './Icon.vue'
-import PeriodPicker from './PeriodPicker.vue'
 import { selectedAccount } from '../lib/store.js'
 
 defineEmits(['open-accounts'])
@@ -15,6 +14,7 @@ const TABS = [
 
 <template>
   <header class="header">
+    <div class="inner">
     <button class="control account-btn" type="button" @click="$emit('open-accounts')">
       <Icon name="menu" color="var(--color-primary)" />
       <span class="name">{{ selectedAccount?.name ?? '全部帳戶' }}</span>
@@ -28,22 +28,23 @@ const TABS = [
         <svg class="flare r" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M0 0C0 6.627 5.373 12 12 12H0V0Z" /></svg>
       </RouterLink>
     </nav>
-
-    <PeriodPicker />
+    </div>
   </header>
 </template>
 
 <style scoped>
-.header {
-  position: relative; height: 86px; border-bottom: 2px solid var(--color-primary);
-  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-16); padding: 0 var(--sp-32);
+/* 底線撐滿視窗；內容維持在 1440 內 */
+.header { height: 80px; border-bottom: 2px solid var(--color-primary); }
+.inner {
+  position: relative; height: 100%; max-width: 1440px; margin: 0 auto;
+  display: flex; align-items: center; padding: 0 var(--sp-32);
 }
-.account-btn { padding: 0 var(--sp-12); font-weight: 700; font-size: 16px; max-width: 260px; }
+.account-btn { padding: 0 var(--sp-12); font-weight: 700; font-size: 14px; max-width: 260px; }
 .account-btn .name { overflow: hidden; text-overflow: ellipsis; }
-.tabs { position: absolute; left: 50%; bottom: -1px; transform: translateX(-50%); display: flex; gap: 20px; padding: 0 var(--sp-12); }
+.tabs { position: absolute; right: var(--sp-32); bottom: 0; display: flex; gap: 20px; padding: 0 var(--sp-12); }
 .tab {
   position: relative; padding: var(--sp-8) var(--sp-24); border-radius: var(--r-12) var(--r-12) 0 0;
-  font-size: 16px; font-weight: 700; color: var(--color-text); text-decoration: none; transition: color .15s;
+  font-size: 14px; font-weight: 700; color: var(--color-text); text-decoration: none; transition: color .15s;
 }
 .tab:hover { color: var(--color-content); }
 .tab.active { background: var(--color-primary); color: var(--color-card); }

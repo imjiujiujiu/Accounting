@@ -135,7 +135,7 @@ const current = computed(() => matchPreset(filters.range))
 
 <style scoped>
 .period { position: relative; display: flex; gap: var(--sp-12); }
-.range { font-size: 16px; min-width: 248px; justify-content: center; }
+.range { font-size: 14px; min-width: 204px; justify-content: center; }
 .range.on { border-color: var(--color-primary); }
 .panel { right: 0; top: calc(100% + 8px); display: flex; gap: var(--sp-16); padding: var(--sp-16); }
 .presets { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 96px; border-right: 1px solid var(--color-line); padding-right: var(--sp-16); }

@@ -90,7 +90,7 @@ export function createDemoApi() {
         (!f.range?.to || t.date <= f.range.to) &&
         (!f.accountId || t.account_id === f.accountId || t.to_account_id === f.accountId) &&
         (!f.types?.length || f.types.includes(t.type)) &&
-        (!f.categoryIds?.length || f.categoryIds.includes(t.category_id)) &&
+        (!f.categoryIds?.length || t.type === 'transfer' || f.categoryIds.includes(t.category_id)) &&
         (!f.tagIds?.length || t.tags.some((x) => f.tagIds.includes(x.id))) &&
         (!f.pendingOnly || t.is_pending) &&
         (!kw || t.note.toLowerCase().includes(kw)),

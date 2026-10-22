@@ -2,6 +2,7 @@
 // 統計：隨期間與帳戶選單變動的收入、支出、結餘，以及依類別加總（含筆數與占比）
 import SummaryCards from '../components/SummaryCards.vue'
 import CategoryBreakdown from '../components/CategoryBreakdown.vue'
+import PeriodPicker from '../components/PeriodPicker.vue'
 import { useSummary } from '../lib/useFiltered.js'
 import { scopeCurrency, filters, resetFilters } from '../lib/store.js'
 import { computed } from 'vue'
@@ -14,6 +15,7 @@ const filtered = computed(
 
 <template>
   <div class="page">
+    <div class="toolbar"><PeriodPicker /></div>
     <SummaryCards :summary="summary" />
     <p v-if="error" class="body2 c-expense">{{ error }}</p>
     <p v-if="filtered" class="body2 c-supply">
@@ -26,6 +28,7 @@ const filtered = computed(
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: var(--sp-16); }
+.page { display: flex; flex-direction: column; gap: var(--sp-24); }
+.toolbar { display: flex; justify-content: flex-end; }
 .page > p { display: flex; align-items: center; gap: var(--sp-12); }
 </style>
