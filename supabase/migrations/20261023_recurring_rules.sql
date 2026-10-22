@@ -605,6 +605,8 @@ $$;
 
 -- 新增與修改請走 save_recurring_rule（它以呼叫者身分寫入，所以需要 insert／update）；
 -- 產生進度欄位由觸發器保護，直接寫入也改不動
+-- Supabase 預設會把新表開給 anon，先全部收回再開需要的
+revoke all on public.recurring_rules, public.recurring_rule_tags, public.recurring_rule_list from anon, authenticated;
 grant select, insert, update, delete on public.recurring_rules     to authenticated;
 grant select, insert, delete         on public.recurring_rule_tags to authenticated;
 grant select                         on public.recurring_rule_list to authenticated;
