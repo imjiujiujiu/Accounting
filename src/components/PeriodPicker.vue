@@ -2,6 +2,7 @@
 // 期間選擇器：左右箭頭依區間長度移動；點中間開啟快速區間＋雙月曆（點兩下選起訖）
 import { ref, computed } from 'vue'
 import Icon from './Icon.vue'
+import { BaseButton } from './ui/index.js'
 import { filters } from '../lib/store.js'
 import { PRESETS, presetRange, shiftRange, matchPreset, isAll, today, addMonths, daysInMonth } from '../lib/logic/period.js'
 import { rangeLabel } from '../lib/logic/display.js'
@@ -9,7 +10,7 @@ import { useClickOutside } from '../lib/useClickOutside.js'
 
 const open = ref(false)
 const root = ref(null)
-useClickOutside(root, () => (open.value = false))
+useClickOutside(root, () => (open.value = false), () => open.value)
 
 const draft = ref({ from: null, to: null })
 const picking = ref(false) // 已點了開始日，等待結束日
@@ -124,8 +125,8 @@ const current = computed(() => matchPreset(filters.range))
         <div class="foot">
           <span class="body2 c-text">{{ picking ? '請選結束日' : rangeLabel(draft) }}</span>
           <div class="actions">
-            <button class="btn ghost small" type="button" @click="open = false">取消</button>
-            <button class="btn primary small" type="button" :disabled="picking || !draft.from" @click="apply">套用</button>
+            <BaseButton size="small" @click="open = false">取消</BaseButton>
+            <BaseButton variant="primary" size="small" :disabled="picking || !draft.from" @click="apply">套用</BaseButton>
           </div>
         </div>
       </div>
@@ -156,5 +157,5 @@ const current = computed(() => matchPreset(filters.range))
 .day.inside { background: var(--lime-900); border-radius: 0; }
 .day.edge { background: var(--color-primary); color: var(--color-card); font-weight: 700; }
 .foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-16); border-top: 1px solid var(--color-line); padding-top: var(--sp-12); }
-.actions { display: flex; gap: var(--sp-8); }
+.actions { display: flex; gap: var(--sp-12); }
 </style>
