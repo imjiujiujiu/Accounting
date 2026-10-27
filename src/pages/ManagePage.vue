@@ -1,6 +1,6 @@
 <script setup>
 // 管理：帳戶、標籤（左欄）、支出分類、收入分類。設計稿：Figma Manage（node 57:621）。
-// 帳戶：有交易後不可改幣別、不可刪除（只能停用）。
+// 帳戶：有交易後不可改幣別；與分類相同，沒有交易使用才能刪除（垃圾桶），有交易使用時該位置改為停用。
 // 分類：可新增、改名、停用；沒有交易使用才能刪除（垃圾桶），有交易使用時該位置改為停用。
 // 標籤：改名、刪除（只移除關聯）。
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
@@ -175,9 +175,17 @@ function toggleActive(kind, item) {
             <span class="h6 num" :class="a.balance < 0 ? 'c-expense' : ''">{{ formatSigned(a.balance, a.currency, refs.currencies) }}</span>
             <span class="actions">
               <IconButton icon="pen" label="編輯" @click="editAccount(a)" />
-              <IconButton v-if="a.is_active" icon="block" label="停用" tone="danger" :disabled="busy" @click="toggleActive('account', a)" />
-              <IconButton v-else icon="restore" label="啟用" tone="primary" :disabled="busy" @click="toggleActive('account', a)" />
-              <IconButton v-if="a.canDelete" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="removeAccount(a)" />
+              <IconButton v-if="!a.is_active" icon="restore" label="啟用" tone="primary" :disabled="busy" @click="toggleActive('account', a)" />
+              <IconButton v-else-if="a.canDelete" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="removeAccount(a)" />
+              <IconButton
+                v-else
+                icon="block"
+                label="停用"
+                :title="a.txn_count ? `已有 ${a.txn_count} 筆交易，只能停用` : '停用'"
+                tone="danger"
+                :disabled="busy"
+                @click="toggleActive('account', a)"
+              />
             </span>
           </div>
         </template>
