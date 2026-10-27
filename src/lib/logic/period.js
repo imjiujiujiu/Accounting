@@ -55,10 +55,10 @@ export function addMonths(d, n) {
   return fmt(y, m, Math.min(p.d, daysInMonth(y, m)))
 }
 
-/** 星期一為一週的第一天 */
+/** 星期日為一週的第一天 */
 function startOfWeek(d) {
   const dow = new Date(toUTC(d)).getUTCDay() // 0 = 週日
-  return addDays(d, -((dow + 6) % 7))
+  return addDays(d, -dow)
 }
 
 export function presetRange(key, t = today()) {

@@ -1,6 +1,6 @@
 <script setup>
 // 交易表單（手機與電腦共用）。直接修改傳入的 form（reactive）；驗證錯誤由 errors 顯示在欄位下方。
-// 版面（Figma Modal 71:1959）：一列欄位「分類｜日期｜備註｜標籤｜金額｜幣別｜帳戶」，下一列為回壓欄位＋按鈕（actions slot）。
+// 版面（Figma Modal 71:1959）：一列欄位「帳戶｜分類｜日期｜備註｜標籤｜金額｜幣別」（轉帳時帳戶為轉出＋轉入），下一列為回壓欄位＋按鈕（actions slot）。
 // 分類下拉同時決定類型（支出／收入／轉帳）；轉帳時「帳戶」拆成轉出＋轉入，跨幣別時多「轉入金額」。
 // 幣別：預設為帳戶幣別；支出改成其他幣別＝外幣刷卡，金額記為原幣。編輯外幣交易時才出現「回壓」的實際金額與手續費。
 import { computed, ref, watch } from 'vue'
@@ -119,6 +119,14 @@ defineExpose({ flushTag })
 <template>
   <div class="form">
     <div class="fields">
+      <FormField :label="f.type === 'transfer' ? '轉出帳戶' : '帳戶'" as="div" class="w-account" :error="errors.accountId">
+        <SelectMenu v-model="f.accountId" icon="wallet" :options="accountItems" :invalid="!!errors.accountId" />
+      </FormField>
+
+      <FormField v-if="f.type === 'transfer'" label="轉入帳戶" as="div" class="w-account" :error="errors.toAccountId">
+        <SelectMenu v-model="f.toAccountId" icon="wallet" :options="toAccountItems" :invalid="!!errors.toAccountId" />
+      </FormField>
+
       <FormField label="分類" as="div" :error="errors.categoryId || errors.type">
         <CategoryPicker
           :type="f.type"
@@ -179,13 +187,6 @@ defineExpose({ flushTag })
         <SelectMenu v-model="currency" :options="currencyItems" :disabled="f.type !== 'expense'" :invalid="!!errors.originalCurrency" />
       </FormField>
 
-      <FormField :label="f.type === 'transfer' ? '轉出帳戶' : '帳戶'" as="div" class="w-account" :error="errors.accountId">
-        <SelectMenu v-model="f.accountId" icon="wallet" :options="accountItems" :invalid="!!errors.accountId" />
-      </FormField>
-
-      <FormField v-if="f.type === 'transfer'" label="轉入帳戶" as="div" class="w-account" :error="errors.toAccountId">
-        <SelectMenu v-model="f.toAccountId" icon="wallet" :options="toAccountItems" :invalid="!!errors.toAccountId" />
-      </FormField>
     </div>
 
     <div class="bottom">
