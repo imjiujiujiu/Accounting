@@ -9,9 +9,9 @@ import { ConfirmDialog, BaseButton } from '../components/ui/index.js'
 import Icon from '../components/Icon.vue'
 import { refs, loadRefs, toast } from '../lib/store.js'
 import { openNewTransaction } from '../lib/dialog.js'
+import { accountDrawer, openAccountDrawer, closeAccountDrawer } from '../lib/accountDrawer.js'
 import { isDemo } from '../lib/api/index.js'
 
-const drawer = ref(false)
 const route = useRoute()
 // 浮動新增鈕只在清單頁
 const showFab = computed(() => route.path === '/')
@@ -28,7 +28,7 @@ async function retry() {
 
 <template>
   <div class="app">
-    <AppHeader @open-accounts="drawer = true" />
+    <AppHeader @open-accounts="openAccountDrawer()" />
     <p v-if="isDemo" class="demo caption">示範模式：資料只存在這個分頁，重新整理就還原</p>
     <p v-if="refs.error" class="load-error body2">
       資料讀取失敗：{{ refs.error }} <BaseButton size="small" :disabled="retrying" @click="retry">{{ retrying ? '讀取中…' : '重試' }}</BaseButton>
@@ -39,7 +39,7 @@ async function retry() {
     <button v-if="showFab" class="fab" type="button" aria-label="新增一筆" @click="openNewTransaction">
       <Icon name="plus" :size="40" color="var(--color-tag)" />
     </button>
-    <AccountDrawer :open="drawer" @close="drawer = false" />
+    <AccountDrawer :open="accountDrawer.open" @close="closeAccountDrawer" />
     <TransactionDialog />
     <ConfirmDialog />
     <Transition name="toast">
