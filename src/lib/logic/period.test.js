@@ -21,10 +21,11 @@ describe('addMonths', () => {
 })
 
 describe('presetRange', () => {
-  it('週一為一週開始', () => {
-    expect(presetRange('thisWeek', T)).toEqual({ from: '2026-10-19', to: '2026-10-25' })
-    expect(presetRange('lastWeek', T)).toEqual({ from: '2026-10-12', to: '2026-10-18' })
-    expect(presetRange('thisWeek', '2026-10-25')).toEqual({ from: '2026-10-19', to: '2026-10-25' }) // 週日
+  it('週日為一週開始', () => {
+    expect(presetRange('thisWeek', T)).toEqual({ from: '2026-10-18', to: '2026-10-24' })
+    expect(presetRange('lastWeek', T)).toEqual({ from: '2026-10-11', to: '2026-10-17' })
+    expect(presetRange('thisWeek', '2026-10-25')).toEqual({ from: '2026-10-25', to: '2026-10-31' }) // 週日
+    expect(presetRange('thisWeek', '2026-10-24')).toEqual({ from: '2026-10-18', to: '2026-10-24' }) // 週六
   })
   it('月、年、全部', () => {
     expect(presetRange('thisMonth', T)).toEqual({ from: '2026-10-01', to: '2026-10-31' })

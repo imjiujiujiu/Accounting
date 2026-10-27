@@ -34,10 +34,10 @@ function onKey(e) {
   }
 }
 
-const WEEK = ['一', '二', '三', '四', '五', '六', '日']
+const WEEK = ['日', '一', '二', '三', '四', '五', '六']
 const month = computed(() => {
   const [y, m] = viewMonth.value.split('-').map(Number)
-  const lead = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7
+  const lead = new Date(Date.UTC(y, m - 1, 1)).getUTCDay() // 週日為一週第一天
   const cells = Array.from({ length: lead }, () => null)
   for (let d = 1; d <= daysInMonth(y, m); d++) cells.push(`${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`)
   return { title: `${y} 年 ${m} 月`, cells }
