@@ -8,7 +8,7 @@
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 import AccountEditor from './AccountEditor.vue'
-import { BaseButton, IconButton } from './ui/index.js'
+import { BaseButton, IconButton, Skeleton } from './ui/index.js'
 import { filters, refs, loadRefs, showToast } from '../lib/store.js'
 import { api, ACCOUNT_TYPES } from '../lib/api/index.js'
 import { formatSigned } from '../lib/logic/display.js'
@@ -22,6 +22,9 @@ const managing = ref(false)
 /** 開著的編輯框：null＝沒有；'new'＝新增；其餘為帳戶 id */
 const editingId = ref(null)
 const busy = ref(false)
+
+// 第一次讀取中：骨架（兩個群組，名稱寬度 px）
+const SKELETON_GROUPS = [[40, 56], [48, 40, 64]]
 
 const byOrder = (a, b) => a.sort_order - b.sort_order
 const groups = computed(() =>
@@ -97,7 +100,7 @@ watch(
     <aside v-if="open" class="drawer" :class="{ managing }" aria-label="帳戶選單">
       <div class="head">
         <p class="h4">帳戶</p>
-        <BaseButton v-if="!managing" @click="startManage">管理</BaseButton>
+        <BaseButton v-if="!managing" :disabled="!refs.loaded" @click="startManage">管理</BaseButton>
         <BaseButton v-else variant="primary" @click="finishManage">完成</BaseButton>
         <button class="close" type="button" aria-label="關閉" @click="emit('close')">
           <Icon name="close" :size="20" color="var(--color-text)" />
@@ -113,6 +116,15 @@ watch(
         <AccountEditor v-if="editingId === 'new'" @done="editingId = null" @cancel="editingId = null" />
       </template>
 
+      <template v-if="!refs.loaded">
+        <div v-for="(names, i) in SKELETON_GROUPS" :key="'sk' + i" class="group" aria-hidden="true">
+          <Skeleton class="group-title-sk" w="42" h="14" />
+          <div v-for="(w, j) in names" :key="j" class="row">
+            <span class="name"><Skeleton :w="w" h="16" /></span>
+            <Skeleton w="96" h="16" />
+          </div>
+        </div>
+      </template>
       <div v-for="g in groups" :key="g.key" class="group">
         <p class="body2-bold c-text group-title">{{ g.label }}</p>
         <template v-for="a in g.accounts" :key="a.id">
@@ -147,7 +159,7 @@ watch(
         </template>
       </div>
 
-      <div v-if="!refs.accounts.length && !managing" class="empty">
+      <div v-if="refs.loaded && !refs.accounts.length && !managing" class="empty">
         <p class="body2 c-text">還沒有帳戶。先建立常用的現金、銀行與信用卡帳戶。</p>
         <BaseButton class="add" icon="plus" @click="addAccount">新增帳戶</BaseButton>
       </div>
@@ -212,6 +224,7 @@ watch(
 .group-title { padding-bottom: var(--sp-4); }
 .managing .group { gap: var(--sp-12); }
 .managing .group-title { padding-bottom: 0; }
+.group-title-sk { margin: 4px 0 7px; }
 .toggle { display: flex; align-items: center; gap: var(--sp-4); }
 .flip { transform: rotate(180deg); }
 

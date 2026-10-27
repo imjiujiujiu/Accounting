@@ -6,7 +6,7 @@
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
-import { BaseButton, IconButton, TextInput, FormField } from '../components/ui/index.js'
+import { BaseButton, IconButton, TextInput, FormField, Skeleton } from '../components/ui/index.js'
 import { refs, loadRefs, afterTransactionChange, showToast } from '../lib/store.js'
 import { api } from '../lib/api/index.js'
 import { categoryIcon } from '../lib/logic/display.js'
@@ -40,6 +40,9 @@ function closeEditor() {
 
 // 停用的排最後
 const byActive = (a, b) => b.is_active - a.is_active || a.sort_order - b.sort_order
+
+/* 第一次讀取中：各卡片顯示骨架列（寬度為名稱長度的百分比） */
+const SKELETON_ROWS = { expense: [24, 32, 20, 28, 24, 36], income: [28, 20, 32], tag: [36, 52] }
 
 /* ===== 分類 ===== */
 const catGroups = computed(() =>
@@ -104,12 +107,16 @@ function toggleActive(kind, item) {
 <template>
   <div class="manage">
     <!-- 支出分類、收入分類 -->
-    <section v-for="g in catGroups" :key="g.kind" class="card block">
+    <section v-for="g in catGroups" :key="g.kind" class="card block" :aria-busy="!refs.loaded">
       <div class="block-head">
         <p class="h5">{{ g.title }}</p>
-        <BaseButton icon="plus" :disabled="busy" @click="editCategory(g.kind, null)">新增</BaseButton>
+        <BaseButton icon="plus" :disabled="busy || !refs.loaded" @click="editCategory(g.kind, null)">新增</BaseButton>
       </div>
 
+      <div v-for="(w, i) in refs.loaded ? [] : SKELETON_ROWS[g.kind]" :key="'sk' + i" class="item" aria-hidden="true">
+        <span class="label-row"><Skeleton w="16" h="16" r="4" /><Skeleton :w="w + '%'" h="16" /></span>
+        <span class="actions"><Skeleton w="24" h="24" r="6" /><Skeleton w="24" h="24" r="6" /></span>
+      </div>
       <template v-for="c in [{ id: 'new' }, ...g.items]" :key="c.id">
         <form v-if="isEditing(g.kind, c.id)" class="editor" @submit.prevent="saveCategory(g.kind)">
           <div class="cat-fields">
@@ -157,6 +164,10 @@ function toggleActive(kind, item) {
     <!-- 標籤 -->
     <section class="card block">
       <div class="block-head"><p class="h5">標籤</p></div>
+      <div v-for="(w, i) in refs.loaded ? [] : SKELETON_ROWS.tag" :key="'sk' + i" class="item" aria-hidden="true">
+        <span class="label-row"><Skeleton w="16" h="16" r="4" /><Skeleton :w="w + '%'" h="16" /></span>
+        <span class="actions"><Skeleton w="24" h="24" r="6" /><Skeleton w="24" h="24" r="6" /></span>
+      </div>
       <template v-for="t in refs.tags" :key="t.id">
         <form v-if="isEditing('tag', t.id)" class="editor" @submit.prevent="saveTag">
           <FormField label="名稱"><TextInput v-model="tagName" maxlength="30" /></FormField>
@@ -174,7 +185,7 @@ function toggleActive(kind, item) {
           </span>
         </div>
       </template>
-      <p v-if="!refs.tags.length" class="body2 c-text">還沒有標籤。記帳時在「標籤」欄位輸入就會自動建立。</p>
+      <p v-if="refs.loaded && !refs.tags.length" class="body2 c-text">還沒有標籤。記帳時在「標籤」欄位輸入就會自動建立。</p>
       <p class="caption c-text">刪除標籤只會移除標籤本身，交易不受影響。沒有交易使用的標籤會自動移除。</p>
     </section>
   </div>

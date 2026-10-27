@@ -1,6 +1,6 @@
 <script setup>
 // 設定：外幣預設匯率（預估台幣的備用來源）、匯出 CSV、帳號
-import { BaseButton, TextInput } from '../components/ui/index.js'
+import { BaseButton, TextInput, Skeleton } from '../components/ui/index.js'
 import { ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { refs, loadRefs, showToast, baseCurrency } from '../lib/store.js'
@@ -64,6 +64,9 @@ async function logout() {
       <p class="body2 c-text">
         外幣刷卡的預估台幣，優先用該幣別最近一次回壓的實際匯率；還沒有回壓紀錄時才用這裡的匯率。空白＝不預估。
       </p>
+      <div v-for="i in refs.loaded ? 0 : 2" :key="'sk' + i" class="rate" aria-hidden="true">
+        <Skeleton class="code" w="88" h="16" /><Skeleton w="64" h="14" /><Skeleton w="100%" h="40" /><Skeleton w="32" h="14" /><Skeleton w="52" h="32" />
+      </div>
       <form v-for="c in foreign" :key="c.code" class="rate" @submit.prevent="saveRate(c.code)">
         <span class="body1-bold code">{{ c.name_zh }} {{ c.code }}</span>
         <span class="body2 c-text">1 {{ c.code }} ＝</span>

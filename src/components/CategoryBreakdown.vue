@@ -2,6 +2,7 @@
 // 依分類加總（支出、收入），長條依各組最大值比例
 import { computed } from 'vue'
 import Icon from './Icon.vue'
+import { Skeleton } from './ui/index.js'
 import { refs, categoriesById } from '../lib/store.js'
 import { categoryIcon, formatSigned } from '../lib/logic/display.js'
 
@@ -10,7 +11,10 @@ const props = defineProps({
   income: { type: Array, default: () => [] },
   currency: { type: String, default: 'TWD' },
   showCount: Boolean,
+  /** 第一次讀取中：顯示骨架 */
+  loading: Boolean,
 })
+const SKELETON_ROWS = { expense: [100, 72, 48], income: [100] }
 
 const groups = computed(() =>
   [
@@ -38,10 +42,16 @@ const groups = computed(() =>
 </script>
 
 <template>
-  <aside class="card category">
+  <aside class="card category" :aria-busy="loading">
     <div v-for="g in groups" :key="g.key" class="cat-group">
       <p class="h6">{{ g.title }}</p>
-      <div v-for="r in g.items" :key="r.categoryId" class="cat-row">
+      <template v-if="loading">
+        <div v-for="(w, i) in SKELETON_ROWS[g.key]" :key="i" class="cat-row">
+          <div class="cat-row-head body2"><Skeleton w="18" h="18" r="6" /><span class="name"><Skeleton w="56" h="14" /></span><Skeleton w="72" h="14" /></div>
+          <Skeleton :w="w + '%'" h="6" r="999" />
+        </div>
+      </template>
+      <div v-for="r in loading ? [] : g.items" :key="r.categoryId" class="cat-row">
         <div class="cat-row-head body2">
           <Icon :name="r.icon" :size="18" :color="g.color" />
           <span class="name">{{ r.name }}</span>
@@ -50,7 +60,7 @@ const groups = computed(() =>
         </div>
         <div class="bar"><span :style="{ width: r.width + '%', background: g.color }" /></div>
       </div>
-      <p v-if="!g.items.length" class="body2 c-text">—</p>
+      <p v-if="!loading && !g.items.length" class="body2 c-text">—</p>
     </div>
   </aside>
 </template>
