@@ -2,10 +2,13 @@
 // 依日分組的交易清單。點一列 → emit('open', txn) 開啟編輯對話框
 import { computed } from 'vue'
 import Icon from './Icon.vue'
+import { Skeleton } from './ui/index.js'
 import { filters, refs, accountsById, categoriesById, scopeCurrency } from '../lib/store.js'
 import { rowView, groupByDay } from '../lib/logic/display.js'
 
-const props = defineProps({ rows: { type: Array, default: () => [] }, loading: Boolean })
+// skeleton：還沒有任何資料可顯示（第一次讀取）時顯示骨架；之後重讀只把清單調淡
+const props = defineProps({ rows: { type: Array, default: () => [] }, loading: Boolean, skeleton: Boolean })
+const SKELETON_DAYS = [[46, 30, 38], [34, 42]]
 defineEmits(['open'])
 
 const TONE_COLOR = { income: 'var(--color-income)', expense: 'var(--color-expense)', transfer: 'var(--color-text)' }
@@ -26,7 +29,18 @@ const days = computed(() => {
 </script>
 
 <template>
-  <div class="list" :class="{ loading }">
+  <div v-if="skeleton" class="list" aria-busy="true">
+    <div v-for="(day, i) in SKELETON_DAYS" :key="i" class="day">
+      <div class="day-head"><Skeleton w="72" h="14" /><Skeleton w="64" h="14" /></div>
+      <div v-for="(w, j) in day" :key="j" class="item sk">
+        <Skeleton w="40" h="40" r="12" />
+        <span class="desc"><Skeleton :w="w + '%'" h="16" /></span>
+        <span class="wallet"><Skeleton w="72" h="24" r="6" /></span>
+        <span class="amount"><Skeleton w="88" h="16" /></span>
+      </div>
+    </div>
+  </div>
+  <div v-else class="list" :class="{ loading }">
     <div v-for="d in days" :key="d.date" class="day">
       <div class="day-head"><span>{{ d.label }}</span><span>{{ d.totalText }}</span></div>
       <button v-for="{ txn, v } in d.rows" :key="txn.id" class="item" type="button" @click="$emit('open', txn)">
@@ -65,6 +79,8 @@ const days = computed(() => {
   width: calc(100% + 2 * var(--sp-4));
 }
 .item:hover { background: rgba(32, 42, 58, .5); }
+.item.sk:hover { background: none; }
+.amount .skeleton { margin-left: auto; }
 .cat-icon { width: 40px; height: 40px; border-radius: var(--r-12); background: var(--color-tag); display: grid; place-items: center; flex-shrink: 0; }
 .desc { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-4); justify-content: center; }
 .desc-title { font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

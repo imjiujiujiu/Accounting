@@ -5,10 +5,11 @@ import SummaryCards from '../components/SummaryCards.vue'
 import CategoryBreakdown from '../components/CategoryBreakdown.vue'
 import PeriodPicker from '../components/PeriodPicker.vue'
 import { useSummary } from '../lib/useFiltered.js'
-import { scopeCurrency, filters, resetFilters } from '../lib/store.js'
+import { scopeCurrency, filters, resetFilters, refs } from '../lib/store.js'
 import { computed } from 'vue'
 
 const { summary, expense, income, error } = useSummary()
+const sumSkeleton = computed(() => !refs.loaded || !summary.value)
 const filtered = computed(
   () => filters.types.length || filters.categoryIds.length || filters.tagIds.length || filters.pendingOnly || filters.keyword,
 )
@@ -17,13 +18,13 @@ const filtered = computed(
 <template>
   <div class="page">
     <div class="toolbar"><PeriodPicker /></div>
-    <SummaryCards :summary="summary" />
+    <SummaryCards :summary="sumSkeleton ? null : summary" />
     <p v-if="error" class="body2 c-expense">{{ error }}</p>
     <p v-if="filtered" class="body2 c-supply">
       目前套用了清單頁的篩選條件
       <BaseButton size="small" @click="resetFilters">清除篩選</BaseButton>
     </p>
-    <CategoryBreakdown :expense="expense" :income="income" :currency="summary?.currency ?? scopeCurrency" show-count />
+    <CategoryBreakdown :expense="expense" :income="income" :currency="summary?.currency ?? scopeCurrency" show-count :loading="sumSkeleton" />
     <p class="caption c-text">轉帳不計入收支。選「全部帳戶」時只計台幣帳戶，外幣現金錢包請在帳戶選單選該錢包查看。</p>
   </div>
 </template>

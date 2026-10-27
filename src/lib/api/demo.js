@@ -63,7 +63,9 @@ function seed() {
 
 export function createDemoApi() {
   const db = seed()
-  const delay = (v) => new Promise((r) => setTimeout(() => r(clone(v)), 80))
+  // 網址加 ?delay=毫秒（例：?delay=3000#/）可放慢回應，用來檢查骨架屏等讀取中畫面
+  const ms = (typeof location !== 'undefined' && Number(new URLSearchParams(location.search).get('delay'))) || 80
+  const delay = (v) => new Promise((r) => setTimeout(() => r(clone(v)), ms))
 
   const derive = (t) => {
     const is_pending = t.original_amount != null && t.amount == null

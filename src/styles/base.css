@@ -115,3 +115,25 @@ svg { display: block; flex-shrink: 0; }
 .center { min-height: 100dvh; display: grid; place-items: center; padding: 16px; }
 .center > .card { width: 100%; max-width: 360px; display: grid; gap: 12px; }
 code { background: var(--color-tag); padding: 1px 6px; border-radius: 4px; }
+
+/* ===== 骨架屏（資料讀取中） =====
+   底色＝Tag；一道淡光由左往右掃過整個畫面（background-attachment: fixed，所有骨架共用同一道光）。
+   Skeleton 元件掛載時把動畫對齊到同一個時間起點，先後出現的骨架也不會各掃各的。
+   系統設定「減少動態效果」時不播放動畫。 */
+.skeleton {
+  display: block; flex-shrink: 0; max-width: 100%;
+  border-radius: var(--r-8);
+  background-color: var(--color-tag);
+  background-image: linear-gradient(100deg, transparent 40%, color-mix(in srgb, var(--color-tag) 65%, var(--color-line)) 50%, transparent 60%);
+  background-size: 200vw 100%;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  animation: skeleton-shine 1.8s ease-in-out infinite;
+}
+@keyframes skeleton-shine {
+  from { background-position: -130vw 0; }
+  to { background-position: 30vw 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; background-image: none; }
+}

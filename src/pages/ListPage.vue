@@ -6,10 +6,15 @@ import CategoryBreakdown from '../components/CategoryBreakdown.vue'
 import Pager from '../components/Pager.vue'
 import { useSummary, useTransactionList } from '../lib/useFiltered.js'
 import { openTransaction } from '../lib/dialog.js'
-import { scopeCurrency } from '../lib/store.js'
+import { scopeCurrency, refs } from '../lib/store.js'
+import { computed } from 'vue'
 
 const { summary, expense, income, error: sumError } = useSummary()
 const { rows, page, pageCount, total, loading, error: listError } = useTransactionList()
+
+// 第一次讀取：參考資料（帳戶、分類名稱）或清單還沒到 → 骨架
+const listSkeleton = computed(() => !refs.loaded || (loading.value && !rows.value.length))
+const sumSkeleton = computed(() => !refs.loaded || !summary.value)
 
 function go(p) {
   page.value = p
@@ -20,14 +25,14 @@ function go(p) {
 <template>
   <div class="page">
     <FilterBar />
-    <SummaryCards :summary="summary" />
+    <SummaryCards :summary="sumSkeleton ? null : summary" />
     <p v-if="sumError || listError" class="body2 c-expense">{{ sumError || listError }}</p>
     <section class="content">
       <div class="card main">
-        <TransactionList :rows="rows" :loading="loading" @open="openTransaction" />
-        <Pager :page="page" :page-count="pageCount" :total="total" @go="go" />
+        <TransactionList :rows="rows" :loading="loading" :skeleton="listSkeleton" @open="openTransaction" />
+        <Pager v-if="!listSkeleton" :page="page" :page-count="pageCount" :total="total" @go="go" />
       </div>
-      <CategoryBreakdown :expense="expense" :income="income" :currency="summary?.currency ?? scopeCurrency" />
+      <CategoryBreakdown :expense="expense" :income="income" :currency="summary?.currency ?? scopeCurrency" :loading="sumSkeleton" />
     </section>
   </div>
 </template>
