@@ -1,4 +1,5 @@
 <script setup>
+import { openAccountDrawer } from '../lib/accountDrawer.js'
 // 新增／編輯交易對話框（電腦版）。所有欄位一次攤開；儲存後關閉，留在清單。
 // 儲存失敗時表單內容保留；不自動重試（表單開啟時已產生 id，重按只會覆蓋同一筆）。
 import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
@@ -92,6 +93,12 @@ const onKey = (e) => {
 }
 onMounted(() => document.addEventListener('keydown', onKey))
 onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
+
+// 還沒有帳戶：關掉對話框，打開帳戶側選單並直接開啟「新增帳戶」
+function addFirstAccount() {
+  closeTransaction()
+  openAccountDrawer({ add: true })
+}
 </script>
 
 <template>
@@ -103,8 +110,8 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
         </button>
 
         <div v-if="noAccounts && !editing" class="no-account">
-          <p class="body1">還沒有帳戶，請先到「管理」建立帳戶。</p>
-          <BaseButton variant="primary" to="/manage" @click="closeTransaction">前往管理</BaseButton>
+          <p class="body1">還沒有帳戶，請先建立帳戶。</p>
+          <BaseButton variant="primary" icon="plus" @click="addFirstAccount">新增帳戶</BaseButton>
         </div>
         <TransactionForm v-else :key="form.id" ref="formRef" :form="form" :errors="errors" :original="txnDialog.txn">
           <template #actions>
