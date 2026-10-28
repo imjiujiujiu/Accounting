@@ -117,6 +117,7 @@ function addFirstAccount() {
   <Transition name="pop">
     <div v-if="txnDialog.open && form" class="overlay" @mousedown.self="close">
       <div ref="dialogEl" class="dialog" role="dialog" aria-modal="true" :aria-label="editing ? '編輯交易' : '新增交易'">
+        <p class="m-title h5">{{ editing ? '編輯交易' : '新增交易' }}</p>
         <button class="close" type="button" aria-label="關閉" @click="close">
           <Icon name="close" :size="14" color="var(--gray-0)" />
         </button>
@@ -163,4 +164,25 @@ function addFirstAccount() {
 .msg { flex: 1; min-width: 0; text-align: right; }
 .pop-enter-active, .pop-leave-active { transition: opacity .15s; }
 .pop-enter-from, .pop-leave-to { opacity: 0; }
+
+/* 手機：全螢幕，標題列＋欄位單欄＋底部固定按鈕列 */
+.m-title { display: none; }
+@media (max-width: 760px) {
+  .overlay { padding: 0; align-items: stretch; background: var(--color-card); }
+  .dialog {
+    width: 100%; min-height: 100dvh; border-radius: 0;
+    display: flex; flex-direction: column; gap: var(--sp-16);
+    padding: 0 var(--sp-16);
+  }
+  .m-title {
+    display: block; position: sticky; top: 0; z-index: 3; background: var(--color-card);
+    line-height: 56px; text-align: center; border-bottom: 1px solid var(--color-line); margin: 0 calc(-1 * var(--sp-16));
+  }
+  .close { position: fixed; top: 16px; right: 16px; z-index: 4; width: 24px; height: 24px; }
+  .msg { text-align: left; flex: 1 0 100%; }
+  .msg:empty { display: none; }
+  .dialog :deep(.bottom) { flex-direction: row; flex-wrap: wrap; }
+  .dialog :deep(.bottom > .settle) { flex: 1 0 100%; }
+  .dialog :deep(.bottom > .base-btn) { flex: 1; }
+}
 </style>

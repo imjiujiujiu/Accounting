@@ -98,5 +98,11 @@ async function logout() {
 .block .start { align-self: flex-start; }
 .settings > .block:first-child { grid-row: span 2; }
 .rate { display: grid; grid-template-columns: 100px 76px 1fr auto auto; align-items: center; gap: var(--sp-8); }
+/* 手機：幣別名稱獨立一列，下一列「1 JPY ＝ [輸入框] TWD [儲存]」，輸入框吃掉剩下的寬度 */
+@media (max-width: 760px) {
+  .rate { grid-template-columns: 64px minmax(0, 1fr) auto auto; row-gap: var(--sp-4); }
+  .rate .code { grid-column: 1 / -1; }
+  .rate + .rate { padding-top: var(--sp-8); border-top: 1px solid var(--color-line); }
+}
 @media (max-width: 1100px) { .settings { grid-template-columns: 1fr; } .settings > .block:first-child { grid-row: auto; } }
 </style>

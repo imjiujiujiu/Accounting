@@ -91,6 +91,7 @@ const indexOf = (o) => flat.value.indexOf(o)
     >
       <Icon v-if="selected" :name="selected.icon" :size="20" :color="TONE[selected.type]" />
       <span v-else class="add-dot"><Icon name="plus" :size="12" color="var(--color-card)" /></span>
+      <span class="m-label body1" :class="{ empty: !selected }">{{ selected?.label ?? '選擇分類' }}</span>
       <Icon name="down" :size="20" color="var(--color-text)" />
     </button>
 
@@ -148,4 +149,14 @@ const indexOf = (o) => flat.value.indexOf(o)
 .option.active { background: var(--color-tag); }
 .option.on { color: var(--color-primary); font-weight: 700; }
 .option.dim .text { opacity: .55; }
+
+/* 手機：觸發鈕撐滿寬度並顯示分類名稱；面板同寬 */
+.m-label { display: none; }
+@media (max-width: 760px) {
+  .trigger { width: 100%; gap: var(--sp-8); }
+  .m-label { display: block; flex: 1; text-align: left; }
+  .m-label.empty { color: var(--color-placeholder); }
+  .panel { width: 100%; max-height: 50vh; }
+  .option { min-height: 44px; }
+}
 </style>

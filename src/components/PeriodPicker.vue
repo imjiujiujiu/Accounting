@@ -1,6 +1,6 @@
 <script setup>
 // 期間選擇器：左右箭頭依區間長度移動；點中間開啟快速區間＋雙月曆（點兩下選起訖）
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 import { BaseButton } from './ui/index.js'
 import { filters } from '../lib/store.js'
@@ -48,6 +48,14 @@ function monthGrid(first) {
 }
 const months = computed(() => [monthGrid(viewMonth.value), monthGrid(addMonths(viewMonth.value, 1))])
 
+// 手機（760px 以下）：面板改為底部滑出，只顯示一個月（結束日所在的月份）
+const mq = typeof window !== 'undefined' ? window.matchMedia('(max-width: 760px)') : null
+const isMobile = ref(mq?.matches ?? false)
+const onMq = (e) => (isMobile.value = e.matches)
+onMounted(() => mq?.addEventListener('change', onMq))
+onBeforeUnmount(() => mq?.removeEventListener('change', onMq))
+const visibleMonths = computed(() => (isMobile.value ? [months.value[1]] : months.value))
+
 function pick(day) {
   if (!picking.value) {
     draft.value = { from: day, to: day }
@@ -85,7 +93,12 @@ const current = computed(() => matchPreset(filters.range))
       <Icon name="right" color="var(--color-text)" />
     </button>
 
+    <div v-if="open" class="backdrop" @click="open = false" />
     <div v-if="open" class="popover panel">
+      <div class="sheet-head">
+        <span class="grabber" aria-hidden="true" />
+        <p class="body1-bold">選擇期間</p>
+      </div>
       <div class="presets">
         <button
           v-for="p in PRESETS"
@@ -109,7 +122,7 @@ const current = computed(() => matchPreset(filters.range))
           </button>
         </div>
         <div class="cals">
-          <div v-for="mo in months" :key="mo.title" class="cal">
+          <div v-for="mo in visibleMonths" :key="mo.title" class="cal">
             <p class="body2-bold cal-title">{{ mo.title }}</p>
             <div class="grid">
               <span v-for="w in WEEK" :key="w" class="caption c-text wd">{{ w }}</span>
@@ -158,4 +171,30 @@ const current = computed(() => matchPreset(filters.range))
 .day.edge { background: var(--color-primary); color: var(--color-card); font-weight: 700; }
 .foot { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-16); border-top: 1px solid var(--color-line); padding-top: var(--sp-12); }
 .actions { display: flex; gap: var(--sp-12); }
+.backdrop, .sheet-head { display: none; }
+
+/* 手機：期間列撐滿寬度；面板改為底部滑出（bottom sheet） */
+@media (max-width: 760px) {
+  .period { width: 100%; }
+  .range { flex: 1; min-width: 0; }
+  .backdrop { display: block; position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); }
+  .panel {
+    position: fixed; left: 0; right: 0; bottom: 0; top: auto; z-index: 50;
+    flex-direction: column; gap: var(--sp-16); max-height: 88vh; overflow-y: auto;
+    border-radius: var(--r-20) var(--r-20) 0 0; border-width: 1px 0 0;
+    padding: var(--sp-8) var(--sp-16) calc(var(--sp-16) + env(safe-area-inset-bottom));
+  }
+  .sheet-head { display: flex; flex-direction: column; align-items: center; gap: var(--sp-12); }
+  .grabber { width: 40px; height: 4px; border-radius: var(--r-pill); background: var(--color-line-hover); }
+  .presets {
+    flex-direction: row; flex-wrap: wrap; gap: var(--sp-8);
+    border-right: 0; border-bottom: 1px solid var(--color-line); padding: 0 0 var(--sp-16);
+  }
+  .preset { padding: var(--sp-8) var(--sp-16); border: 1px solid var(--color-line); border-radius: var(--r-pill); }
+  .preset.on { border-color: var(--color-primary); }
+  .cals { display: block; }
+  .grid { grid-template-columns: repeat(7, 1fr); }
+  .day { height: 44px; font-size: 16px; }
+  .foot .actions .control { min-width: 72px; }
+}
 </style>
