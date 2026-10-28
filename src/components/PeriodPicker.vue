@@ -93,7 +93,8 @@ const current = computed(() => matchPreset(filters.range))
       <Icon name="right" color="var(--color-text)" />
     </button>
 
-    <div v-if="open" class="backdrop" @click="open = false" />
+    <Transition name="fade"><div v-if="open" class="backdrop" @click="open = false" /></Transition>
+    <Transition name="sheet">
     <div v-if="open" class="popover panel">
       <div class="sheet-head">
         <span class="grabber" aria-hidden="true" />
@@ -144,6 +145,7 @@ const current = computed(() => matchPreset(filters.range))
         </div>
       </div>
     </div>
+    </Transition>
   </div>
 </template>
 
@@ -196,5 +198,12 @@ const current = computed(() => matchPreset(filters.range))
   .grid { grid-template-columns: repeat(7, 1fr); }
   .day { height: 44px; font-size: 16px; }
   .foot .actions .control { min-width: 72px; }
+
+  /* 底部面板：由下往上長出，關閉時往下收合 */
+  .sheet-enter-active { transition: transform .26s cubic-bezier(.2, .8, .2, 1); }
+  .sheet-leave-active { transition: transform .2s ease-in; }
+  .sheet-enter-from, .sheet-leave-to { transform: translateY(100%); }
+  .fade-enter-active, .fade-leave-active { transition: opacity .2s; }
+  .fade-enter-from, .fade-leave-to { opacity: 0; }
 }
 </style>

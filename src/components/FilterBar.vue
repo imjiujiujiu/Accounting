@@ -120,9 +120,9 @@ function clearAll() {
     <PeriodPicker />
 
     <!-- 手機篩選面板：勾選即時生效 -->
-    <template v-if="sheetOpen">
-      <div class="sheet-backdrop" @click="sheetOpen = false" />
-      <div class="sheet" role="dialog" aria-modal="true" aria-label="篩選">
+    <Transition name="fade"><div v-if="sheetOpen" class="sheet-backdrop" @click="sheetOpen = false" /></Transition>
+    <Transition name="sheet">
+      <div v-if="sheetOpen" class="sheet" role="dialog" aria-modal="true" aria-label="篩選">
         <div class="sheet-head">
           <span class="grabber" aria-hidden="true" />
           <p class="body1-bold">篩選</p>
@@ -179,7 +179,7 @@ function clearAll() {
           <BaseButton variant="primary" @click="sheetOpen = false">完成</BaseButton>
         </div>
       </div>
-    </template>
+    </Transition>
   </div>
 </template>
 
@@ -232,5 +232,12 @@ function clearAll() {
     display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-12);
     padding: var(--sp-12) var(--sp-16) calc(var(--sp-12) + env(safe-area-inset-bottom)); border-top: 1px solid var(--color-line);
   }
+
+  /* 底部面板：由下往上長出，關閉時往下收合 */
+  .sheet-enter-active { transition: transform .26s cubic-bezier(.2, .8, .2, 1); }
+  .sheet-leave-active { transition: transform .2s ease-in; }
+  .sheet-enter-from, .sheet-leave-to { transform: translateY(100%); }
+  .fade-enter-active, .fade-leave-active { transition: opacity .2s; }
+  .fade-enter-from, .fade-leave-to { opacity: 0; }
 }
 </style>

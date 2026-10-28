@@ -178,7 +178,11 @@ function addFirstAccount() {
     display: block; position: sticky; top: 0; z-index: 3; background: var(--color-card);
     line-height: 56px; text-align: center; border-bottom: 1px solid var(--color-line); margin: 0 calc(-1 * var(--sp-16));
   }
-  .close { position: fixed; top: 16px; right: 16px; z-index: 4; width: 24px; height: 24px; }
+  /* 關閉鈕比照帳戶側選單：無底色、20px 圖示、Text 色 */
+  .close { position: fixed; top: 10px; right: 8px; z-index: 4; width: 36px; height: 36px; border-radius: var(--r-8); background: none; }
+  .close:hover { background: var(--color-tag); }
+  .close :deep(svg) { width: 20px; height: 20px; }
+  .close :deep(path) { fill: var(--color-text); }
   .msg { text-align: left; flex: 1 0 100%; }
   .msg:empty { display: none; }
   .dialog :deep(.bottom) { flex-direction: row; flex-wrap: wrap; }
