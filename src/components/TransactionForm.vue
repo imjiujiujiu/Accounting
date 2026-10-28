@@ -26,13 +26,11 @@ const account = computed(() => accountOf(f.accountId))
 const accCur = computed(() => account.value?.currency ?? baseCurrency.value)
 const toAccount = computed(() => accountOf(f.toAccountId))
 
-// 帳戶選項：啟用中的帳戶，加上目前選的（即使已停用）
-const accountOptions = computed(() =>
-  refs.accounts.filter((a) => a.is_active || a.id === f.accountId || a.id === f.toAccountId),
-)
+// 帳戶選項：全部帳戶（帳戶不能停用）
+const accountOptions = computed(() => [...refs.accounts].sort((a, b) => a.sort_order - b.sort_order))
 const accountLabel = (a) => (a.currency === baseCurrency.value ? a.name : `${a.name}（${a.currency}）`)
 const accountItems = computed(() =>
-  accountOptions.value.map((a) => ({ value: a.id, label: accountLabel(a) + (a.is_active ? '' : '（停用）') })),
+  accountOptions.value.map((a) => ({ value: a.id, label: accountLabel(a) })),
 )
 const toAccountItems = computed(() => accountItems.value.map((o) => ({ ...o, disabled: o.value === f.accountId })))
 

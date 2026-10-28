@@ -24,7 +24,7 @@ const formRef = ref(null)
 const dialogEl = ref(null)
 const editing = computed(() => !!txnDialog.txn)
 const ctx = () => ({ accounts: refs.accounts, currencies: refs.currencies, baseCurrency: baseCurrency.value })
-const noAccounts = computed(() => !refs.accounts.some((a) => a.is_active))
+const noAccounts = computed(() => !refs.accounts.length)
 
 watch(
   () => txnDialog.open,
@@ -38,7 +38,7 @@ watch(
     }
     form.value = createEmptyForm()
     const f = form.value // reactive 版本，下方比對才會相等
-    // 帳戶自動帶入上一筆使用的帳戶（停用或找不到時用第一個啟用中的帳戶）
+    // 帳戶自動帶入上一筆使用的帳戶（找不到時用排序第一的帳戶）
     let last = null
     try {
       last = await api.transactions.lastUsedAccountId()
@@ -46,8 +46,8 @@ watch(
       /* 帶不到就算了 */
     }
     if (form.value !== f || f.accountId) return
-    const ok = refs.accounts.find((a) => a.id === last && a.is_active)
-    f.accountId = ok?.id ?? refs.accounts.find((a) => a.is_active)?.id ?? null
+    const ok = refs.accounts.find((a) => a.id === last)
+    f.accountId = ok?.id ?? [...refs.accounts].sort((a, b) => a.sort_order - b.sort_order)[0]?.id ?? null
     await nextTick()
   },
 )

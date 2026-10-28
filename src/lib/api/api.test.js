@@ -146,7 +146,7 @@ describe('accounts', () => {
   it('有交易時刪除顯示具體訊息', async () => {
     const db = fakeDb(() => ({ data: null, error: { code: '23503', message: 'violates foreign key constraint' } }))
     await expect(createApi(db).accounts.remove('a')).rejects.toMatchObject({
-      kind: 'in_use', message: '這個帳戶已有交易，無法刪除，只能停用',
+      kind: 'in_use', message: '這個帳戶已有交易，無法刪除',
     })
   })
   it('只送出可編輯的欄位', async () => {
