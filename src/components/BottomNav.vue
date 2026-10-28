@@ -54,4 +54,6 @@ const RIGHT = [
   }
   .add:active { transform: scale(.95); }
 }
+/* 鍵盤開著時隱藏，把空間留給輸入 */
+html.kb-open .bottom-nav { display: none; }
 </style>

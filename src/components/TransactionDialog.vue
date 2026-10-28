@@ -168,9 +168,10 @@ function addFirstAccount() {
 /* 手機：全螢幕，標題列＋欄位單欄＋底部固定按鈕列 */
 .m-title { display: none; }
 @media (max-width: 760px) {
-  .overlay { padding: 0; align-items: stretch; background: var(--color-card); }
+  /* 鍵盤開著時底邊抬到鍵盤上方（--kb 由 lib/keyboard.js 設定），底部按鈕列不被蓋住 */
+  .overlay { padding: 0; align-items: stretch; background: var(--color-card); bottom: var(--kb, 0px); }
   .dialog {
-    width: 100%; min-height: 100dvh; border-radius: 0;
+    width: 100%; min-height: 100%; border-radius: 0;
     display: flex; flex-direction: column; gap: var(--sp-16);
     padding: 0 var(--sp-16);
   }
