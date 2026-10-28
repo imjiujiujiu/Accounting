@@ -3,33 +3,53 @@
 import { BaseButton, TextInput, Skeleton } from '../components/ui/index.js'
 import { ref, reactive, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { focusFirstInvalid } from '../lib/focusInvalid.js'
 import { refs, loadRefs, showToast, baseCurrency } from '../lib/store.js'
 import { api, isDemo } from '../lib/api/index.js'
 import { session, signOut } from '../lib/auth.js'
 
 const router = useRouter()
 const foreign = computed(() => refs.currencies.filter((c) => c.code !== baseCurrency.value))
+// 匯率區塊：整區一個「儲存」，只寫入有變更的幣別；全部檢查通過才送出
 const rates = reactive({})
-watch(
-  () => refs.defaultRates,
-  (list) => {
-    for (const c of refs.currencies) rates[c.code] = ''
-    for (const r of list) rates[r.currency] = String(r.rate)
-  },
-  { immediate: true },
+const errors = reactive({})
+const rateForm = ref(null)
+const saved = computed(() => Object.fromEntries(refs.defaultRates.map((r) => [r.currency, r.rate])))
+/** 還原成已儲存的值（載入、儲存成功、按「取消」時） */
+function resetRates() {
+  for (const c of refs.currencies) { rates[c.code] = ''; errors[c.code] = '' }
+  for (const r of refs.defaultRates) rates[r.currency] = String(r.rate)
+}
+watch(() => refs.defaultRates, resetRates, { immediate: true })
+
+/** 和已儲存的值不同的幣別（空白＝刪除；數字以數值比較，0.210 與 0.21 視為相同） */
+const changed = computed(() =>
+  foreign.value
+    .map((c) => c.code)
+    .filter((code) => {
+      const raw = String(rates[code] ?? '').trim()
+      const old = saved.value[code]
+      if (!raw) return old != null
+      return Number(raw) !== old
+    }),
 )
 
 const busy = ref(false)
-async function saveRate(code) {
-  const raw = String(rates[code] ?? '').trim()
+async function saveRates() {
+  if (!changed.value.length) return
+  for (const code of changed.value) {
+    const raw = String(rates[code]).trim()
+    errors[code] = raw && !(Number(raw) > 0) ? '匯率必須是大於 0 的數字' : ''
+  }
+  if (changed.value.some((code) => errors[code])) return focusFirstInvalid(rateForm.value)
   busy.value = true
   try {
-    if (!raw) await api.settings.removeDefaultRate(code)
-    else {
-      const n = Number(raw)
-      if (!(n > 0)) throw new Error('匯率必須是大於 0 的數字')
-      await api.settings.setDefaultRate(code, n)
-    }
+    await Promise.all(
+      changed.value.map((code) => {
+        const raw = String(rates[code]).trim()
+        return raw ? api.settings.setDefaultRate(code, Number(raw)) : api.settings.removeDefaultRate(code)
+      }),
+    )
     await loadRefs()
     showToast('已儲存匯率')
   } catch (e) {
@@ -65,14 +85,20 @@ async function logout() {
         外幣刷卡的預估台幣，優先用該幣別最近一次回壓的實際匯率；還沒有回壓紀錄時才用這裡的匯率。空白＝不預估。
       </p>
       <div v-for="i in refs.loaded ? 0 : 2" :key="'sk' + i" class="rate" aria-hidden="true">
-        <Skeleton class="code" w="88" h="16" /><Skeleton w="64" h="14" /><Skeleton w="100%" h="40" /><Skeleton w="32" h="14" /><Skeleton w="52" h="32" />
+        <Skeleton class="code" w="88" h="16" /><Skeleton w="64" h="14" /><Skeleton w="100%" h="40" /><Skeleton w="32" h="14" />
       </div>
-      <form v-for="c in foreign" :key="c.code" class="rate" @submit.prevent="saveRate(c.code)">
-        <span class="body1-bold code">{{ c.name_zh }} {{ c.code }}</span>
-        <span class="body2 c-text">1 {{ c.code }} ＝</span>
-        <TextInput v-model="rates[c.code]" inputmode="decimal" placeholder="未設定" />
-        <span class="body2 c-text">{{ baseCurrency }}</span>
-        <BaseButton size="small" type="submit" :disabled="busy">儲存</BaseButton>
+      <form ref="rateForm" class="rates" @submit.prevent="saveRates">
+        <div v-for="c in foreign" :key="c.code" class="rate">
+          <span class="body1-bold code">{{ c.name_zh }} {{ c.code }}</span>
+          <span class="body2 c-text">1 {{ c.code }} ＝</span>
+          <TextInput v-model="rates[c.code]" inputmode="decimal" placeholder="未設定" :invalid="!!errors[c.code]" @input="errors[c.code] = ''" />
+          <span class="body2 c-text">{{ baseCurrency }}</span>
+          <span v-if="errors[c.code]" class="caption c-expense err">{{ errors[c.code] }}</span>
+        </div>
+        <div v-if="refs.loaded" class="foot">
+          <BaseButton :disabled="busy || !changed.length" @click="resetRates">取消</BaseButton>
+          <BaseButton variant="primary" type="submit" :disabled="busy || !changed.length">儲存</BaseButton>
+        </div>
       </form>
     </section>
 
@@ -97,10 +123,14 @@ async function logout() {
 .block { display: flex; flex-direction: column; gap: var(--sp-16); }
 .block .start { align-self: flex-start; }
 .settings > .block:first-child { grid-row: span 2; }
-.rate { display: grid; grid-template-columns: 100px 76px 1fr auto auto; align-items: center; gap: var(--sp-8); }
-/* 手機：幣別名稱獨立一列，下一列「1 JPY ＝ [輸入框] TWD [儲存]」，輸入框吃掉剩下的寬度 */
+.rates { display: flex; flex-direction: column; gap: var(--sp-16); }
+.rates .foot { display: flex; justify-content: flex-end; gap: var(--sp-12); }
+.rate { display: grid; grid-template-columns: 100px 76px 1fr auto; align-items: center; gap: var(--sp-8); }
+.rate .err { grid-column: 3 / -1; margin-top: calc(-1 * var(--sp-4)); }
+/* 手機：幣別名稱獨立一列，下一列「1 JPY ＝ [輸入框] TWD」，輸入框吃掉剩下的寬度 */
 @media (max-width: 760px) {
-  .rate { grid-template-columns: 64px minmax(0, 1fr) auto auto; row-gap: var(--sp-4); }
+  .rate { grid-template-columns: 64px minmax(0, 1fr) auto; row-gap: var(--sp-4); }
+  .rate .err { grid-column: 2 / -1; margin-top: 0; }
   .rate .code { grid-column: 1 / -1; }
   .rate + .rate { padding-top: var(--sp-8); border-top: 1px solid var(--color-line); }
 }
