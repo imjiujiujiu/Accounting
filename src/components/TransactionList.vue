@@ -83,10 +83,11 @@ const days = computed(() => {
 .amount .skeleton { margin-left: auto; }
 .cat-icon { width: 40px; height: 40px; border-radius: var(--r-12); background: var(--color-tag); display: grid; place-items: center; flex-shrink: 0; }
 .desc { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-4); justify-content: center; }
-.desc-title { font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 備註過長時自動換行（長網址、無空白的字串也會斷行） */
+.desc-title { font-size: 16px; font-weight: 700; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
 .desc-meta { display: flex; align-items: center; gap: var(--sp-4); font-size: 12px; color: var(--color-text); flex-wrap: wrap; }
 .wallet { width: 230px; flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-8); }
-.amount { min-width: 150px; text-align: right; font-size: 16px; font-weight: 700; white-space: nowrap; }
+.amount { flex-shrink: 0; min-width: 150px; text-align: right; font-size: 16px; font-weight: 700; white-space: nowrap; }
 @media (max-width: 760px) {
   .wallet { display: none; }
   .amount { min-width: 0; }
