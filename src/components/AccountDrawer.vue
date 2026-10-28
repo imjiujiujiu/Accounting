@@ -165,6 +165,15 @@ watch(
   .actions :deep(.icon-button) { width: 44px; height: 44px; }
 }
 
+/* 手機：右側留 48px 可點遮罩關閉；內距比照手機版面 16；底部留安全區域 */
+@media (max-width: 760px) {
+  .drawer {
+    width: calc(100vw - 48px); max-width: 420px;
+    padding: var(--sp-16) var(--sp-16) calc(var(--sp-24) + env(safe-area-inset-bottom));
+    gap: var(--sp-16);
+  }
+}
+
 .fade-enter-active, .fade-leave-active { transition: opacity .2s; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
 .slide-enter-active, .slide-leave-active { transition: transform .22s ease; }

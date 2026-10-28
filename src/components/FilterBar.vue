@@ -11,6 +11,9 @@ import {
   groupState, isCategoryChecked, toggleGroup, toggleCategory, toggleTransfer, selectionCount,
 } from '../lib/logic/categoryFilter.js'
 
+// 標籤 10 個以上才顯示搜尋框（需求 3.4）
+const TAG_SEARCH_MIN = 10
+
 const keyword = ref(filters.keyword)
 let timer
 watch(keyword, (v) => {
@@ -108,7 +111,7 @@ function clearAll() {
         label="標籤"
         :count="filters.tagIds.length"
         :groups="tagGroups"
-        searchable
+        :searchable="tagGroups[0].items.length >= TAG_SEARCH_MIN"
         empty-text="還沒有標籤"
         @toggle="onTagToggle"
         @clear="filters.tagIds = []"

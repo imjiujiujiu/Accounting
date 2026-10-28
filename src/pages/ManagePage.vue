@@ -205,6 +205,11 @@ function toggleActive(kind, item) {
 .label-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-8); }
 .label-row > .body1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actions { display: flex; gap: var(--sp-16); flex-shrink: 0; }
+/* 觸控裝置：圖示點擊範圍 44px（視覺位置不變），比照帳戶側選單 */
+@media (hover: none), (pointer: coarse) {
+  .actions { gap: 0; margin: -10px -10px -10px 0; }
+  .actions :deep(.icon-button) { width: 44px; height: 44px; }
+}
 
 /* 編輯框（新增在最上方；編輯就地取代該列） */
 .editor { display: flex; flex-direction: column; gap: var(--sp-16); padding: var(--sp-16); border: 1px solid var(--color-primary); border-radius: var(--r-12); }

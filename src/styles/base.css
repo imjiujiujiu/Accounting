@@ -137,3 +137,8 @@ code { background: var(--color-tag); padding: 1px 6px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) {
   .skeleton { animation: none; background-image: none; }
 }
+
+/* 手機：輸入框文字 16px，避免 iOS Safari 聚焦時自動放大畫面 */
+@media (max-width: 760px) {
+  input:not([type=checkbox]):not([type=radio]), textarea, select { font-size: 16px !important; }
+}

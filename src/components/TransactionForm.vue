@@ -261,6 +261,8 @@ defineExpose({ flushTag })
     flex-direction: column; align-items: stretch;
     background: var(--color-card); padding: var(--sp-12) 0 calc(var(--sp-12) + env(safe-area-inset-bottom));
   }
+  /* 鍵盤開著時底部沒有 Home 指示條，不留安全區域 */
+  html.kb-open .bottom { padding-bottom: var(--sp-12); }
   .settle { display: grid; grid-template-columns: 1fr 1fr; }
   .settle > * { width: auto; min-width: 0; }
   .settle .rate { grid-column: 1 / -1; line-height: normal; }
