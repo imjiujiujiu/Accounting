@@ -238,7 +238,7 @@ defineExpose({ flushTag })
 .settle { display: flex; align-items: flex-start; gap: var(--sp-8); }
 .settle .rate { align-self: flex-end; line-height: 40px; }
 
-/* 手機（760px 以下）：單欄、整寬；金額放大置頂，其次分類、帳戶、日期，備註與標籤在最後 */
+/* 手機（760px 以下）：單欄、整寬；金額置頂，其次分類、帳戶、日期，備註與標籤在最後 */
 @media (max-width: 760px) {
   .form { gap: var(--sp-16); flex: 1; }
   .fields { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: var(--sp-12); }
@@ -252,8 +252,6 @@ defineExpose({ flushTag })
   .f-date { order: 7; }
   .f-note { order: 8; }
   .f-tags { order: 9; }
-  .f-amount :deep(input) { height: 56px; font-size: 28px; font-weight: 700; }
-  .f-currency :deep(.trigger) { height: 56px; }
   .fields .caption { white-space: normal; }
   .suggest { max-width: 100%; }
 
