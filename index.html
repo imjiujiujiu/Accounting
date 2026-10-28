@@ -13,7 +13,7 @@
          色塊與動畫用 base.css 的 .skeleton、.card、.control。 -->
     <style>
       html { background: #0D1117; }
-      .boot-header { height: 80px; border-bottom: 2px solid var(--color-primary); }
+      .boot-header { position: sticky; top: 0; z-index: 35; background: var(--color-page); height: 80px; border-bottom: 2px solid var(--color-primary); }
       .boot-header > div { position: relative; height: 100%; max-width: 1440px; margin: 0 auto; padding: 0 32px; display: flex; align-items: center; }
       .control.boot-account { padding: 0 12px; font-weight: 700; font-size: 14px; }
       .boot-tabs { position: absolute; right: 32px; bottom: 0; display: flex; gap: 20px; padding: 0 12px; }

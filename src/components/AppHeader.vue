@@ -33,8 +33,11 @@ const TABS = [
 </template>
 
 <style scoped>
-/* 底線撐滿視窗；內容維持在 1440 內 */
-.header { height: 80px; border-bottom: 2px solid var(--color-primary); }
+/* 底線撐滿視窗；內容維持在 1440 內。捲動時固定在最上方（z-index 介於下拉選單 30 與側選單 40 之間） */
+.header {
+  position: sticky; top: 0; z-index: 35;
+  height: 80px; border-bottom: 2px solid var(--color-primary); background: var(--color-page);
+}
 .inner {
   position: relative; height: 100%; max-width: 1440px; margin: 0 auto;
   display: flex; align-items: center; padding: 0 var(--sp-32);
