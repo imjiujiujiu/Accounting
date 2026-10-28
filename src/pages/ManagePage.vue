@@ -11,6 +11,7 @@ import { refs, loadRefs, afterTransactionChange, showToast } from '../lib/store.
 import { api } from '../lib/api/index.js'
 import { categoryIcon } from '../lib/logic/display.js'
 import { confirmDialog } from '../lib/confirm.js'
+import { focusFirstInvalid } from '../lib/focusInvalid.js'
 
 const busy = ref(false)
 async function act(fn, okText) {
@@ -29,6 +30,7 @@ async function act(fn, okText) {
 }
 
 /** 目前開著的編輯框：section＝'account' | 'expense' | 'income' | 'tag'；id＝'new' 或項目 id */
+/** error：名稱沒填時顯示在名稱欄位下（儲存失敗則以短提示顯示） */
 const editing = reactive({ section: null, id: null, error: '' })
 const isEditing = (section, id) => editing.section === section && editing.id === id
 function openEditor(section, id) {
@@ -59,8 +61,10 @@ function editCategory(kind, c) {
   Object.assign(cat, { name: c ? c.name : '', icon: categoryIcon(c ?? { kind, name: '其他' }) })
   openEditor(kind, c ? c.id : 'new')
 }
-async function saveCategory(kind) {
-  if (!cat.name.trim()) return (editing.error = '請輸入分類名稱')
+// 按 Enter（或「儲存」）送出；名稱沒填 → 欄位下顯示錯誤並把焦點移過去
+async function saveCategory(kind, e) {
+  editing.error = cat.name.trim() ? '' : '請輸入分類名稱'
+  if (editing.error) return focusFirstInvalid(e?.target)
   const isNew = editing.id === 'new'
   const id = editing.id
   const ok = await act(
@@ -80,8 +84,9 @@ function editTag(t) {
   tagName.value = t.name
   openEditor('tag', t.id)
 }
-async function saveTag() {
-  if (!tagName.value.trim()) return (editing.error = '請輸入標籤名稱')
+async function saveTag(e) {
+  editing.error = tagName.value.trim() ? '' : '請輸入標籤名稱'
+  if (editing.error) return focusFirstInvalid(e?.target)
   const id = editing.id
   if (await act(() => api.tags.rename(id, tagName.value), '已更新標籤')) {
     closeEditor()
@@ -118,7 +123,7 @@ function toggleActive(kind, item) {
         <span class="actions"><Skeleton w="24" h="24" r="6" /><Skeleton w="24" h="24" r="6" /></span>
       </div>
       <template v-for="c in [{ id: 'new' }, ...g.items]" :key="c.id">
-        <form v-if="isEditing(g.kind, c.id)" class="editor" @submit.prevent="saveCategory(g.kind)">
+        <form v-if="isEditing(g.kind, c.id)" class="editor" @submit.prevent="saveCategory(g.kind, $event)">
           <div class="cat-fields">
             <FormField label="圖示" as="div">
               <!-- MVP 不可自選圖示（之後改為下拉選擇） -->
@@ -127,10 +132,9 @@ function toggleActive(kind, item) {
                 <Icon name="down" :size="20" color="var(--color-text)" />
               </button>
             </FormField>
-            <FormField label="名稱" class="grow-field"><TextInput v-model="cat.name" maxlength="20" /></FormField>
+            <FormField label="名稱" class="grow-field" :error="editing.error"><TextInput v-model="cat.name" maxlength="20" :invalid="!!editing.error" @input="editing.error = ''" /></FormField>
           </div>
           <div class="editor-foot">
-            <span class="body2 c-expense">{{ editing.error }}</span>
             <BaseButton @click="closeEditor">取消</BaseButton>
             <BaseButton variant="primary" type="submit" :disabled="busy">儲存</BaseButton>
           </div>
@@ -169,10 +173,9 @@ function toggleActive(kind, item) {
         <span class="actions"><Skeleton w="24" h="24" r="6" /><Skeleton w="24" h="24" r="6" /></span>
       </div>
       <template v-for="t in refs.tags" :key="t.id">
-        <form v-if="isEditing('tag', t.id)" class="editor" @submit.prevent="saveTag">
-          <FormField label="名稱"><TextInput v-model="tagName" maxlength="30" /></FormField>
+        <form v-if="isEditing('tag', t.id)" class="editor" @submit.prevent="saveTag($event)">
+          <FormField label="名稱" :error="editing.error"><TextInput v-model="tagName" maxlength="30" :invalid="!!editing.error" @input="editing.error = ''" /></FormField>
           <div class="editor-foot">
-            <span class="body2 c-expense">{{ editing.error }}</span>
             <BaseButton @click="closeEditor">取消</BaseButton>
             <BaseButton variant="primary" type="submit" :disabled="busy">儲存</BaseButton>
           </div>

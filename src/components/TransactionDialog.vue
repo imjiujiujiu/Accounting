@@ -2,6 +2,8 @@
 import { openAccountDrawer } from '../lib/accountDrawer.js'
 // 新增／編輯交易對話框（電腦版）。所有欄位一次攤開；儲存後關閉，留在清單。
 // 儲存失敗時表單內容保留；不自動重試（表單開啟時已產生 id，重按只會覆蓋同一筆）。
+// Enter（游標在文字輸入框時）或 ⌘／Ctrl＋Enter（任何位置）＝儲存；有欄位沒填或有錯 → 焦點移到第一個有錯的欄位。
+// 下拉選單、日期、標籤輸入框各自處理自己的 Enter（選取、加標籤），不會觸發儲存。
 import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 import TransactionForm from './TransactionForm.vue'
@@ -12,12 +14,14 @@ import { refs, baseCurrency, afterTransactionChange, showToast } from '../lib/st
 import { api } from '../lib/api/index.js'
 import { isOnline, OFFLINE_MESSAGE } from '../lib/api/online.js'
 import { createEmptyForm, txnToForm, validateForm, formToPayload } from '../lib/logic/transactionForm.js'
+import { focusFirstInvalid, isSubmitEnter } from '../lib/focusInvalid.js'
 
 const form = ref(null)
 const errors = ref({})
 const saving = ref(false)
 const failMessage = ref('')
 const formRef = ref(null)
+const dialogEl = ref(null)
 const editing = computed(() => !!txnDialog.txn)
 const ctx = () => ({ accounts: refs.accounts, currencies: refs.currencies, baseCurrency: baseCurrency.value })
 const noAccounts = computed(() => !refs.accounts.some((a) => a.is_active))
@@ -52,7 +56,7 @@ async function save() {
   formRef.value?.flushTag()
   const { ok, errors: errs } = validateForm(form.value, ctx())
   errors.value = errs
-  if (!ok) return
+  if (!ok) return focusFirstInvalid(dialogEl.value)
   saving.value = true
   failMessage.value = ''
   try {
@@ -89,7 +93,15 @@ function close() {
 const onKey = (e) => {
   if (!txnDialog.open || confirmState.open) return
   if (e.key === 'Escape') close()
-  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) save()
+  if (e.key !== 'Enter' || saving.value || !form.value || (noAccounts.value && !editing.value)) return
+  if (!dialogEl.value?.contains(e.target) && e.target !== document.body) return
+  if ((e.metaKey || e.ctrlKey) && !e.isComposing) {
+    e.preventDefault()
+    save()
+  } else if (isSubmitEnter(e)) {
+    e.preventDefault()
+    save()
+  }
 }
 onMounted(() => document.addEventListener('keydown', onKey))
 onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
@@ -104,7 +116,7 @@ function addFirstAccount() {
 <template>
   <Transition name="pop">
     <div v-if="txnDialog.open && form" class="overlay" @mousedown.self="close">
-      <div class="dialog" role="dialog" aria-modal="true" :aria-label="editing ? '編輯交易' : '新增交易'">
+      <div ref="dialogEl" class="dialog" role="dialog" aria-modal="true" :aria-label="editing ? '編輯交易' : '新增交易'">
         <button class="close" type="button" aria-label="關閉" @click="close">
           <Icon name="close" :size="14" color="var(--gray-0)" />
         </button>
