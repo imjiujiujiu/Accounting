@@ -163,16 +163,12 @@ describe('categories / tags / settings', () => {
       kind: 'duplicate', message: '已有同名分類',
     })
   })
-  it('分類列表含使用次數，0 筆才能刪除', async () => {
-    const db = fakeDb(() => ({ data: [{ id: 'a', txn_count: 0 }, { id: 'b', txn_count: 3 }], error: null }))
+  it('分類列表含使用次數；「其他」以外都能刪除', async () => {
+    const db = fakeDb(() => ({ data: [{ id: 'a', name: '餐飲', txn_count: 0 }, { id: 'b', name: '娛樂', txn_count: 3, rule_count: 2 }, { id: 'c', name: '其他', txn_count: 1 }], error: null }))
     const list = await createApi(db).categories.list()
     expect(db.calls[0].table).toBe('category_usage')
-    expect(list.map((c) => c.canDelete)).toEqual([true, false])
-  })
-  it('被固定收支使用的分類不能刪除', async () => {
-    const db = fakeDb(() => ({ data: [{ id: 'a', txn_count: 0, rule_count: 2 }, { id: 'b', txn_count: 0 }], error: null }))
-    const list = await createApi(db).categories.list()
-    expect(list.map((c) => c.canDelete)).toEqual([false, true])
+    expect(list.map((c) => c.canDelete)).toEqual([true, true, false])
+    expect(list[1]).toMatchObject({ txn_count: 3, rule_count: 2 })
   })
   it('還沒有 category_usage 時退回讀 categories，暫時不能刪除', async () => {
     const db = fakeDb((call) =>
@@ -184,20 +180,18 @@ describe('categories / tags / settings', () => {
     expect(db.calls.map((c) => c.table)).toEqual(['category_usage', 'categories'])
     expect(list[0].canDelete).toBe(false)
   })
-  it('分類已有交易時刪除失敗', async () => {
-    const db = fakeDb(() => ({ data: null, error: { code: '23503', message: 'violates foreign key' } }))
-    await expect(createApi(db).categories.remove('c')).rejects.toMatchObject({
-      kind: 'in_use', message: '這個分類已有交易使用，無法刪除，只能停用',
-    })
-    expect(argsOf(db.calls[0], 'eq')[0]).toEqual(['id', 'c'])
+  it('刪除分類走 delete_category，回傳搬移筆數', async () => {
+    const db = fakeDb(() => ({ data: [{ moved_txns: 12, moved_rules: 2 }], error: null }))
+    await expect(createApi(db).categories.remove('c')).resolves.toEqual({ movedTxns: 12, movedRules: 2 })
+    expect(db.calls[0]).toMatchObject({ rpc: 'delete_category', args: { p_id: 'c' } })
   })
-  it('刪除了 0 筆（沒有刪除權限）時報錯', async () => {
-    const db = fakeDb(() => ({ data: [], error: null }))
-    await expect(createApi(db).categories.remove('c')).rejects.toMatchObject({ kind: 'auth' })
+  it('資料庫還沒有 delete_category 時提示更新', async () => {
+    const db = fakeDb(() => ({ data: null, error: { code: 'PGRST202', message: 'Could not find the function' } }))
+    await expect(createApi(db).categories.remove('c')).rejects.toMatchObject({ kind: 'auth', message: expect.stringContaining('20261028_category_delete.sql') })
   })
-  it('刪除成功', async () => {
-    const db = fakeDb(() => ({ data: [{ id: 'c' }], error: null }))
-    await expect(createApi(db).categories.remove('c')).resolves.toBeUndefined()
+  it('刪除「其他」時顯示資料庫的中文訊息', async () => {
+    const db = fakeDb(() => ({ data: null, error: { code: '23514', message: '「其他」不能刪除' } }))
+    await expect(createApi(db).categories.remove('c')).rejects.toMatchObject({ message: '「其他」不能刪除' })
   })
   it('標籤依名稱排序', async () => {
     const db = fakeDb(() => ({ data: [{ id: 1, name: 'b' }, { id: 2, name: 'A' }], error: null }))

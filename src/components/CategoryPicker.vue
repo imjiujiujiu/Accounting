@@ -10,7 +10,7 @@ import { categoryIcon } from '../lib/logic/display.js'
 const props = defineProps({
   type: { type: String, default: 'expense' },
   categoryId: { type: String, default: null },
-  /** 全部分類；只列出啟用中的，加上目前選的（即使已停用） */
+  /** 全部分類 */
   categories: { type: Array, default: () => [] },
   invalid: Boolean,
 })
@@ -21,9 +21,9 @@ const TONE = { expense: 'var(--color-expense)', income: 'var(--color-income)', t
 const groups = computed(() => {
   const list = (kind) =>
     props.categories
-      .filter((c) => c.kind === kind && (c.is_active || c.id === props.categoryId))
+      .filter((c) => c.kind === kind)
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map((c) => ({ key: c.id, type: kind, categoryId: c.id, label: c.name, icon: categoryIcon(c), dim: !c.is_active }))
+      .map((c) => ({ key: c.id, type: kind, categoryId: c.id, label: c.name, icon: categoryIcon(c) }))
   return [
     { name: '支出', items: list('expense') },
     { name: '收入', items: list('income') },

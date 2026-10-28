@@ -1,7 +1,7 @@
 <script setup>
 // 管理：支出分類、收入分類、標籤（三欄）。設計稿：Figma「Manage v2」（node 123:138）。
 // 帳戶管理已移到左上角的帳戶側選單（AccountDrawer 的管理模式）。
-// 分類：可新增、改名、停用；沒有交易使用才能刪除（垃圾桶），有交易使用時該位置改為停用。
+// 分類：可新增、改名、刪除（需求 3.3）；刪除時交易改套「其他」並加上同名標籤。「其他」不能刪除、不能改名。
 // 標籤：改名、刪除（只移除關聯）。
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
 import { ref, computed, reactive } from 'vue'
@@ -9,6 +9,7 @@ import Icon from '../components/Icon.vue'
 import { BaseButton, IconButton, TextInput, FormField, Skeleton } from '../components/ui/index.js'
 import { refs, loadRefs, afterTransactionChange, showToast } from '../lib/store.js'
 import { api } from '../lib/api/index.js'
+import { OTHER } from '../lib/api/categories.js'
 import { categoryIcon } from '../lib/logic/display.js'
 import { confirmDialog } from '../lib/confirm.js'
 import { focusFirstInvalid } from '../lib/focusInvalid.js'
@@ -40,8 +41,7 @@ function closeEditor() {
   Object.assign(editing, { section: null, id: null, error: '' })
 }
 
-// 停用的排最後
-const byActive = (a, b) => b.is_active - a.is_active || a.sort_order - b.sort_order
+const bySort = (a, b) => a.sort_order - b.sort_order
 
 /* 第一次讀取中：各卡片顯示骨架列（寬度為名稱長度的百分比） */
 const SKELETON_ROWS = { expense: [24, 32, 20, 28, 24, 36], income: [28, 20, 32], tag: [36, 52] }
@@ -51,7 +51,7 @@ const catGroups = computed(() =>
   [
     { kind: 'expense', title: '支出分類', color: 'var(--color-expense)' },
     { kind: 'income', title: '收入分類', color: 'var(--color-income)' },
-  ].map((g) => ({ ...g, items: refs.categories.filter((c) => c.kind === g.kind).sort(byActive) })),
+  ].map((g) => ({ ...g, items: refs.categories.filter((c) => c.kind === g.kind).sort(bySort) })),
 )
 // 還沒執行 20261022_manage_categories.sql：讀不到使用次數，分類暫時都不能刪除
 const usageUnavailable = computed(() => refs.categories.some((c) => c.txn_count === null))
@@ -74,8 +74,16 @@ async function saveCategory(kind, e) {
   if (ok) closeEditor()
 }
 async function removeCategory(c) {
-  if (!(await confirmDialog({ title: `刪除分類「${c.name}」？`, message: '刪除後無法復原。', confirmText: '刪除' }))) return
-  await act(() => api.categories.remove(c.id), '已刪除分類')
+  const ok = await confirmDialog({ title: `刪除「${c.name}」？`, message: removeMessage(c), confirmText: '刪除' })
+  if (!ok) return
+  // 交易改了分類、多了標籤：清單、合計與標籤都要重讀
+  if (await act(() => api.categories.remove(c.id), '已刪除分類')) afterTransactionChange()
+}
+// 例：12 筆交易及 2 條固定收支將改為「其他」，並加上「娛樂」標籤。刪除後無法復原。
+function removeMessage(c) {
+  const used = [c.txn_count && `${c.txn_count} 筆交易`, c.rule_count && `${c.rule_count} 條固定收支`].filter(Boolean)
+  if (!used.length) return '刪除後無法復原。'
+  return `${used.join('及 ')}將改為「${OTHER}」，並加上「${c.name}」標籤。刪除後無法復原。`
 }
 
 /* ===== 標籤 ===== */
@@ -103,10 +111,6 @@ async function removeTag(t) {
   if (await act(() => api.tags.remove(t.id), '已刪除標籤')) afterTransactionChange()
 }
 
-/** 分類停用／啟用 */
-function toggleActive(kind, item) {
-  return act(() => api.categories.setActive(item.id, !item.is_active), item.is_active ? '已停用' : '已啟用')
-}
 </script>
 
 <template>
@@ -139,30 +143,20 @@ function toggleActive(kind, item) {
             <BaseButton variant="primary" type="submit" :disabled="busy">儲存</BaseButton>
           </div>
         </form>
-        <div v-else-if="c.id !== 'new'" class="item" :class="{ dim: !c.is_active }">
+        <div v-else-if="c.id !== 'new'" class="item">
           <span class="label-row">
             <Icon :name="categoryIcon(c)" :size="16" :color="g.color" />
             <span class="body1">{{ c.name }}</span>
-            <span v-if="!c.is_active" class="tag">已停用</span>
           </span>
-          <span class="actions">
+          <!-- 「其他」是刪除後的收容分類：不能改名、不能刪除 -->
+          <span v-if="c.name !== OTHER" class="actions">
             <IconButton icon="pen" label="改名" @click="editCategory(g.kind, c)" />
-            <IconButton v-if="!c.is_active" icon="restore" label="啟用" tone="primary" :disabled="busy" @click="toggleActive('category', c)" />
-            <IconButton v-else-if="c.canDelete" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="removeCategory(c)" />
-            <IconButton
-              v-else
-              icon="block"
-              label="停用"
-              :title="c.txn_count ? `已有 ${c.txn_count} 筆交易，只能停用` : '停用'"
-              tone="danger"
-              :disabled="busy"
-              @click="toggleActive('category', c)"
-            />
+            <IconButton v-if="c.canDelete" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="removeCategory(c)" />
           </span>
         </div>
       </template>
       <p v-if="usageUnavailable" class="caption c-supply">資料庫尚未更新，分類暫時都不能刪除。請到 Supabase 執行 20261022_manage_categories.sql。</p>
-      <p class="caption c-text">有交易使用的分類不能刪除，避免歷史交易失去歸屬；不用的請停用。</p>
+      <p class="caption c-text">刪除分類時，使用中的交易會改為「其他」，並加上與原分類同名的標籤。「其他」不能改名或刪除。</p>
     </section>
 
     <!-- 標籤 -->
@@ -201,7 +195,6 @@ function toggleActive(kind, item) {
 
 /* 清單列 */
 .item { display: flex; align-items: center; gap: var(--sp-16); min-height: 32px; }
-.item.dim > :not(.actions) { opacity: .45; }
 .label-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-8); }
 .label-row > .body1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actions { display: flex; gap: var(--sp-16); flex-shrink: 0; }

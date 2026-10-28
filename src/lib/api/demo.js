@@ -30,9 +30,8 @@ function seed() {
     ['娛樂', 'expense', 5], ['醫療', 'expense', 6], ['學習', 'expense', 7], ['捐贈', 'expense', 8],
     ['投資', 'expense', 9], ['送禮', 'expense', 10], ['其他', 'expense', 99],
     ['薪水', 'income', 1], ['回饋', 'income', 2], ['投資', 'income', 3], ['其他', 'income', 99],
-    ['獎金', 'income', 4, false], // 示範停用的分類
   ]
-  const categories = cats.map(([name, kind, sort_order, is_active = true]) => ({ id: `c-${kind}-${name}`, name, kind, sort_order, is_active }))
+  const categories = cats.map(([name, kind, sort_order]) => ({ id: `c-${kind}-${name}`, name, kind, sort_order, is_active: true }))
   const c = (kind, name) => `c-${kind}-${name}`
 
   const tags = [{ id: 't-lunch', name: '午餐' }, { id: 't-jeju', name: '濟州生日慶' }]
@@ -244,7 +243,7 @@ export function createDemoApi() {
         return delay(
           db.categories.map((c) => {
             const txn_count = db.transactions.filter((t) => t.category_id === c.id).length
-            return { ...c, txn_count, canDelete: txn_count === 0 }
+            return { ...c, txn_count, rule_count: 0, canDelete: c.name !== '其他' }
           }),
         )
       },
@@ -256,20 +255,26 @@ export function createDemoApi() {
       },
       async update(id, { name }) {
         const c = db.categories.find((x) => x.id === id)
+        if (c.name === '其他' && name !== undefined && name.trim() !== c.name) throw new ApiError('invalid', '「其他」不能改名')
         if (name !== undefined) c.name = name.trim()
         return delay(c)
       },
-      async setActive(id, isActive) {
-        const c = db.categories.find((x) => x.id === id)
-        c.is_active = isActive
-        return delay(c)
-      },
+      // 比照資料庫 delete_category：交易改套同收支的「其他」並加上同名標籤
       async remove(id) {
-        if (db.transactions.some((t) => t.category_id === id)) {
-          throw new ApiError('in_use', '這個分類已有交易使用，無法刪除，只能停用')
+        const c = db.categories.find((x) => x.id === id)
+        if (c.name === '其他') throw new ApiError('invalid', '「其他」不能刪除')
+        const other = db.categories.find((x) => x.kind === c.kind && x.name === '其他')
+        const used = db.transactions.filter((t) => t.category_id === id)
+        if (used.length) {
+          let tag = db.tags.find((t) => t.name.trim().toLowerCase() === c.name.trim().toLowerCase())
+          if (!tag) db.tags.push((tag = { id: uid(), name: c.name }))
+          for (const t of used) {
+            t.category_id = other.id
+            if (!t.tags.includes(tag.id)) t.tags.push(tag.id)
+          }
         }
-        db.categories = db.categories.filter((c) => c.id !== id)
-        return delay(null)
+        db.categories = db.categories.filter((x) => x.id !== id)
+        return delay({ movedTxns: used.length, movedRules: 0 })
       },
     },
 

@@ -1,14 +1,20 @@
-// 分類：區分收入／支出；可新增、修改、停用；沒有交易使用才能刪除（有交易時資料庫的外鍵會擋下）。
+// 分類：區分收入／支出；可新增、改名、刪除（需求 3.3）。
+// 刪除時使用中的交易與固定收支改套同收支的「其他」，並加上與原分類同名的標籤（資料庫函式 delete_category）。
+// 「其他」不能刪除、不能改名。分類不再有停用（is_active 欄位保留但不再使用）。
 import { run, assertOnline, ApiError } from './errors.js'
 
 // 資料表或 view 不存在（PostgREST／PostgreSQL）
 const MISSING_RELATION = ['PGRST205', '42P01']
+// 資料庫函式不存在
+const MISSING_FUNCTION = ['PGRST202', '42883']
+// 刪除後的收容分類
+export const OTHER = '其他'
 
 export function createCategoriesApi(db) {
   return {
     /**
-     * 全部分類（含停用），依收支、排序、名稱。表單只顯示 is_active 的；清單仍要能顯示停用分類的名稱。
-     * 每筆含 txn_count（被幾筆交易使用）、rule_count（被幾條固定收支使用）與 canDelete（兩者皆為 0 才能刪除）。
+     * 全部分類，依收支、排序、名稱。
+     * 每筆含 txn_count（被幾筆交易使用）、rule_count（被幾條固定收支使用）與 canDelete（「其他」以外都能刪除）。
      */
     async list() {
       const query = (from) =>
@@ -30,7 +36,7 @@ export function createCategoriesApi(db) {
       return (data ?? []).map((c) => {
         const txn_count = Number(c.txn_count ?? 0)
         const rule_count = Number(c.rule_count ?? 0)
-        return { ...c, txn_count, rule_count, canDelete: txn_count === 0 && rule_count === 0 }
+        return { ...c, txn_count, rule_count, canDelete: c.name !== OTHER }
       })
     },
 
@@ -56,20 +62,23 @@ export function createCategoriesApi(db) {
       return data
     },
 
-    async setActive(id, isActive) {
-      assertOnline()
-      const { data } = await run(db.from('categories').update({ is_active: isActive }).eq('id', id).select().single())
-      return data
-    },
-
-    /** 有交易使用時資料庫擋下，訊息「這個分類已有交易使用，無法刪除，只能停用」 */
+    /**
+     * 刪除分類；回傳 { movedTxns, movedRules }：改套「其他」的交易筆數與固定收支條數。
+     * 「其他」由資料庫擋下（訊息為中文）。
+     */
     async remove(id) {
       assertOnline()
-      const { data } = await run(db.from('categories').delete().eq('id', id).select('id'), {
-        in_use: '這個分類已有交易使用，無法刪除，只能停用',
-      })
-      // 沒有刪除權限時資料庫不會報錯，只是刪了 0 筆
-      if (!data?.length) throw new ApiError('auth', '無法刪除：資料庫尚未更新，請先執行 20261022_manage_categories.sql')
+      let data
+      try {
+        ;({ data } = await run(db.rpc('delete_category', { p_id: id })))
+      } catch (e) {
+        if (MISSING_FUNCTION.includes(e.code)) {
+          throw new ApiError('auth', '無法刪除：資料庫尚未更新，請先執行 20261028_category_delete.sql', e)
+        }
+        throw e
+      }
+      const r = Array.isArray(data) ? data[0] : data
+      return { movedTxns: Number(r?.moved_txns ?? 0), movedRules: Number(r?.moved_rules ?? 0) }
     },
   }
 }
