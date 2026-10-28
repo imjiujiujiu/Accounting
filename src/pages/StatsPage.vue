@@ -2,12 +2,14 @@
 // 統計：隨期間與帳戶選單變動的收入、支出、結餘，以及依分類加總（含筆數與占比）
 import { BaseButton } from '../components/ui/index.js'
 import SummaryCards from '../components/SummaryCards.vue'
+import TripSummary from '../components/TripSummary.vue'
 import CategoryBreakdown from '../components/CategoryBreakdown.vue'
 import PeriodPicker from '../components/PeriodPicker.vue'
-import { useSummary } from '../lib/useFiltered.js'
+import { useTrip, useSummary } from '../lib/useFiltered.js'
 import { scopeCurrency, filters, resetFilters, refs } from '../lib/store.js'
 import { computed } from 'vue'
 
+const { trip } = useTrip()
 const { summary, expense, income, error } = useSummary()
 const sumSkeleton = computed(() => !refs.loaded || !summary.value)
 const filtered = computed(
@@ -19,6 +21,7 @@ const filtered = computed(
   <div class="page">
     <div class="toolbar"><PeriodPicker /></div>
     <SummaryCards :summary="sumSkeleton ? null : summary" />
+    <TripSummary :trip="trip" :tag-id="filters.tagIds[0] ?? null" />
     <p v-if="error" class="body2 c-expense">{{ error }}</p>
     <p v-if="filtered" class="body2 c-supply">
       目前套用了清單頁的篩選條件

@@ -5,6 +5,7 @@ import { ApiError } from './errors.js'
 import { PAGE_SIZE } from './transactions.js'
 import { today, addDays } from '../logic/period.js'
 import { DEFAULT_CURRENCIES, minorUnitOf } from '../logic/money.js'
+import { computeTripParts } from '../logic/trip.js'
 
 const uid = () => crypto.randomUUID()
 const clone = (x) => JSON.parse(JSON.stringify(x))
@@ -46,7 +47,7 @@ function seed() {
     tx({ date: d(1), type: 'income', account_id: 'a-esun', category_id: c('income', '薪水'), amount: 49738, note: '8月薪水', created_at: at(1500) }),
     tx({ date: d(1), type: 'expense', account_id: 'a-cube', category_id: c('expense', '交通'), estimated_amount: 455,
       original_amount: 19100, original_currency: 'KRW', note: 'KakaoT：飯店 -> 機場', tags: ['t-jeju'], created_at: at(1510) }),
-    tx({ date: d(1), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-krw', amount: 12375, to_amount: 520000, note: '2025 特休換錢', created_at: at(1520) }),
+    tx({ date: d(1), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-krw', amount: 12375, to_amount: 520000, note: '2025 特休換錢', tags: ['t-jeju'], created_at: at(1520) }),
     tx({ date: d(1), type: 'expense', account_id: 'a-richart', category_id: c('expense', '購物'), estimated_amount: 326,
       original_amount: 13690, original_currency: 'KRW', note: '機場免稅店', tags: ['t-jeju'], created_at: at(1530) }),
     tx({ date: d(1), type: 'expense', account_id: 'a-richart', category_id: c('expense', '購物'), estimated_amount: 281,
@@ -139,6 +140,15 @@ export function createDemoApi() {
           m.set(t.category_id, g)
         }
         return delay([...m.values()].sort((a, b) => b.total - a.total))
+      },
+      async trip(f = {}, tagId) {
+        const expenses = filtered({ ...f, types: ['expense'], tagIds: [tagId] }).map((t) => ({
+          ...t, currency: acc(t.account_id)?.currency,
+        }))
+        const exchanges = db.transactions
+          .filter((t) => t.type === 'transfer' && t.tags.includes(tagId))
+          .map((t) => ({ ...t, fromCurrency: acc(t.account_id)?.currency, toCurrency: acc(t.to_account_id)?.currency }))
+        return delay(computeTripParts({ expenses, exchanges, defaultRates: db.defaultRates }))
       },
       async recent() {
         const from = addDays(today(), -1)
