@@ -22,7 +22,7 @@ function seed() {
     { id: 'a-cube', name: 'Cube', type: 'credit_card', currency: 'TWD', initial_balance: 0, sort_order: 4 },
     { id: 'a-richart', name: 'Richart', type: 'credit_card', currency: 'TWD', initial_balance: 0, sort_order: 5 },
     { id: 'a-krw', name: '韓幣', type: 'cash', currency: 'KRW', initial_balance: 0, sort_order: 6 },
-    { id: 'a-old', name: '舊悠遊卡', type: 'other', currency: 'TWD', initial_balance: 120, sort_order: 7, is_active: false },
+    { id: 'a-post', name: '郵局', type: 'bank', currency: 'TWD', initial_balance: 0, sort_order: 7 },
   ].map((a) => ({ is_active: true, created_at: at(10000), ...a }))
 
   const cats = [
@@ -232,7 +232,7 @@ export function createDemoApi() {
       },
       async remove(id) {
         if (db.transactions.some((t) => t.account_id === id || t.to_account_id === id)) {
-          throw new ApiError('in_use', '這個帳戶已有交易，無法刪除，只能停用')
+          throw new ApiError('in_use', '這個帳戶已有交易，無法刪除')
         }
         db.accounts = db.accounts.filter((a) => a.id !== id)
         return delay(null)

@@ -73,7 +73,7 @@ export function createAccountsApi(db) {
     /** 只有沒有交易的帳戶能刪；有交易的請改用 setActive(id, false) */
     async remove(id) {
       assertOnline()
-      await run(db.from('accounts').delete().eq('id', id), { in_use: '這個帳戶已有交易，無法刪除，只能停用' })
+      await run(db.from('accounts').delete().eq('id', id), { in_use: '這個帳戶已有交易，無法刪除' })
     },
   }
 }
