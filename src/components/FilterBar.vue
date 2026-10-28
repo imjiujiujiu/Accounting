@@ -27,8 +27,7 @@ const GROUP_STATE = { all: 'on', some: 'mixed', none: 'off' }
 const sortedCats = (kind) =>
   refs.categories
     .filter((c) => c.kind === kind)
-    // 停用的排在最後
-    .sort((a, b) => (a.is_active === b.is_active ? a.sort_order - b.sort_order : a.is_active ? -1 : 1))
+    .sort((a, b) => a.sort_order - b.sort_order)
 
 const categoryGroups = computed(() => {
   const f = { types: filters.types, categoryIds: filters.categoryIds }
@@ -38,9 +37,8 @@ const categoryGroups = computed(() => {
       { key: `all:${kind}`, label: '全部', state: GROUP_STATE[groupState(kind, f, refs.categories)] },
       ...sortedCats(kind).map((c) => ({
         key: c.id,
-        label: c.is_active ? c.name : `${c.name}（停用）`,
+        label: c.name,
         state: isCategoryChecked(c, f, refs.categories) ? 'on' : 'off',
-        dim: !c.is_active,
       })),
     ],
   })

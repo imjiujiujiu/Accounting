@@ -41,3 +41,29 @@ describe('demo：沒有交易使用的標籤自動刪除', () => {
     expect((await api.tags.list()).map((t) => t.name)).toContain('日本遊')
   })
 })
+
+// 示範模式比照資料庫 delete_category
+describe('demo：刪除分類', () => {
+  it('交易改為「其他」並加上同名標籤', async () => {
+    const api = createDemoApi()
+    const cats = await api.categories.list()
+    const food = cats.find((c) => c.kind === 'expense' && c.name === '餐飲')
+    const other = cats.find((c) => c.kind === 'expense' && c.name === '其他')
+    const before = (await api.transactions.list({ types: ['expense'], categoryIds: [food.id] })).rows.filter((t) => t.category_id === food.id).length
+    expect(before).toBeGreaterThan(0)
+    expect(await api.categories.remove(food.id)).toEqual({ movedTxns: before, movedRules: 0 })
+    const tag = (await api.tags.list()).find((t) => t.name === '餐飲')
+    const { rows } = await api.transactions.list({ tagIds: [tag.id] })
+    expect(rows).toHaveLength(before)
+    expect(rows.every((t) => t.category_id === other.id)).toBe(true)
+    expect((await api.categories.list()).some((c) => c.id === food.id)).toBe(false)
+  })
+
+  it('「其他」不能刪除、不能改名，列表標示不可刪', async () => {
+    const api = createDemoApi()
+    const other = (await api.categories.list()).find((c) => c.kind === 'income' && c.name === '其他')
+    expect(other.canDelete).toBe(false)
+    await expect(api.categories.remove(other.id)).rejects.toMatchObject({ message: '「其他」不能刪除' })
+    await expect(api.categories.update(other.id, { name: '雜項' })).rejects.toMatchObject({ message: '「其他」不能改名' })
+  })
+})

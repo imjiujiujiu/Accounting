@@ -58,17 +58,20 @@ export async function loadRefs() {
     ])
     Object.assign(refs, { accounts, categories, tags, currencies, settings, defaultRates, loaded: true })
     if (filters.accountId && !accounts.some((a) => a.id === filters.accountId)) filters.accountId = null
-    dropMissingTagFilters(tags)
+    dropMissingFilters(categories, tags)
   } catch (e) {
     refs.error = e.message
   }
 }
 
-/** 標籤沒有交易使用時會被自動刪除；篩選條件裡已不存在的標籤一併移除，避免清單變空 */
-function dropMissingTagFilters(tags) {
-  if (!filters.tagIds.length) return
-  const ids = new Set(tags.map((t) => t.id))
-  if (filters.tagIds.some((id) => !ids.has(id))) filters.tagIds = filters.tagIds.filter((id) => ids.has(id))
+/**
+ * 篩選條件裡已不存在的分類、標籤一併移除，避免清單變空
+ * （標籤沒有交易使用時會被自動刪除；分類可被刪除）
+ */
+function dropMissingFilters(categories, tags) {
+  const keep = (list, ids) => (list.some((id) => !ids.has(id)) ? list.filter((id) => ids.has(id)) : list)
+  filters.tagIds = keep(filters.tagIds, new Set(tags.map((t) => t.id)))
+  filters.categoryIds = keep(filters.categoryIds, new Set(categories.map((c) => c.id)))
 }
 
 /** 寫入交易之後：重新讀清單、合計，以及帳戶餘額、分類使用次數與標籤 */
@@ -79,7 +82,7 @@ export async function afterTransactionChange() {
     refs.accounts = accounts
     refs.categories = categories
     refs.tags = tags
-    dropMissingTagFilters(tags)
+    dropMissingFilters(categories, tags)
   } catch {
     /* 下次 loadRefs 再補 */
   }
