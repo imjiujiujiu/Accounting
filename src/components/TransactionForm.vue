@@ -120,15 +120,15 @@ defineExpose({ flushTag })
 <template>
   <div class="form">
     <div class="fields">
-      <FormField :label="f.type === 'transfer' ? '轉出帳戶' : '帳戶'" as="div" class="w-account" :error="errors.accountId">
+      <FormField :label="f.type === 'transfer' ? '轉出帳戶' : '帳戶'" as="div" class="w-account f-account" :error="errors.accountId">
         <SelectMenu v-model="f.accountId" icon="wallet" :options="accountItems" :invalid="!!errors.accountId" />
       </FormField>
 
-      <FormField v-if="f.type === 'transfer'" label="轉入帳戶" as="div" class="w-account" :error="errors.toAccountId">
+      <FormField v-if="f.type === 'transfer'" label="轉入帳戶" as="div" class="w-account f-to" :error="errors.toAccountId">
         <SelectMenu v-model="f.toAccountId" icon="wallet" :options="toAccountItems" :invalid="!!errors.toAccountId" />
       </FormField>
 
-      <FormField label="分類" as="div" :error="errors.categoryId || errors.type">
+      <FormField label="分類" as="div" class="f-cat" :error="errors.categoryId || errors.type">
         <CategoryPicker
           :type="f.type"
           :category-id="f.categoryId"
@@ -138,15 +138,15 @@ defineExpose({ flushTag })
         />
       </FormField>
 
-      <FormField label="日期" as="div" class="w-date" :error="errors.date">
+      <FormField label="日期" as="div" class="w-date f-date" :error="errors.date">
         <DatePicker v-model="f.date" :icon-size="16" :invalid="!!errors.date" />
       </FormField>
 
-      <FormField label="備註" class="w-note">
+      <FormField label="備註" class="w-note f-note">
         <TextInput v-model="f.note" placeholder="請輸入備註" maxlength="200" />
       </FormField>
 
-      <FormField label="標籤" as="div" class="w-tags">
+      <FormField label="標籤" as="div" class="w-tags f-tags">
         <div class="tag-box">
           <div class="tags-input input" :class="{ focus: tagFocus }" @click="tagEl?.focus()">
             <span v-for="t in f.tags" :key="t" class="tag">
@@ -173,18 +173,18 @@ defineExpose({ flushTag })
         </div>
       </FormField>
 
-      <FormField :label="showToAmount ? '轉出金額' : '金額'" class="w-amount" :error="amountError">
+      <FormField :label="showToAmount ? '轉出金額' : '金額'" class="w-amount f-amount" :error="amountError">
         <TextInput v-model="amountModel" inputmode="decimal" :invalid="!!amountError" placeholder="0" />
         <span v-if="foreign && !f.amount && estimate !== undefined" class="caption" :class="estimate === null ? 'c-expense' : 'c-supply'">
           {{ estimate === null ? '無法預估：請到「設定」填寫預設匯率' : formatEstimated(estimate, accCur, refs.currencies) }}
         </span>
       </FormField>
 
-      <FormField v-if="showToAmount" :label="`轉入金額（${toAccount?.currency}）`" class="w-amount fit" :error="errors.toAmount">
+      <FormField v-if="showToAmount" :label="`轉入金額（${toAccount?.currency}）`" class="w-amount fit f-toamount" :error="errors.toAmount">
         <TextInput v-model="f.toAmount" inputmode="decimal" :invalid="!!errors.toAmount" placeholder="0" />
       </FormField>
 
-      <FormField label="幣別" as="div" class="w-currency" :error="errors.originalCurrency">
+      <FormField label="幣別" as="div" class="w-currency f-currency" :error="errors.originalCurrency">
         <SelectMenu v-model="currency" :options="currencyItems" :disabled="f.type !== 'expense'" :invalid="!!errors.originalCurrency" />
       </FormField>
 
@@ -237,4 +237,34 @@ defineExpose({ flushTag })
 .bottom { display: flex; align-items: flex-end; gap: var(--sp-12); }
 .settle { display: flex; align-items: flex-start; gap: var(--sp-8); }
 .settle .rate { align-self: flex-end; line-height: 40px; }
+
+/* 手機（760px 以下）：單欄、整寬；金額放大置頂，其次分類、帳戶、日期，備註與標籤在最後 */
+@media (max-width: 760px) {
+  .form { gap: var(--sp-16); flex: 1; }
+  .fields { display: grid; grid-template-columns: minmax(0, 1fr) 104px; gap: var(--sp-12); }
+  .fields > * { grid-column: 1 / -1; width: auto; min-width: 0; max-width: none; }
+  .f-amount { order: 1; grid-column: 1; }
+  .f-currency { order: 2; grid-column: 2; }
+  .f-toamount { order: 3; }
+  .f-cat { order: 4; }
+  .f-account { order: 5; }
+  .f-to { order: 6; }
+  .f-date { order: 7; }
+  .f-note { order: 8; }
+  .f-tags { order: 9; }
+  .f-amount :deep(input) { height: 56px; font-size: 28px; font-weight: 700; }
+  .f-currency :deep(.trigger) { height: 56px; }
+  .fields .caption { white-space: normal; }
+  .suggest { max-width: 100%; }
+
+  /* 按鈕列固定在畫面底部 */
+  .bottom {
+    position: sticky; bottom: 0; z-index: 2; margin-top: auto;
+    flex-direction: column; align-items: stretch;
+    background: var(--color-card); padding: var(--sp-12) 0 calc(var(--sp-12) + env(safe-area-inset-bottom));
+  }
+  .settle { display: grid; grid-template-columns: 1fr 1fr; }
+  .settle > * { width: auto; min-width: 0; }
+  .settle .rate { grid-column: 1 / -1; line-height: normal; }
+}
 </style>

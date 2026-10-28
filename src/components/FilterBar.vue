@@ -1,9 +1,11 @@
 <script setup>
 // 清單頁篩選列：搜尋（只比對備註，在目前期間內）＋分類（含收支與轉帳）／標籤／預估＋期間選擇器
+// 手機（760px 以下）：分類、標籤、預估收進搜尋框右邊的篩選鈕，點開為底部面板
 import { ref, computed, watch } from 'vue'
 import Icon from './Icon.vue'
 import FilterMenu from './FilterMenu.vue'
 import PeriodPicker from './PeriodPicker.vue'
+import { BaseButton } from './ui/index.js'
 import { filters, refs } from '../lib/store.js'
 import {
   groupState, isCategoryChecked, toggleGroup, toggleCategory, toggleTransfer, selectionCount,
@@ -71,6 +73,16 @@ const tagGroups = computed(() => [
 function onTagToggle(id) {
   filters.tagIds = filters.tagIds.includes(id) ? filters.tagIds.filter((x) => x !== id) : [...filters.tagIds, id]
 }
+
+// ---- 手機篩選面板 ----
+const sheetOpen = ref(false)
+// 篩選鈕上的數量：分類（「全部」算 1）＋標籤＋預估
+const totalCount = computed(() => categoryCount.value + filters.tagIds.length + (filters.pendingOnly ? 1 : 0))
+function clearAll() {
+  clearCategories()
+  filters.tagIds = []
+  filters.pendingOnly = false
+}
 </script>
 
 <template>
@@ -81,6 +93,10 @@ function onTagToggle(id) {
         <span class="sr-only">搜尋備註</span>
         <input v-model="keyword" type="search" placeholder="搜尋" />
       </label>
+      <button class="chip filter-btn" type="button" :class="{ on: totalCount }" aria-label="篩選" @click="sheetOpen = true">
+        <Icon name="discoverTune" :color="totalCount ? 'var(--color-primary)' : 'var(--color-title)'" />
+        <span v-if="totalCount" class="badge">{{ totalCount }}</span>
+      </button>
       <FilterMenu
         label="分類"
         :count="categoryCount"
@@ -102,6 +118,68 @@ function onTagToggle(id) {
       </button>
     </div>
     <PeriodPicker />
+
+    <!-- 手機篩選面板：勾選即時生效 -->
+    <template v-if="sheetOpen">
+      <div class="sheet-backdrop" @click="sheetOpen = false" />
+      <div class="sheet" role="dialog" aria-modal="true" aria-label="篩選">
+        <div class="sheet-head">
+          <span class="grabber" aria-hidden="true" />
+          <p class="body1-bold">篩選</p>
+        </div>
+        <div class="sheet-body">
+          <section class="sec">
+            <p class="body2-bold">分類</p>
+            <div v-for="g in categoryGroups" :key="g.name" class="sub">
+              <p v-if="g.name !== '轉帳'" class="caption c-text">{{ g.name }}</p>
+              <div class="pills">
+                <button
+                  v-for="o in g.items"
+                  :key="o.key"
+                  type="button"
+                  class="pill"
+                  :class="[o.state, { dim: o.dim }]"
+                  :aria-pressed="o.state === 'mixed' ? 'mixed' : o.state === 'on'"
+                  @click="onCategoryToggle(o.key)"
+                >
+                  <Icon v-if="o.state === 'mixed'" name="minus" :size="14" color="var(--color-primary)" />
+                  {{ o.label }}
+                </button>
+              </div>
+            </div>
+          </section>
+          <section class="sec">
+            <p class="body2-bold">標籤</p>
+            <div class="pills">
+              <button
+                v-for="o in tagGroups[0].items"
+                :key="o.key"
+                type="button"
+                class="pill"
+                :class="o.state"
+                :aria-pressed="o.state === 'on'"
+                @click="onTagToggle(o.key)"
+              >
+                {{ o.label }}
+              </button>
+              <p v-if="!tagGroups[0].items.length" class="body2 c-text">還沒有標籤</p>
+            </div>
+          </section>
+          <section class="sec">
+            <p class="body2-bold">其他</p>
+            <div class="pills">
+              <button type="button" class="pill" :class="{ on: filters.pendingOnly }" :aria-pressed="filters.pendingOnly" @click="filters.pendingOnly = !filters.pendingOnly">
+                只看預估
+              </button>
+            </div>
+          </section>
+        </div>
+        <div class="sheet-foot">
+          <BaseButton :disabled="!totalCount" @click="clearAll">清除</BaseButton>
+          <BaseButton variant="primary" @click="sheetOpen = false">完成</BaseButton>
+        </div>
+      </div>
+    </template>
   </div>
 </template>
 
@@ -119,8 +197,40 @@ function onTagToggle(id) {
 @media (max-width: 1100px) {
   .filter { flex-wrap: wrap; }
 }
+.filter-btn, .sheet-backdrop, .sheet { display: none; }
 @media (max-width: 760px) {
-  .left { flex-wrap: wrap; flex-basis: 100%; }
-  .search { width: 100%; }
+  .left { flex-wrap: nowrap; flex-basis: 100%; gap: var(--sp-12); }
+  .search { width: auto; flex: 1; min-width: 0; }
+  /* 分類、標籤、預估收進篩選鈕 */
+  .left > :deep(.menu), .left > .chip:not(.filter-btn) { display: none; }
+  .filter-btn { display: inline-flex; position: relative; width: 48px; padding: 0; flex-shrink: 0; }
+  .badge {
+    position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 var(--sp-4);
+    border-radius: var(--r-pill); background: var(--color-primary); color: var(--color-card);
+    font-size: 12px; font-weight: 700; display: grid; place-items: center;
+  }
+
+  .sheet-backdrop { display: block; position: fixed; inset: 0; z-index: 49; background: rgba(0, 0, 0, .5); }
+  .sheet {
+    display: flex; flex-direction: column; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; max-height: 85vh;
+    background: var(--color-card); border-top: 1px solid var(--color-line-hover); border-radius: var(--r-20) var(--r-20) 0 0;
+    box-shadow: var(--shadow-pop);
+  }
+  .sheet-head { display: flex; flex-direction: column; align-items: center; gap: var(--sp-12); padding: var(--sp-8) var(--sp-16) var(--sp-12); }
+  .grabber { width: 40px; height: 4px; border-radius: var(--r-pill); background: var(--color-line-hover); }
+  .sheet-body { flex: 1; overflow-y: auto; padding: 0 var(--sp-16); display: flex; flex-direction: column; gap: var(--sp-20); }
+  .sec { display: flex; flex-direction: column; gap: var(--sp-8); }
+  .sub { display: flex; flex-direction: column; gap: var(--sp-4); }
+  .pills { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+  .pill {
+    display: inline-flex; align-items: center; gap: var(--sp-4); height: 36px; padding: 0 var(--sp-12);
+    border: 1px solid var(--color-line); border-radius: var(--r-pill); font-size: 14px; color: var(--color-title);
+  }
+  .pill.on, .pill.mixed { border-color: var(--color-primary); color: var(--color-primary); background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
+  .pill.dim { opacity: .5; }
+  .sheet-foot {
+    display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-12);
+    padding: var(--sp-12) var(--sp-16) calc(var(--sp-12) + env(safe-area-inset-bottom)); border-top: 1px solid var(--color-line);
+  }
 }
 </style>

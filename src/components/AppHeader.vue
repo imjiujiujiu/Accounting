@@ -55,4 +55,12 @@ const TABS = [
 .flare.l { left: -12px; }
 .flare.r { right: -12px; }
 .tab.active .flare { display: block; }
+
+/* 手機：頁籤移到底部導覽，頁首只留帳戶選單 */
+@media (max-width: 760px) {
+  .header { height: 64px; border-bottom-width: 1px; border-bottom-color: var(--color-line); }
+  .inner { padding: 0 var(--sp-16); }
+  .tabs { display: none; }
+  .account-btn { max-width: 100%; }
+}
 </style>

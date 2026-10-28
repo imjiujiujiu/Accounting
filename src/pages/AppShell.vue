@@ -4,6 +4,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import AppHeader from '../components/AppHeader.vue'
 import AccountDrawer from '../components/AccountDrawer.vue'
+import BottomNav from '../components/BottomNav.vue'
 import TransactionDialog from '../components/TransactionDialog.vue'
 import { ConfirmDialog, BaseButton } from '../components/ui/index.js'
 import Icon from '../components/Icon.vue'
@@ -39,6 +40,7 @@ async function retry() {
     <button v-if="showFab" class="fab" type="button" aria-label="新增一筆" @click="openNewTransaction">
       <Icon name="plus" :size="40" color="var(--color-tag)" />
     </button>
+    <BottomNav />
     <AccountDrawer :open="accountDrawer.open" @close="closeAccountDrawer" />
     <TransactionDialog />
     <ConfirmDialog />
@@ -69,6 +71,9 @@ async function retry() {
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 8px); }
 @media (max-width: 760px) {
   .main { padding: var(--sp-16) var(--sp-16) 0; }
-  .fab { right: 16px; bottom: 16px; width: 64px; height: 64px; }
+  .app { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  /* 手機改用底部導覽中間的「＋」 */
+  .fab { display: none; }
+  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
 }
 </style>

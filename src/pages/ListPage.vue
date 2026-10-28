@@ -32,7 +32,7 @@ function go(p) {
         <TransactionList :rows="rows" :loading="loading" :skeleton="listSkeleton" @open="openTransaction" />
         <Pager v-if="!listSkeleton" :page="page" :page-count="pageCount" :total="total" @go="go" />
       </div>
-      <CategoryBreakdown :expense="expense" :income="income" :currency="summary?.currency ?? scopeCurrency" :loading="sumSkeleton" />
+      <CategoryBreakdown class="breakdown" :expense="expense" :income="income" :currency="summary?.currency ?? scopeCurrency" :loading="sumSkeleton" />
     </section>
   </div>
 </template>
@@ -42,4 +42,6 @@ function go(p) {
 .content { display: grid; grid-template-columns: minmax(0, 912fr) minmax(0, 448fr); gap: var(--sp-16); align-items: start; }
 .main { display: flex; flex-direction: column; gap: var(--sp-24); }
 @media (max-width: 1100px) { .content { grid-template-columns: 1fr; } }
+/* 手機：分類加總只在統計頁看 */
+@media (max-width: 760px) { .breakdown { display: none; } }
 </style>
