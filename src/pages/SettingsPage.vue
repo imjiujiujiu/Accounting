@@ -15,14 +15,12 @@ const rates = reactive({})
 const errors = reactive({})
 const rateForm = ref(null)
 const saved = computed(() => Object.fromEntries(refs.defaultRates.map((r) => [r.currency, r.rate])))
-watch(
-  () => refs.defaultRates,
-  (list) => {
-    for (const c of refs.currencies) { rates[c.code] = ''; errors[c.code] = '' }
-    for (const r of list) rates[r.currency] = String(r.rate)
-  },
-  { immediate: true },
-)
+/** 還原成已儲存的值（載入、儲存成功、按「取消」時） */
+function resetRates() {
+  for (const c of refs.currencies) { rates[c.code] = ''; errors[c.code] = '' }
+  for (const r of refs.defaultRates) rates[r.currency] = String(r.rate)
+}
+watch(() => refs.defaultRates, resetRates, { immediate: true })
 
 /** 和已儲存的值不同的幣別（空白＝刪除；數字以數值比較，0.210 與 0.21 視為相同） */
 const changed = computed(() =>
@@ -97,7 +95,10 @@ async function logout() {
           <span class="body2 c-text">{{ baseCurrency }}</span>
           <span v-if="errors[c.code]" class="caption c-expense err">{{ errors[c.code] }}</span>
         </div>
-        <BaseButton v-if="refs.loaded" variant="primary" type="submit" class="start" :disabled="busy || !changed.length">儲存</BaseButton>
+        <div v-if="refs.loaded" class="foot">
+          <BaseButton :disabled="busy || !changed.length" @click="resetRates">取消</BaseButton>
+          <BaseButton variant="primary" type="submit" :disabled="busy || !changed.length">儲存</BaseButton>
+        </div>
       </form>
     </section>
 
@@ -123,7 +124,7 @@ async function logout() {
 .block .start { align-self: flex-start; }
 .settings > .block:first-child { grid-row: span 2; }
 .rates { display: flex; flex-direction: column; gap: var(--sp-16); }
-.rates .start { align-self: flex-start; }
+.rates .foot { display: flex; justify-content: flex-end; gap: var(--sp-12); }
 .rate { display: grid; grid-template-columns: 100px 76px 1fr auto; align-items: center; gap: var(--sp-8); }
 .rate .err { grid-column: 3 / -1; margin-top: calc(-1 * var(--sp-4)); }
 /* 手機：幣別名稱獨立一列，下一列「1 JPY ＝ [輸入框] TWD」，輸入框吃掉剩下的寬度 */
