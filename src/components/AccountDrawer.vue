@@ -49,8 +49,13 @@ async function remove(a) {
   }
 }
 
-// Esc：確認對話框或編輯框開著時交給它們；其餘關閉側選單
-const onKey = (e) => e.key === 'Escape' && props.open && !confirmState.open && emit('close')
+// Esc：確認對話框開著時交給它；編輯框開著時只取消編輯（不論焦點在哪）；都沒有才關閉側選單
+// （下拉選單開著時，useClickOutside 會先攔下 Esc，只關下拉）
+function onKey(e) {
+  if (e.key !== 'Escape' || !props.open || confirmState.open) return
+  if (editingId.value) editingId.value = null
+  else emit('close')
+}
 onMounted(() => document.addEventListener('keydown', onKey))
 onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 watch(
