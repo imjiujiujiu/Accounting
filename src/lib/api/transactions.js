@@ -103,6 +103,17 @@ export function createTransactionsApi(db) {
       }))
     },
 
+    /**
+     * 旅程總覽（篩選單一標籤時）：這個標籤的支出，依幣別各一列，外幣已換算成主幣別。
+     * 規則見 supabase/migrations/20261028_trip_summary.sql；畫面用 logic/trip.js 的 tripView 整理。
+     * 回傳 [{ currency, expense, converted, rate, rate_source, estimated_count, excluded_count }]
+     */
+    async trip(filters = {}, tagId) {
+      const { p_types, p_tag_ids, ...rest } = toFilterArgs(filters)
+      const { data } = await run(db.rpc('summarize_trip', { ...rest, p_tag_id: tagId }))
+      return data ?? []
+    },
+
     /** 手機精簡清單：日期在最近兩天內，或最近兩天內新增 */
     async recent() {
       const { data } = await run(

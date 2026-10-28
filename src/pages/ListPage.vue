@@ -1,14 +1,16 @@
 <script setup>
 import SummaryCards from '../components/SummaryCards.vue'
+import TripSummary from '../components/TripSummary.vue'
 import FilterBar from '../components/FilterBar.vue'
 import TransactionList from '../components/TransactionList.vue'
 import CategoryBreakdown from '../components/CategoryBreakdown.vue'
 import Pager from '../components/Pager.vue'
-import { useSummary, useTransactionList } from '../lib/useFiltered.js'
+import { useTrip, useSummary, useTransactionList } from '../lib/useFiltered.js'
 import { openTransaction } from '../lib/dialog.js'
-import { scopeCurrency, refs } from '../lib/store.js'
+import { scopeCurrency, refs, filters } from '../lib/store.js'
 import { computed } from 'vue'
 
+const { trip } = useTrip()
 const { summary, expense, income, error: sumError } = useSummary()
 const { rows, page, pageCount, total, loading, error: listError } = useTransactionList()
 
@@ -26,6 +28,7 @@ function go(p) {
   <div class="page">
     <FilterBar />
     <SummaryCards :summary="sumSkeleton ? null : summary" />
+    <TripSummary :trip="trip" :tag-id="filters.tagIds[0] ?? null" />
     <p v-if="sumError || listError" class="body2 c-expense">{{ sumError || listError }}</p>
     <section class="content">
       <div class="card main">

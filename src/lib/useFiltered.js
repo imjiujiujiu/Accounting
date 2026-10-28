@@ -1,7 +1,8 @@
 // 依目前篩選條件讀取合計與分類加總（清單頁與統計頁共用）。篩選或資料變動時自動重讀。
 import { ref, watch } from 'vue'
 import { api } from './api/index.js'
-import { filters, refs, dataVersion } from './store.js'
+import { filters, refs, dataVersion, baseCurrency } from './store.js'
+import { tripTagId, tripView } from './logic/trip.js'
 import { toQueryFilters } from './logic/categoryFilter.js'
 
 /** 目前篩選條件 → 查詢條件（分類的「全部」在這裡展開） */
@@ -75,4 +76,29 @@ export function useTransactionList() {
   watch([page, dataVersion], load, { immediate: true })
 
   return { rows, page, pageCount, total, loading, error, reload: load }
+}
+
+/** 旅程總覽：只選了一個標籤時，換算成主幣別的支出合計（其他情況為 null） */
+export function useTrip() {
+  const trip = ref(null)
+  let seq = 0
+
+  async function load() {
+    const my = ++seq
+    const f = query()
+    const tagId = tripTagId(f)
+    if (!tagId) {
+      trip.value = null
+      return
+    }
+    try {
+      const parts = await api.transactions.trip(f, tagId)
+      if (my === seq) trip.value = tripView(parts, baseCurrency.value)
+    } catch {
+      if (my === seq) trip.value = null // 失敗時不顯示，不影響清單與合計
+    }
+  }
+
+  watch([queryKey, dataVersion], load, { immediate: true })
+  return { trip }
 }
