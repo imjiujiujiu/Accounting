@@ -83,6 +83,7 @@ const indexOf = (o) => flat.value.indexOf(o)
       type="button"
       aria-haspopup="listbox"
       :aria-expanded="open"
+      :aria-invalid="invalid || undefined"
       :aria-label="selected ? `分類：${selected.label}` : '選擇分類'"
       :title="selected?.label"
       @click="open ? (open = false) : show()"

@@ -73,6 +73,7 @@ function onKey(e) {
       :disabled="disabled"
       aria-haspopup="listbox"
       :aria-expanded="open"
+      :aria-invalid="invalid || undefined"
       @click="open ? (open = false) : show()"
       @keydown="onKey"
     >

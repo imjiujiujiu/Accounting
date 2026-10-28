@@ -99,9 +99,12 @@ function addTag(name = tagInput.value) {
 }
 function onTagKey(e) {
   if (e.isComposing) return
-  if (e.key === 'Enter' || e.key === ',') {
+  // 有輸入文字：Enter／逗號＝加標籤；空白時 Enter 交給對話框（儲存）
+  if ((e.key === 'Enter' || e.key === ',') && tagInput.value.trim()) {
     e.preventDefault()
-    if (tagInput.value.trim()) addTag()
+    addTag()
+  } else if (e.key === ',') {
+    e.preventDefault()
   } else if (e.key === 'Backspace' && !tagInput.value && f.tags.length) {
     f.tags = f.tags.slice(0, -1)
   }

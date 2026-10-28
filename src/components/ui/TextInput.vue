@@ -8,5 +8,5 @@ const model = defineModel({ type: [String, Number, null] })
 </script>
 
 <template>
-  <input v-model="model" class="input" :class="{ invalid }" v-bind="$attrs" />
+  <input v-model="model" class="input" :class="{ invalid }" :aria-invalid="invalid || undefined" v-bind="$attrs" />
 </template>

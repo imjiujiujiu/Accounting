@@ -55,7 +55,7 @@ function goToday() {
 
 <template>
   <div ref="root" class="date-picker" :class="{ open, invalid }">
-    <button class="trigger body2" type="button" :disabled="disabled" aria-haspopup="dialog" :aria-expanded="open" @click="open ? (open = false) : show()" @keydown="onKey">
+    <button class="trigger body2" type="button" :disabled="disabled" aria-haspopup="dialog" :aria-expanded="open" :aria-invalid="invalid || undefined" @click="open ? (open = false) : show()" @keydown="onKey">
       <span class="value" :class="{ 'c-text': !label }">{{ label || placeholder }}</span>
       <Icon name="calendar" :size="iconSize" color="var(--color-text)" />
     </button>
