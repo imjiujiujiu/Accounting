@@ -10,5 +10,5 @@ if (typeof window !== 'undefined') {
 }
 
 export const OFFLINE_MESSAGE = '目前離線，無法儲存'
-export const OFFLINE_QUEUE_MESSAGE = '目前離線，儲存後會在連線時同步'
+export const OFFLINE_QUEUE_MESSAGE = '目前離線，儲存後先暫存，連線後同步'
 export const SAVE_FAILED_MESSAGE = '儲存失敗，請重試'
