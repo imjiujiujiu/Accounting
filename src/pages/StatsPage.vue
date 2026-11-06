@@ -3,6 +3,7 @@
 import { BaseButton } from '../components/ui/index.js'
 import SummaryCards from '../components/SummaryCards.vue'
 import TripSummary from '../components/TripSummary.vue'
+import OutboxNotice from '../components/OutboxNotice.vue'
 import CategoryBreakdown from '../components/CategoryBreakdown.vue'
 import PeriodPicker from '../components/PeriodPicker.vue'
 import { useTrip, useSummary } from '../lib/useFiltered.js'
@@ -21,6 +22,7 @@ const filtered = computed(
   <div class="page">
     <div class="toolbar"><PeriodPicker /></div>
     <SummaryCards :summary="sumSkeleton ? null : summary" />
+    <OutboxNotice />
     <TripSummary :trip="trip" :tag-id="filters.tagIds[0] ?? null" />
     <p v-if="error" class="body2 c-expense">{{ error }}</p>
     <p v-if="filtered" class="body2 c-supply">

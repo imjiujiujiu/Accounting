@@ -42,7 +42,7 @@ if (ok) await api.transactions.save(formToPayload(form, ctx))
 - **日期**：一律 `'YYYY-MM-DD'` 字串，「今天」依台北時間。
 - **錯誤**：失敗時丟出 `ApiError`，`error.message` 是可直接顯示的中文，`error.kind` 為 `offline` `network` `auth` `in_use` `duplicate` `invalid` `not_found` `unknown`。
 - **儲存失敗**：表單內容由畫面保留，不自動重試；表單開啟時已產生 id，重按儲存不會重複新增。
-- **離線**：`online.js` 的 `isOnline` 可直接綁在儲存按鈕的 `disabled`。
+- **離線**：`online.js` 的 `isOnline` 為連線狀態。新增交易離線（或連不上）時改放進 `src/lib/outbox.js` 的待送佇列（存在 localStorage），連線後依序以 `save_transaction` 上傳；已同步的交易離線時不能編輯、刪除。
 - **匯出**：下載一個 zip（`manifest.json`＋5 個 CSV，含 BOM，Excel 開中文不亂碼）。改欄位時要把 `FORMAT_VERSION` 加 1。
 
 ## 測試

@@ -1,9 +1,11 @@
 // 依目前篩選條件讀取合計與分類加總（清單頁與統計頁共用）。篩選或資料變動時自動重讀。
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { api } from './api/index.js'
 import { filters, refs, dataVersion, baseCurrency } from './store.js'
 import { tripTagId, tripView } from './logic/trip.js'
 import { toQueryFilters } from './logic/categoryFilter.js'
+import { matchesFilters, mergeQueued } from './logic/outbox.js'
+import { queuedRows } from './outbox.js'
 
 /** 目前篩選條件 → 查詢條件（分類的「全部」在這裡展開） */
 const query = () => toQueryFilters({ ...filters }, refs.categories)
@@ -41,9 +43,9 @@ export function useSummary() {
   return { summary, expense, income, error, reload: load }
 }
 
-/** 分頁清單；篩選條件改變時回到第 1 頁 */
+/** 分頁清單；篩選條件改變時回到第 1 頁。尚未同步的交易（離線時新增）併在第 1 頁 */
 export function useTransactionList() {
-  const rows = ref([])
+  const serverRows = ref([])
   const page = ref(0)
   const pageCount = ref(1)
   const total = ref(0)
@@ -58,7 +60,7 @@ export function useTransactionList() {
     try {
       const r = await api.transactions.list(query(), page.value)
       if (my !== seq) return
-      rows.value = r.rows
+      serverRows.value = r.rows
       total.value = r.total
       pageCount.value = r.pageCount
       if (page.value > r.pageCount - 1) page.value = r.pageCount - 1
@@ -68,6 +70,12 @@ export function useTransactionList() {
       if (my === seq) loading.value = false
     }
   }
+
+  const rows = computed(() => {
+    const f = query()
+    const mine = queuedRows.value.filter((r) => matchesFilters(r, f, refs.tags))
+    return mergeQueued(serverRows.value, mine, page.value)
+  })
 
   watch(queryKey, () => {
     page.value = 0

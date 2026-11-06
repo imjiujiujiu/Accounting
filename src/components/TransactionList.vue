@@ -47,7 +47,9 @@ const days = computed(() => {
         <span class="cat-icon"><Icon :name="v.icon" :color="TONE_COLOR[v.tone]" /></span>
         <span class="desc">
           <span class="desc-title">{{ v.title }}</span>
-          <span v-if="txn.tags.length || v.foreignText" class="desc-meta">
+          <span v-if="txn.tags.length || v.foreignText || txn.queued" class="desc-meta">
+            <span v-if="txn.syncError" class="tag error">同步失敗</span>
+            <span v-else-if="txn.queued" class="tag supply">未同步</span>
             <span v-for="t in txn.tags" :key="t.id" class="tag">{{ t.name }}</span>
             <span v-if="txn.tags.length && v.foreignText">•</span>
             <span v-if="v.foreignText">{{ v.foreignText }}</span>
@@ -85,6 +87,7 @@ const days = computed(() => {
 .desc { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-4); justify-content: center; }
 /* 備註過長時自動換行（長網址、無空白的字串也會斷行） */
 .desc-title { font-size: 16px; font-weight: 700; line-height: 1.4; white-space: normal; overflow-wrap: anywhere; }
+.tag.error { color: var(--color-error); }
 .desc-meta { display: flex; align-items: center; gap: var(--sp-4); font-size: 12px; color: var(--color-text); flex-wrap: wrap; }
 .wallet { width: 230px; flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-8); }
 .amount { flex-shrink: 0; min-width: 150px; text-align: right; font-size: 16px; font-weight: 700; white-space: nowrap; }

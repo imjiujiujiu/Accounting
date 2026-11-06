@@ -8,7 +8,8 @@ import BottomNav from '../components/BottomNav.vue'
 import TransactionDialog from '../components/TransactionDialog.vue'
 import { ConfirmDialog, BaseButton } from '../components/ui/index.js'
 import Icon from '../components/Icon.vue'
-import { refs, loadRefs, toast } from '../lib/store.js'
+import { refs, loadRefs, toast, afterTransactionChange, showToast } from '../lib/store.js'
+import { startOutbox } from '../lib/outbox.js'
 import { openNewTransaction } from '../lib/dialog.js'
 import { accountDrawer, openAccountDrawer, closeAccountDrawer } from '../lib/accountDrawer.js'
 import { isDemo } from '../lib/api/index.js'
@@ -17,7 +18,14 @@ const route = useRoute()
 // 浮動新增鈕只在清單頁
 const showFab = computed(() => route.path === '/')
 const retrying = ref(false)
-onMounted(loadRefs)
+onMounted(() => {
+  loadRefs()
+  // 離線時存在這台裝置的交易：連線後自動上傳
+  startOutbox((n) => {
+    showToast(`已同步 ${n} 筆`)
+    afterTransactionChange()
+  })
+})
 
 // 重試時按鈕顯示「讀取中…」，避免再次失敗時看起來像沒反應
 async function retry() {
@@ -74,6 +82,7 @@ async function retry() {
   .app { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
   /* 手機改用底部導覽中間的「＋」 */
   .fab { display: none; }
-  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+  /* 手機：左右各留 16px，長訊息不換成兩行窄條 */
+  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); width: calc(100vw - 32px); text-align: center; }
 }
 </style>
