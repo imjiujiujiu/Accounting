@@ -2,6 +2,8 @@
 import { openAccountDrawer } from '../lib/accountDrawer.js'
 // 新增／編輯交易對話框（電腦版）。所有欄位一次攤開；儲存後關閉，留在清單。
 // 儲存失敗時表單內容保留；不自動重試（表單開啟時已產生 id，重按只會覆蓋同一筆）。
+// 離線或連不上時：新增的交易（以及還在佇列裡、尚未同步的交易）先存在這台裝置，連線後自動同步（lib/outbox.js）。
+// 已同步的既有交易離線時不能編輯、刪除。
 // Enter（游標在文字輸入框時）或 ⌘／Ctrl＋Enter（任何位置）＝儲存；有欄位沒填或有錯 → 焦點移到第一個有錯的欄位。
 // 下拉選單、日期、標籤輸入框各自處理自己的 Enter（選取、加標籤），不會觸發儲存。
 import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
@@ -12,7 +14,8 @@ import { confirmDialog, confirmState } from '../lib/confirm.js'
 import { txnDialog, closeTransaction } from '../lib/dialog.js'
 import { refs, baseCurrency, afterTransactionChange, showToast } from '../lib/store.js'
 import { api } from '../lib/api/index.js'
-import { isOnline, OFFLINE_MESSAGE } from '../lib/api/online.js'
+import { isOnline, OFFLINE_MESSAGE, OFFLINE_QUEUE_MESSAGE } from '../lib/api/online.js'
+import { outbox, enqueue, dequeue } from '../lib/outbox.js'
 import { createEmptyForm, txnToForm, validateForm, formToPayload } from '../lib/logic/transactionForm.js'
 import { focusFirstInvalid, isSubmitEnter } from '../lib/focusInvalid.js'
 
@@ -23,6 +26,15 @@ const failMessage = ref('')
 const formRef = ref(null)
 const dialogEl = ref(null)
 const editing = computed(() => !!txnDialog.txn)
+// 可以先存在這台裝置：新增，或編輯還沒同步的交易
+const queued = computed(() => !!txnDialog.txn?.queued)
+const canQueue = computed(() => !editing.value || queued.value)
+const statusText = computed(() => {
+  if (failMessage.value) return failMessage.value
+  if (!isOnline.value) return canQueue.value ? OFFLINE_QUEUE_MESSAGE : OFFLINE_MESSAGE
+  return queued.value ? txnDialog.txn.syncError || '尚未同步' : ''
+})
+const statusError = computed(() => !!failMessage.value || (!isOnline.value && !canQueue.value) || !!txnDialog.txn?.syncError)
 const ctx = () => ({ accounts: refs.accounts, currencies: refs.currencies, baseCurrency: baseCurrency.value })
 const noAccounts = computed(() => !refs.accounts.length)
 
@@ -39,11 +51,14 @@ watch(
     form.value = createEmptyForm()
     const f = form.value // reactive 版本，下方比對才會相等
     // 帳戶自動帶入上一筆使用的帳戶（找不到時用排序第一的帳戶）
-    let last = null
-    try {
-      last = await api.transactions.lastUsedAccountId()
-    } catch {
-      /* 帶不到就算了 */
+    // 佇列裡有還沒同步的交易時，以最後一筆為準
+    let last = outbox.items.at(-1)?.payload.txn.account_id ?? null
+    if (!last) {
+      try {
+        last = await api.transactions.lastUsedAccountId()
+      } catch {
+        /* 離線或帶不到就算了 */
+      }
     }
     if (form.value !== f || f.accountId) return
     const ok = refs.accounts.find((a) => a.id === last)
@@ -57,14 +72,24 @@ async function save() {
   const { ok, errors: errs } = validateForm(form.value, ctx())
   errors.value = errs
   if (!ok) return focusFirstInvalid(dialogEl.value)
+  const payload = formToPayload(form.value, ctx())
+  const updated = editing.value
+  const keepLocal = () => {
+    enqueue(payload)
+    closeTransaction()
+    showToast('已暫存，連線後同步')
+  }
+  if (canQueue.value && !isOnline.value) return keepLocal()
   saving.value = true
   failMessage.value = ''
   try {
-    await api.transactions.save(formToPayload(form.value, ctx()))
+    await api.transactions.save(payload)
+    if (queued.value) dequeue(payload.txn.id)
     closeTransaction()
-    showToast(editing.value ? '已更新' : '已儲存')
+    showToast(updated ? '已更新' : '已儲存')
     afterTransactionChange()
   } catch (e) {
+    if (canQueue.value && (e.kind === 'offline' || e.kind === 'network')) return keepLocal()
     failMessage.value = e.kind === 'offline' ? OFFLINE_MESSAGE : e.kind === 'invalid' ? e.message : '儲存失敗，請重試'
   } finally {
     saving.value = false
@@ -73,6 +98,13 @@ async function save() {
 
 async function remove() {
   if (!(await confirmDialog({ title: '刪除這筆交易？', message: '刪除後無法復原。', confirmText: '刪除' }))) return
+  // 還沒同步的：只要從這台裝置的佇列移除
+  if (queued.value) {
+    dequeue(form.value.id)
+    closeTransaction()
+    showToast('已刪除')
+    return
+  }
   saving.value = true
   failMessage.value = ''
   try {
@@ -128,13 +160,11 @@ function addFirstAccount() {
         </div>
         <TransactionForm v-else :key="form.id" ref="formRef" :form="form" :errors="errors" :original="txnDialog.txn">
           <template #actions>
-            <span class="msg body2" :class="!isOnline || failMessage ? 'c-expense' : 'c-text'">
-              {{ !isOnline ? OFFLINE_MESSAGE : failMessage }}
-            </span>
+            <span class="msg body2" :class="statusError ? 'c-expense' : 'c-text'">{{ statusText }}</span>
             <!-- 編輯時「取消」換成「刪除」（關閉用右上角 ×） -->
-            <BaseButton v-if="editing" danger :disabled="saving" @click="remove">刪除</BaseButton>
+            <BaseButton v-if="editing" danger :disabled="saving || (!isOnline && !queued)" @click="remove">刪除</BaseButton>
             <BaseButton v-else :disabled="saving" @click="close">取消</BaseButton>
-            <BaseButton variant="primary" :disabled="saving || !isOnline" @click="save">{{ saving ? '儲存中…' : '儲存' }}</BaseButton>
+            <BaseButton variant="primary" :disabled="saving || (!isOnline && !canQueue)" @click="save">{{ saving ? '儲存中…' : '儲存' }}</BaseButton>
           </template>
         </TransactionForm>
       </div>

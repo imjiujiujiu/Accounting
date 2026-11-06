@@ -1,6 +1,7 @@
 <script setup>
 import SummaryCards from '../components/SummaryCards.vue'
 import TripSummary from '../components/TripSummary.vue'
+import OutboxNotice from '../components/OutboxNotice.vue'
 import FilterBar from '../components/FilterBar.vue'
 import TransactionList from '../components/TransactionList.vue'
 import CategoryBreakdown from '../components/CategoryBreakdown.vue'
@@ -28,6 +29,7 @@ function go(p) {
   <div class="page">
     <FilterBar />
     <SummaryCards :summary="sumSkeleton ? null : summary" />
+    <OutboxNotice />
     <TripSummary :trip="trip" :tag-id="filters.tagIds[0] ?? null" />
     <p v-if="sumError || listError" class="body2 c-expense">{{ sumError || listError }}</p>
     <section class="content">
