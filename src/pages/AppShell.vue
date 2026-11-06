@@ -82,6 +82,7 @@ async function retry() {
   .app { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
   /* 手機改用底部導覽中間的「＋」 */
   .fab { display: none; }
-  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+  /* 手機：左右各留 16px，長訊息不換成兩行窄條 */
+  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); width: calc(100vw - 32px); text-align: center; }
 }
 </style>
