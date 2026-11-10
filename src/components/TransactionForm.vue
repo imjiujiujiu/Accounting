@@ -3,7 +3,7 @@
 // 版面（Figma Modal 71:1959）：一列欄位「帳戶｜分類｜日期｜備註｜標籤｜金額｜幣別」（轉帳時帳戶為轉出＋轉入），下一列為回壓欄位＋按鈕（actions slot）。
 // 分類下拉同時決定類型（支出／收入／轉帳）；轉帳時「帳戶」拆成轉出＋轉入，跨幣別時多「轉入金額」。
 // 幣別：預設為帳戶幣別；支出改成其他幣別＝外幣刷卡，金額記為原幣。編輯外幣交易時才出現「回壓」的實際金額與手續費。
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import Icon from './Icon.vue'
 import CategoryPicker from './CategoryPicker.vue'
 import { TextInput, SelectMenu, DatePicker, FormField } from './ui/index.js'
@@ -109,6 +109,20 @@ function onTagKey(e) {
 }
 const tagFocus = ref(false)
 const tagEl = ref(null)
+
+// 手機（760px 以下）
+const isPhone = () => window.matchMedia('(max-width: 760px)').matches
+// 新增時金額自動聚焦，直接跳出數字鍵盤
+const amountEl = ref(null)
+onMounted(() => {
+  if (!props.original && isPhone()) amountEl.value?.$el?.focus()
+})
+// 備註按 Enter（鍵盤上的「下一步」）跳到標籤；電腦版維持 Enter＝儲存
+function onNoteKey(e) {
+  if (e.key !== 'Enter' || e.isComposing || e.keyCode === 229 || !isPhone()) return
+  e.preventDefault()
+  tagEl.value?.focus()
+}
 /** 儲存前把輸入框中尚未按 Enter 的標籤也加入 */
 function flushTag() {
   if (tagInput.value.trim()) addTag()
@@ -143,7 +157,7 @@ defineExpose({ flushTag })
       </FormField>
 
       <FormField label="備註" class="w-note f-note">
-        <TextInput v-model="f.note" placeholder="請輸入備註" maxlength="200" />
+        <TextInput v-model="f.note" placeholder="請輸入備註" maxlength="200" enterkeyhint="next" @keydown="onNoteKey" />
       </FormField>
 
       <FormField label="標籤" as="div" class="w-tags f-tags">
@@ -174,7 +188,7 @@ defineExpose({ flushTag })
       </FormField>
 
       <FormField :label="showToAmount ? '轉出金額' : '金額'" class="w-amount f-amount" :error="amountError">
-        <TextInput v-model="amountModel" inputmode="decimal" :invalid="!!amountError" placeholder="0" />
+        <TextInput ref="amountEl" v-model="amountModel" inputmode="decimal" :invalid="!!amountError" placeholder="0" />
         <span v-if="foreign && !f.amount && estimate !== undefined" class="caption" :class="estimate === null ? 'c-expense' : 'c-supply'">
           {{ estimate === null ? '無法預估：請到「設定」填寫預設匯率' : formatEstimated(estimate, accCur, refs.currencies) }}
         </span>
@@ -253,7 +267,13 @@ defineExpose({ flushTag })
   .f-note { order: 8; }
   .f-tags { order: 9; }
   .fields .caption { white-space: normal; }
-  .suggest { max-width: 100%; }
+  /* 標籤建議改成輸入框下方的一排標籤，跟著版面排、不浮在其他欄位上（不會蓋住按鈕列） */
+  .suggest {
+    position: static; width: auto; max-width: none; margin-top: var(--sp-8);
+    flex-direction: row; flex-wrap: wrap; gap: var(--sp-8);
+    background: none; border: 0; padding: 0; box-shadow: none;
+  }
+  .suggest .option { min-height: 36px; padding: 0 var(--sp-12); gap: var(--sp-4); background: var(--color-tag); border-radius: var(--r-pill); }
 
   /* 按鈕列固定在畫面底部 */
   .bottom {
