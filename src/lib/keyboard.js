@@ -16,8 +16,12 @@ export function watchKeyboard() {
     const covered = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
     const open = covered > KEYBOARD_MIN || isTypingWithShrunkLayout()
     root.style.setProperty('--kb', `${covered > KEYBOARD_MIN ? Math.round(covered) : 0}px`)
+    // Android 用返回鍵或收合鈕收起鍵盤時，輸入框仍保有焦點（標籤建議等會一直開著）→ 收起時一併取消焦點
+    if (wasOpen && !open && isTextField(document.activeElement)) document.activeElement.blur()
+    wasOpen = open
     root.classList.toggle('kb-open', open)
   }
+  let wasOpen = false
   vv.addEventListener('resize', update)
   vv.addEventListener('scroll', update)
   window.addEventListener('focusin', update)
@@ -28,10 +32,10 @@ export function watchKeyboard() {
 // Android（版面跟著鍵盤縮小）：看不到遮蓋高度，改用「正在文字輸入框裡、且視窗明顯變矮」判斷
 let baseHeight = window.innerHeight
 window.addEventListener('orientationchange', () => setTimeout(() => (baseHeight = window.innerHeight), 300))
+const isTextField = (el) =>
+  !!el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(el.type)))
 function isTypingWithShrunkLayout() {
-  const el = document.activeElement
-  const typing = el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(el.type)))
-  if (!typing) {
+  if (!isTextField(document.activeElement)) {
     baseHeight = Math.max(baseHeight, window.innerHeight)
     return false
   }

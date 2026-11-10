@@ -138,6 +138,47 @@ const onKey = (e) => {
 onMounted(() => document.addEventListener('keydown', onKey))
 onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 
+// 手機：聚焦欄位時只捲對話框本身，讓整個欄位落在標題列與按鈕列之間，並多露出下一欄
+// （鍵盤彈起後版面會變矮，等 visualViewport resize 再算一次）
+const overlayEl = ref(null)
+const PEEK = 72 // 欄位下方多露出的高度，約一個欄位
+function revealFocused() {
+  const ov = overlayEl.value
+  const el = document.activeElement
+  if (!ov || !el || !dialogEl.value?.contains(el) || !window.matchMedia('(max-width: 760px)').matches) return
+  if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return
+  const field = el.closest('.field') ?? el
+  const r = field.getBoundingClientRect()
+  const o = ov.getBoundingClientRect()
+  const title = dialogEl.value.querySelector('.m-title')?.offsetHeight ?? 0
+  const bar = dialogEl.value.querySelector('.bottom')?.offsetHeight ?? 0
+  const top = o.top + title + 8
+  const bottom = o.bottom - bar - PEEK
+  if (r.top < top) ov.scrollTop += r.top - top
+  else if (r.bottom > bottom) ov.scrollTop += Math.min(r.bottom - bottom, r.top - top)
+}
+const revealSoon = () => requestAnimationFrame(revealFocused)
+watch(
+  () => txnDialog.open,
+  (open) => {
+    // 對話框開著時鎖住後面的頁面捲動，避免瀏覽器把整頁（連同標題列）捲走
+    document.documentElement.classList.toggle('dialog-open', open)
+    const vv = window.visualViewport
+    if (open) {
+      document.addEventListener('focusin', revealSoon)
+      vv?.addEventListener('resize', revealSoon)
+    } else {
+      document.removeEventListener('focusin', revealSoon)
+      vv?.removeEventListener('resize', revealSoon)
+    }
+  },
+)
+onBeforeUnmount(() => {
+  document.documentElement.classList.remove('dialog-open')
+  document.removeEventListener('focusin', revealSoon)
+  window.visualViewport?.removeEventListener('resize', revealSoon)
+})
+
 // 還沒有帳戶：關掉對話框，打開帳戶側選單並直接開啟「新增帳戶」
 function addFirstAccount() {
   closeTransaction()
@@ -147,7 +188,7 @@ function addFirstAccount() {
 
 <template>
   <Transition name="pop">
-    <div v-if="txnDialog.open && form" class="overlay" @mousedown.self="close">
+    <div v-if="txnDialog.open && form" ref="overlayEl" class="overlay" @mousedown.self="close">
       <div ref="dialogEl" class="dialog" role="dialog" aria-modal="true" :aria-label="editing ? '編輯交易' : '新增交易'">
         <p class="m-title h5">{{ editing ? '編輯交易' : '新增交易' }}</p>
         <button class="close" type="button" aria-label="關閉" @click="close">
@@ -196,6 +237,9 @@ function addFirstAccount() {
 .pop-enter-from, .pop-leave-to { opacity: 0; }
 
 /* 手機：全螢幕，標題列＋欄位單欄＋底部固定按鈕列 */
+@media (max-width: 760px) {
+  :global(html.dialog-open), :global(html.dialog-open body) { overflow: hidden; }
+}
 .m-title { display: none; }
 @media (max-width: 760px) {
   /* 鍵盤開著時底邊抬到鍵盤上方（--kb 由 lib/keyboard.js 設定），底部按鈕列不被蓋住 */

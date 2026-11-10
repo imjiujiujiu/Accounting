@@ -53,7 +53,7 @@ async function retry() {
     <TransactionDialog />
     <ConfirmDialog />
     <Transition name="toast">
-      <div v-if="toast.text" class="toast body1-bold" :class="toast.tone">{{ toast.text }}</div>
+      <div v-if="toast.text" class="toast caption" :class="toast.tone">{{ toast.text }}</div>
     </Transition>
   </div>
 </template>
@@ -70,19 +70,21 @@ async function retry() {
 }
 .fab:hover { transform: scale(1.05); }
 .toast {
-  position: fixed; z-index: 60; left: 50%; bottom: var(--sp-40); transform: translateX(-50%);
-  background: var(--color-title); color: var(--color-card); padding: var(--sp-12) var(--sp-24); border-radius: var(--r-pill);
-  box-shadow: var(--shadow-pop);
+  /* Figma 169:267：Card 80% 底、Line 框、內距 8／16、Pill 圓角、12px 白字；畫面上方置中（避免遮住手機底部導覽的「＋」） */
+  position: fixed; z-index: 60; left: 50%; top: 50px; transform: translateX(-50%);
+  max-width: calc(100vw - 32px); text-align: center;
+  background: color-mix(in srgb, var(--color-card) 80%, transparent); color: var(--gray-0);
+  border: 1px solid var(--color-line); padding: var(--sp-8) var(--sp-16); border-radius: var(--r-pill);
 }
-.toast.error { background: var(--color-error); }
+.toast.error { color: var(--color-error); border-color: var(--color-error); }
 .toast-enter-active, .toast-leave-active { transition: opacity .2s, transform .2s; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 8px); }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -8px); }
 @media (max-width: 760px) {
   .main { padding: var(--sp-16) var(--sp-16) 0; }
   .app { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
   /* 手機改用底部導覽中間的「＋」 */
   .fab { display: none; }
-  /* 手機：左右各留 16px，長訊息不換成兩行窄條 */
-  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); width: calc(100vw - 32px); text-align: center; }
+  /* 手機：跨在頁首底線上（同電腦版），不壓到「全部帳戶」 */
+  .toast { top: calc(56px + env(safe-area-inset-top)); }
 }
 </style>
