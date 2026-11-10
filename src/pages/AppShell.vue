@@ -70,19 +70,21 @@ async function retry() {
 }
 .fab:hover { transform: scale(1.05); }
 .toast {
-  position: fixed; z-index: 60; left: 50%; bottom: var(--sp-40); transform: translateX(-50%);
-  background: var(--color-title); color: var(--color-card); padding: var(--sp-12) var(--sp-24); border-radius: var(--r-pill);
+  /* 深色、畫面上方（避免遮住手機底部導覽的「＋」） */
+  position: fixed; z-index: 60; left: 50%; top: var(--sp-24); transform: translateX(-50%);
+  background: var(--color-tag); color: var(--color-title); border: 1px solid var(--color-line);
+  padding: var(--sp-12) var(--sp-24); border-radius: var(--r-pill);
   box-shadow: var(--shadow-pop);
 }
-.toast.error { background: var(--color-error); }
+.toast.error { color: var(--color-error); border-color: var(--color-error); }
 .toast-enter-active, .toast-leave-active { transition: opacity .2s, transform .2s; }
-.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, 8px); }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -8px); }
 @media (max-width: 760px) {
   .main { padding: var(--sp-16) var(--sp-16) 0; }
   .app { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
   /* 手機改用底部導覽中間的「＋」 */
   .fab { display: none; }
   /* 手機：左右各留 16px，長訊息不換成兩行窄條 */
-  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); width: calc(100vw - 32px); text-align: center; }
+  .toast { top: calc(var(--sp-12) + env(safe-area-inset-top)); width: calc(100vw - 32px); text-align: center; }
 }
 </style>
