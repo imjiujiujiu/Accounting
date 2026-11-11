@@ -14,16 +14,19 @@ const props = defineProps({
   /** 全部分類 */
   categories: { type: Array, default: () => [] },
   invalid: Boolean,
+  /** 不提供「轉帳」（固定收支只能是收入或支出） */
+  noTransfer: Boolean,
 })
 const emit = defineEmits(['pick']) // pick({ type, categoryId })
 
 const TONE = { expense: 'var(--color-expense)', income: 'var(--color-income)', transfer: 'var(--color-text)' }
 
-const TABS = [
+const ALL_TABS = [
   { type: 'expense', name: '支出' },
   { type: 'income', name: '收入' },
   { type: 'transfer', name: '轉帳' },
 ]
+const TABS = computed(() => (props.noTransfer ? ALL_TABS.filter((t) => t.type !== 'transfer') : ALL_TABS))
 const TRANSFER = { key: 'transfer', type: 'transfer', categoryId: null, label: '轉帳', icon: 'transfer' }
 const itemsOf = (kind) =>
   kind === 'transfer'
@@ -79,8 +82,9 @@ function onKey(e) {
     scrollToActive()
   } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     e.preventDefault()
-    const i = TABS.findIndex((t) => t.type === tab.value)
-    switchTab(TABS[(i + (e.key === 'ArrowRight' ? 1 : -1) + TABS.length) % TABS.length].type, { fromKeyboard: true })
+    const tabs = TABS.value
+    const i = tabs.findIndex((t) => t.type === tab.value)
+    switchTab(tabs[(i + (e.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length].type, { fromKeyboard: true })
   } else if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
     if (items.value[active.value]) pick(items.value[active.value])

@@ -9,6 +9,7 @@ import { createTransactionsApi } from './transactions.js'
 import { createAccountsApi } from './accounts.js'
 import { createCategoriesApi } from './categories.js'
 import { createTagsApi } from './tags.js'
+import { createRecurringApi } from './recurring.js'
 import { createSettingsApi } from './settings.js'
 import { createExportApi } from './exportData.js'
 import { createDemoApi } from './demo.js'
@@ -23,6 +24,7 @@ export function createApi(db) {
     accounts: createAccountsApi(db),
     categories: createCategoriesApi(db),
     tags: createTagsApi(db),
+    recurring: createRecurringApi(db),
     settings: createSettingsApi(db),
     export: createExportApi(db),
   }

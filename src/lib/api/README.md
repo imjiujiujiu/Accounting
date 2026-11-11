@@ -33,6 +33,7 @@ if (ok) await api.transactions.save(formToPayload(form, ctx))
 | `api.accounts` | `list`（含餘額、預估筆數、`canDelete`）`create` `update` `setActive` `remove` |
 | `api.categories` | `list`（含 txn_count、canDelete）`create` `update` `setActive` `remove`（有交易使用時不可刪） |
 | `api.tags` | `list` `getOrCreate` `rename` `remove` |
+| `api.recurring` | 固定收支規則：`list`（含 `is_finished`、`next_run_date`、`tags`）`save`（回傳 `{ id, generatedCount }`）`remove` `txnCount`；純邏輯在 `logic/recurring.js` |
 | `api.settings` | `currencies` `get` `defaultRates` `setDefaultRate` `removeDefaultRate` |
 | `api.export` | `fetchAll` `download`（設定頁「匯出 CSV」） |
 

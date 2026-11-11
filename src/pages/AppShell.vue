@@ -6,6 +6,7 @@ import AppHeader from '../components/AppHeader.vue'
 import AccountDrawer from '../components/AccountDrawer.vue'
 import BottomNav from '../components/BottomNav.vue'
 import TransactionDialog from '../components/TransactionDialog.vue'
+import RuleDialog from '../components/RuleDialog.vue'
 import { ConfirmDialog, BaseButton } from '../components/ui/index.js'
 import Icon from '../components/Icon.vue'
 import { refs, loadRefs, toast, afterTransactionChange, showToast } from '../lib/store.js'
@@ -51,6 +52,7 @@ async function retry() {
     <BottomNav />
     <AccountDrawer :open="accountDrawer.open" @close="closeAccountDrawer" />
     <TransactionDialog />
+    <RuleDialog />
     <ConfirmDialog />
     <Transition name="toast">
       <div v-if="toast.text" class="toast caption" :class="toast.tone">{{ toast.text }}</div>

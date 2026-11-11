@@ -6,7 +6,10 @@ import { openAccountDrawer } from '../lib/accountDrawer.js'
 // 已同步的既有交易離線時不能編輯、刪除。
 // Enter（游標在文字輸入框時）或 ⌘／Ctrl＋Enter（任何位置）＝儲存；有欄位沒填或有錯 → 焦點移到第一個有錯的欄位。
 // 下拉選單、日期、標籤輸入框各自處理自己的 Enter（選取、加標籤），不會觸發儲存。
-import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+// 固定收支（需求 3.10）：新增時可設定「重複」，儲存時改存成規則（資料庫立刻補產生到今天為止的交易）；
+// 只有收入／支出、非外幣、連線中可以設定。由規則產生的交易顯示「來自固定收支 ›」，點擊跳到管理頁的該規則。
+import { ref, reactive, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { useRouter } from 'vue-router'
 import Icon from './Icon.vue'
 import TransactionForm from './TransactionForm.vue'
 import { BaseButton } from './ui/index.js'
@@ -18,6 +21,10 @@ import { isOnline, OFFLINE_MESSAGE, OFFLINE_QUEUE_MESSAGE } from '../lib/api/onl
 import { outbox, enqueue, dequeue } from '../lib/outbox.js'
 import { createEmptyForm, txnToForm, validateForm, formToPayload } from '../lib/logic/transactionForm.js'
 import { focusFirstInvalid, isSubmitEnter } from '../lib/focusInvalid.js'
+import { createRepeat, canRepeat, validateRepeat, formToRulePayload, ruleLabel, savedRuleToast } from '../lib/logic/recurring.js'
+import { openRule, manageTab } from '../lib/ruleDialog.js'
+
+const router = useRouter()
 
 const form = ref(null)
 const errors = ref({})
@@ -38,12 +45,32 @@ const statusError = computed(() => !!failMessage.value || (!isOnline.value && !c
 const ctx = () => ({ accounts: refs.accounts, currencies: refs.currencies, baseCurrency: baseCurrency.value })
 const noAccounts = computed(() => !refs.accounts.length)
 
+// 重複：只在新增時提供；轉帳、外幣刷卡或離線時停用並回到「不重複」
+const repeat = reactive(createRepeat())
+const repeatErrors = ref({})
+const repeatAllowed = computed(() => !!form.value && !editing.value && canRepeat(form.value) && isOnline.value)
+watch(repeatAllowed, (ok) => {
+  if (!ok) repeat.mode = 'none'
+})
+// 由固定收支產生的交易：連到規則（規則已刪除時 recurring_rule_id 為 null，不顯示）
+const sourceRule = computed(() => refs.rules.find((r) => r.id === txnDialog.txn?.recurring_rule_id) ?? null)
+function openSourceRule() {
+  const rule = sourceRule.value
+  if (!rule || saving.value) return
+  closeTransaction()
+  manageTab.value = 'rules'
+  router.push('/manage')
+  openRule(rule)
+}
+
 watch(
   () => txnDialog.open,
   async (open) => {
     if (!open) return
     errors.value = {}
     failMessage.value = ''
+    repeatErrors.value = {}
+    Object.assign(repeat, createRepeat())
     if (txnDialog.txn) {
       form.value = txnToForm(txnDialog.txn, txnDialog.txn.tags ?? [], ctx())
       return
@@ -71,7 +98,10 @@ async function save() {
   formRef.value?.flushTag()
   const { ok, errors: errs } = validateForm(form.value, ctx())
   errors.value = errs
-  if (!ok) return focusFirstInvalid(dialogEl.value)
+  const rp = validateRepeat(repeat, form.value.date)
+  repeatErrors.value = rp.errors
+  if (!ok || !rp.ok) return nextTick(() => focusFirstInvalid(dialogEl.value))
+  if (repeat.mode !== 'none') return saveRule()
   const payload = formToPayload(form.value, ctx())
   const updated = editing.value
   const keepLocal = () => {
@@ -90,6 +120,22 @@ async function save() {
     afterTransactionChange()
   } catch (e) {
     if (canQueue.value && (e.kind === 'offline' || e.kind === 'network')) return keepLocal()
+    failMessage.value = e.kind === 'offline' ? OFFLINE_MESSAGE : e.kind === 'invalid' ? e.message : '儲存失敗，請重試'
+  } finally {
+    saving.value = false
+  }
+}
+
+// 設定了重複：存成固定收支規則。日期是今天或過去 → 資料庫立刻建立第一筆並補到今天；未來 → 只存規則
+async function saveRule() {
+  saving.value = true
+  failMessage.value = ''
+  try {
+    const { generatedCount } = await api.recurring.save(formToRulePayload(form.value, repeat, ctx()))
+    closeTransaction()
+    showToast(savedRuleToast(generatedCount, { fromTransaction: true }))
+    afterTransactionChange()
+  } catch (e) {
     failMessage.value = e.kind === 'offline' ? OFFLINE_MESSAGE : e.kind === 'invalid' ? e.message : '儲存失敗，請重試'
   } finally {
     saving.value = false
@@ -199,7 +245,19 @@ function addFirstAccount() {
           <p class="body1">還沒有帳戶，請先建立帳戶。</p>
           <BaseButton variant="primary" icon="plus" @click="addFirstAccount">新增帳戶</BaseButton>
         </div>
-        <TransactionForm v-else :key="form.id" ref="formRef" :form="form" :errors="errors" :original="txnDialog.txn">
+        <TransactionForm
+          v-else
+          :key="form.id"
+          ref="formRef"
+          :form="form"
+          :errors="errors"
+          :original="txnDialog.txn"
+          :repeat="editing ? null : repeat"
+          :repeat-errors="repeatErrors"
+          :repeat-disabled="!repeatAllowed"
+          :rule-link="sourceRule ? ruleLabel(sourceRule) : ''"
+          @open-rule="openSourceRule"
+        >
           <template #actions>
             <span class="msg body2" :class="statusError ? 'c-expense' : 'c-text'">{{ statusText }}</span>
             <!-- 編輯時「取消」換成「刪除」（關閉用右上角 ×） -->
