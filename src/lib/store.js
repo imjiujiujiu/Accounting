@@ -28,6 +28,7 @@ export const refs = reactive({
   accounts: [],
   categories: [],
   tags: [],
+  rules: [], // 固定收支規則
   currencies: [],
   settings: { base_currency: 'TWD' },
   defaultRates: [],
@@ -48,15 +49,17 @@ export const dataVersion = ref(0)
 export async function loadRefs() {
   refs.error = ''
   try {
-    const [accounts, categories, tags, currencies, settings, defaultRates] = await Promise.all([
+    const [accounts, categories, tags, currencies, settings, defaultRates, rules] = await Promise.all([
       api.accounts.list(),
       api.categories.list(),
       api.tags.list(),
       api.settings.currencies(),
       api.settings.get(),
       api.settings.defaultRates(),
+      // 固定收支讀不到不影響其他功能
+      api.recurring.list().catch(() => []),
     ])
-    Object.assign(refs, { accounts, categories, tags, currencies, settings, defaultRates, loaded: true })
+    Object.assign(refs, { accounts, categories, tags, currencies, settings, defaultRates, rules, loaded: true })
     if (filters.accountId && !accounts.some((a) => a.id === filters.accountId)) filters.accountId = null
     dropMissingFilters(categories, tags)
   } catch (e) {
@@ -78,10 +81,16 @@ function dropMissingFilters(categories, tags) {
 export async function afterTransactionChange() {
   dataVersion.value++
   try {
-    const [accounts, categories, tags] = await Promise.all([api.accounts.list(), api.categories.list(), api.tags.list()])
+    const [accounts, categories, tags, rules] = await Promise.all([
+      api.accounts.list(),
+      api.categories.list(),
+      api.tags.list(),
+      api.recurring.list().catch(() => refs.rules),
+    ])
     refs.accounts = accounts
     refs.categories = categories
     refs.tags = tags
+    refs.rules = rules
     dropMissingFilters(categories, tags)
   } catch {
     /* 下次 loadRefs 再補 */

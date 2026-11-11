@@ -46,7 +46,11 @@ const days = computed(() => {
       <button v-for="{ txn, v } in d.rows" :key="txn.id" class="item" type="button" @click="$emit('open', txn)">
         <span class="cat-icon"><Icon :name="v.icon" :color="TONE_COLOR[v.tone]" /></span>
         <span class="desc">
-          <span class="desc-title">{{ v.title }}</span>
+          <span class="desc-title">
+            {{ v.title }}
+            <!-- 手機沒有帳戶那一欄：重複圖示接在標題後面 -->
+            <span v-if="txn.recurring_rule_id" class="repeat m-repeat" title="固定收支"><Icon name="repeat" :size="14" color="var(--color-text)" /></span>
+          </span>
           <span v-if="txn.tags.length || v.foreignText || txn.queued" class="desc-meta">
             <span v-if="txn.syncError" class="tag error">同步失敗</span>
             <span v-else-if="txn.queued" class="tag supply">未同步</span>
@@ -62,6 +66,8 @@ const days = computed(() => {
             <span class="tag"><Icon name="wallet" :size="16" color="var(--color-text)" />{{ v.toAccountName }}</span>
           </template>
           <span v-if="v.isPending" class="tag supply">預估</span>
+          <!-- 由固定收支產生：帳戶那行尾端的重複小圖示 -->
+          <span v-if="txn.recurring_rule_id" class="repeat" title="固定收支" aria-label="固定收支"><Icon name="repeat" :size="16" color="var(--color-text)" /></span>
         </span>
         <span class="amount" :class="AMOUNT_CLASS[v.amountTone]">{{ v.amountText }}</span>
       </button>
@@ -91,7 +97,10 @@ const days = computed(() => {
 .desc-meta { display: flex; align-items: center; gap: var(--sp-4); font-size: 12px; color: var(--color-text); flex-wrap: wrap; }
 .wallet { width: 230px; flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-8); }
 .amount { flex-shrink: 0; min-width: 150px; text-align: right; font-size: 16px; font-weight: 700; white-space: nowrap; }
+.repeat { display: inline-flex; align-items: center; }
+.m-repeat { display: none; }
 @media (max-width: 760px) {
+  .m-repeat { display: inline-flex; vertical-align: -1px; margin-left: var(--sp-2); }
   .wallet { display: none; }
   .amount { min-width: 0; }
 }

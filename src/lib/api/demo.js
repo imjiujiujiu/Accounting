@@ -6,6 +6,7 @@ import { PAGE_SIZE } from './transactions.js'
 import { today, addDays } from '../logic/period.js'
 import { DEFAULT_CURRENCIES, minorUnitOf } from '../logic/money.js'
 import { computeTripParts } from '../logic/trip.js'
+import { nextOccurrence, adjustWeekend, isRuleFinished } from '../logic/recurring.js'
 
 const uid = () => crypto.randomUUID()
 const clone = (x) => JSON.parse(JSON.stringify(x))
@@ -39,12 +40,13 @@ function seed() {
 
   const tx = (o) => ({
     id: uid(), to_account_id: null, category_id: null, amount: null, to_amount: null, estimated_amount: null,
-    original_amount: null, original_currency: null, fee: null, note: '', settled_at: null, tags: [], ...o,
+    original_amount: null, original_currency: null, fee: null, note: '', settled_at: null, tags: [],
+    recurring_rule_id: null, occurrence_date: null, ...o,
   })
   const transactions = [
     tx({ date: d(0), type: 'expense', account_id: 'a-cash', category_id: c('expense', '餐飲'), amount: 120, note: '便當', tags: ['t-lunch'], created_at: at(10) }),
     tx({ date: d(0), type: 'expense', account_id: 'a-cube', category_id: c('expense', '餐飲'), amount: 55, note: '清心', created_at: at(20) }),
-    tx({ date: d(1), type: 'income', account_id: 'a-esun', category_id: c('income', '薪水'), amount: 49738, note: '8月薪水', created_at: at(1500) }),
+    tx({ date: d(1), type: 'income', account_id: 'a-esun', category_id: c('income', '薪水'), amount: 49738, note: '薪水', recurring_rule_id: 'r-salary', created_at: at(1500) }),
     tx({ date: d(1), type: 'expense', account_id: 'a-cube', category_id: c('expense', '交通'), estimated_amount: 455,
       original_amount: 19100, original_currency: 'KRW', note: 'KakaoT：飯店 -> 機場', tags: ['t-jeju'], created_at: at(1510) }),
     tx({ date: d(1), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-krw', amount: 12375, to_amount: 520000, note: '2025 特休換錢', tags: ['t-jeju'], created_at: at(1520) }),
@@ -58,7 +60,28 @@ function seed() {
     tx({ date: d(2), type: 'expense', account_id: 'a-linepay', category_id: c('expense', '娛樂'), amount: 280, note: '電影', created_at: at(3020) }),
     tx({ date: d(40), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-cube', amount: 3200, to_amount: 3200, note: '繳 Cube 卡費', created_at: at(60000) }),
   ]
-  return { accounts, categories, tags, transactions, defaultRates: [{ currency: 'JPY', rate: 0.21 }] }
+
+  // 固定收支規則：下一期一律排在明天以後，開啟示範時不會立刻多出交易
+  const monthStart = (n) => addDays(t.slice(0, 8) + '01', -1 * 28 * n).slice(0, 8) + '01'
+  const rule = (o) => {
+    const r = {
+      interval: 1, weekdays: null, month_day: null, month_of_year: null, weekend_adjust: 'none',
+      end_date: null, max_count: null, note: '', tags: [], last_date: null, generated_count: 3, created_at: at(90000), ...o,
+    }
+    if (r.next_date === undefined) r.next_date = nextOccurrence(r, addDays(t, 1))
+    return r
+  }
+  const rules = [
+    rule({ id: 'r-rent', type: 'expense', account_id: 'a-esun', category_id: c('expense', '居住'), amount: 18000, note: '房租',
+      freq: 'monthly', month_day: 1, start_date: monthStart(3) }),
+    rule({ id: 'r-salary', type: 'income', account_id: 'a-esun', category_id: c('income', '薪水'), amount: 49738, note: '薪水',
+      freq: 'monthly', month_day: 5, weekend_adjust: 'before', start_date: monthStart(3).slice(0, 8) + '05' }),
+    rule({ id: 'r-lunch', type: 'expense', account_id: 'a-cash', category_id: c('expense', '餐飲'), amount: 450, note: '訂便當',
+      freq: 'weekly', weekdays: [1], start_date: d(60) }),
+    rule({ id: 'r-laptop', type: 'expense', account_id: 'a-cube', category_id: c('expense', '購物'), amount: 3500, note: '筆電分期',
+      freq: 'monthly', month_day: 15, start_date: monthStart(13).slice(0, 8) + '15', max_count: 12, generated_count: 12 }),
+  ]
+  return { accounts, categories, tags, transactions, rules, defaultRates: [{ currency: 'JPY', rate: 0.21 }] }
 }
 
 export function createDemoApi() {
@@ -78,7 +101,7 @@ export function createDemoApi() {
   /** 與資料庫相同：被移除關聯的標籤若已沒有交易使用，就刪除 */
   function dropUnusedTags(tagIds) {
     for (const id of new Set(tagIds)) {
-      if (!db.transactions.some((t) => t.tags.includes(id))) db.tags = db.tags.filter((x) => x.id !== id)
+      if (!db.transactions.some((t) => t.tags.includes(id)) && !db.rules.some((r) => r.tags.includes(id))) db.tags = db.tags.filter((x) => x.id !== id)
     }
   }
 
@@ -218,7 +241,8 @@ export function createDemoApi() {
               balance += t.to_amount
             }
           }
-          return { ...a, balance, pending_count: pending, pending_unestimated_count: pendingNo, txn_count: count, canDelete: count === 0 }
+          const rule_count = db.rules.filter((r) => r.account_id === a.id).length
+          return { ...a, balance, pending_count: pending, pending_unestimated_count: pendingNo, txn_count: count, rule_count, canDelete: count === 0 && rule_count === 0 }
         })
         return delay(rows.sort((x, y) => x.sort_order - y.sort_order))
       },
@@ -240,7 +264,7 @@ export function createDemoApi() {
         return this.update(id, { is_active: isActive })
       },
       async remove(id) {
-        if (db.transactions.some((t) => t.account_id === id || t.to_account_id === id)) {
+        if (db.transactions.some((t) => t.account_id === id || t.to_account_id === id) || db.rules.some((r) => r.account_id === id)) {
           throw new ApiError('in_use', '這個帳戶已有交易，無法刪除')
         }
         db.accounts = db.accounts.filter((a) => a.id !== id)
@@ -253,7 +277,7 @@ export function createDemoApi() {
         return delay(
           db.categories.map((c) => {
             const txn_count = db.transactions.filter((t) => t.category_id === c.id).length
-            return { ...c, txn_count, rule_count: 0, canDelete: c.name !== '其他' }
+            return { ...c, txn_count, rule_count: db.rules.filter((r) => r.category_id === c.id).length, canDelete: c.name !== '其他' }
           }),
         )
       },
@@ -275,16 +299,21 @@ export function createDemoApi() {
         if (c.name === '其他') throw new ApiError('invalid', '「其他」不能刪除')
         const other = db.categories.find((x) => x.kind === c.kind && x.name === '其他')
         const used = db.transactions.filter((t) => t.category_id === id)
-        if (used.length) {
+        const usedRules = db.rules.filter((r) => r.category_id === id)
+        if (used.length || usedRules.length) {
           let tag = db.tags.find((t) => t.name.trim().toLowerCase() === c.name.trim().toLowerCase())
           if (!tag) db.tags.push((tag = { id: uid(), name: c.name }))
           for (const t of used) {
             t.category_id = other.id
             if (!t.tags.includes(tag.id)) t.tags.push(tag.id)
           }
+          for (const r of usedRules) {
+            r.category_id = other.id
+            if (!r.tags.includes(tag.id)) r.tags.push(tag.id)
+          }
         }
         db.categories = db.categories.filter((x) => x.id !== id)
-        return delay({ movedTxns: used.length, movedRules: 0 })
+        return delay({ movedTxns: used.length, movedRules: usedRules.length })
       },
     },
 
@@ -308,7 +337,69 @@ export function createDemoApi() {
       async remove(id) {
         db.tags = db.tags.filter((x) => x.id !== id)
         for (const t of db.transactions) t.tags = t.tags.filter((x) => x !== id)
+        for (const r of db.rules) r.tags = r.tags.filter((x) => x !== id)
         return delay(null)
+      },
+    },
+
+    // 固定收支：比照資料庫（儲存後立刻補產生到今天；刪除規則時交易保留）
+    recurring: {
+      async list() {
+        return delay(
+          db.rules.map((r) => {
+            const is_finished = isRuleFinished(r)
+            return {
+              ...r,
+              is_finished,
+              next_run_date: is_finished ? null : adjustWeekend(r.next_date, r.weekend_adjust),
+              tags: r.tags.map((id) => db.tags.find((x) => x.id === id)).filter(Boolean),
+            }
+          }),
+        )
+      },
+      async save({ rule, tagNames = [] }) {
+        const t = today()
+        const tags = tagNames.map((name) => {
+          let tag = db.tags.find((x) => x.name.toLowerCase() === name.toLowerCase())
+          if (!tag) db.tags.push((tag = { id: uid(), name }))
+          return tag.id
+        })
+        let r = db.rules.find((x) => x.id === rule.id)
+        if (!r) {
+          r = { ...rule, tags, generated_count: 0, last_date: null, created_at: new Date().toISOString() }
+          r.next_date = nextOccurrence(r, r.start_date)
+          db.rules.push(r)
+        } else {
+          if (rule.start_date !== r.start_date && r.generated_count > 0) throw new ApiError('invalid', '已產生過交易的固定收支不可更改開始日')
+          const key = (x) => JSON.stringify([x.freq, x.interval, x.weekdays, x.month_day, x.month_of_year, x.start_date])
+          const changed = key(rule) !== key(r)
+          const removed = r.tags.filter((id) => !tags.includes(id))
+          Object.assign(r, rule, { tags })
+          if (changed) r.next_date = nextOccurrence(r, r.last_date ? (addDays(r.last_date, 1) > t ? addDays(r.last_date, 1) : t) : r.start_date)
+          dropUnusedTags(removed)
+        }
+        while (!isRuleFinished(r) && adjustWeekend(r.next_date, r.weekend_adjust) <= t) {
+          db.transactions.push({
+            id: uid(), date: adjustWeekend(r.next_date, r.weekend_adjust), type: r.type, account_id: r.account_id, to_account_id: null,
+            category_id: r.category_id, amount: r.amount, to_amount: null, estimated_amount: null, original_amount: null,
+            original_currency: null, fee: null, note: r.note, settled_at: null, tags: [...r.tags],
+            recurring_rule_id: r.id, occurrence_date: r.next_date, created_at: new Date().toISOString(),
+          })
+          r.generated_count++
+          r.last_date = r.next_date
+          r.next_date = nextOccurrence(r, addDays(r.next_date, 1))
+        }
+        return delay({ id: r.id, generatedCount: r.generated_count })
+      },
+      async remove(id) {
+        const removed = db.rules.find((x) => x.id === id)?.tags ?? []
+        db.rules = db.rules.filter((x) => x.id !== id)
+        for (const t of db.transactions) if (t.recurring_rule_id === id) t.recurring_rule_id = null
+        dropUnusedTags(removed)
+        return delay(null)
+      },
+      async txnCount(id) {
+        return delay(db.transactions.filter((t) => t.recurring_rule_id === id).length)
       },
     },
 

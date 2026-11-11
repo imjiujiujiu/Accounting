@@ -4,6 +4,8 @@
 // 分類：可新增、改名、刪除（需求 3.3）；刪除時交易改套「其他」並加上同名標籤。「其他」不能刪除、不能改名。
 // 標籤：改名、刪除（只移除關聯）。
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
+// 頁面頂端分段切換「分類與標籤｜固定收支」（需求 3.10）。固定收支：規則清單獨佔整頁寬，依下次產生日排序、
+// 已結束的排在最下方並調淡；點整列開啟規則對話框（RuleDialog），刪除在對話框裡。
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
 import { BaseButton, IconButton, TextInput, FormField, Skeleton } from '../components/ui/index.js'
@@ -13,6 +15,35 @@ import { OTHER } from '../lib/api/categories.js'
 import { categoryIcon } from '../lib/logic/display.js'
 import { confirmDialog } from '../lib/confirm.js'
 import { focusFirstInvalid } from '../lib/focusInvalid.js'
+import { accountsById, categoriesById } from '../lib/store.js'
+import { formatSigned } from '../lib/logic/display.js'
+import { ruleMeta, sortRules } from '../lib/logic/recurring.js'
+import { manageTab, openRule, openNewRule } from '../lib/ruleDialog.js'
+
+const TABS = [
+  { key: 'categories', name: '分類與標籤' },
+  { key: 'rules', name: '固定收支' },
+]
+
+/* ===== 固定收支 ===== */
+const TONE = { income: 'var(--color-income)', expense: 'var(--color-expense)' }
+const ruleRows = computed(() =>
+  sortRules(refs.rules).map((r) => {
+    const cat = categoriesById.value.get(r.category_id)
+    const acc = accountsById.value.get(r.account_id)
+    return {
+      rule: r,
+      ended: !!r.is_finished,
+      title: r.note || cat?.name || (r.type === 'income' ? '收入' : '支出'),
+      icon: categoryIcon(cat),
+      meta: ruleMeta(r),
+      accountName: acc?.name ?? '—',
+      amountText: formatSigned(r.type === 'income' ? r.amount : -r.amount, acc?.currency ?? 'TWD', refs.currencies),
+    }
+  }),
+)
+const activeRules = computed(() => ruleRows.value.filter((r) => !r.ended))
+const endedRules = computed(() => ruleRows.value.filter((r) => r.ended))
 
 const busy = ref(false)
 async function act(fn, okText) {
@@ -114,7 +145,56 @@ async function removeTag(t) {
 </script>
 
 <template>
-  <div class="manage">
+  <div class="seg" role="tablist" aria-label="管理項目">
+    <button
+      v-for="t in TABS"
+      :key="t.key"
+      type="button"
+      class="seg-btn body2-bold"
+      :class="{ on: manageTab === t.key }"
+      role="tab"
+      :aria-selected="manageTab === t.key"
+      @click="manageTab = t.key"
+    >
+      {{ t.name }}
+    </button>
+  </div>
+
+  <!-- 固定收支 -->
+  <section v-if="manageTab === 'rules'" class="card block rules" :aria-busy="!refs.loaded">
+    <div class="block-head">
+      <p class="h5">固定收支</p>
+      <BaseButton icon="plus" :disabled="!refs.loaded" @click="openNewRule">新增</BaseButton>
+    </div>
+    <template v-if="!refs.loaded">
+      <div v-for="w in [20, 28, 16]" :key="w" class="rule sk" aria-hidden="true">
+        <Skeleton w="40" h="40" r="12" />
+        <span class="desc"><Skeleton :w="w + '%'" h="16" /><Skeleton w="120" h="12" /></span>
+        <Skeleton w="88" h="16" />
+      </div>
+    </template>
+    <template v-else>
+      <template v-for="(group, gi) in [activeRules, endedRules]" :key="gi">
+        <hr v-if="gi === 1 && activeRules.length && endedRules.length" class="divider" />
+        <button v-for="r in group" :key="r.rule.id" class="rule" :class="{ ended: r.ended }" type="button" @click="openRule(r.rule)">
+          <span class="cat-icon"><Icon :name="r.icon" :color="TONE[r.rule.type]" /></span>
+          <span class="desc">
+            <span class="desc-title">{{ r.title }}</span>
+            <span class="desc-meta"><Icon name="repeat" :size="14" color="var(--color-text)" />{{ r.meta }}</span>
+          </span>
+          <span class="wallet"><span class="tag"><Icon name="wallet" :size="16" color="var(--color-text)" />{{ r.accountName }}</span></span>
+          <span class="amount" :class="r.rule.type === 'income' ? 'c-income' : 'c-expense'">{{ r.amountText }}</span>
+        </button>
+      </template>
+      <div v-if="!ruleRows.length" class="rules-empty">
+        <p class="body2 c-text">還沒有固定收支。房租、薪水、訂閱這類固定的收入或支出，設定一次，之後到日期當天會自動記一筆。</p>
+        <p class="body2 c-text">也可以在新增交易時，從「重複」欄位設定。</p>
+      </div>
+    </template>
+    <p v-if="ruleRows.length" class="caption c-text">到日期當天自動新增一筆交易；修改只影響之後產生的交易。也可以在新增交易時，從「重複」欄位設定。</p>
+  </section>
+
+  <div v-else class="manage">
     <!-- 支出分類、收入分類 -->
     <section v-for="g in catGroups" :key="g.kind" class="card block" :aria-busy="!refs.loaded">
       <div class="block-head">
@@ -189,6 +269,40 @@ async function removeTag(t) {
 </template>
 
 <style scoped>
+/* 頁面頂端分段切換：Card 底、Line 框；選中為 Tag 底＋Title 字（同分類選單的分段樣式） */
+.seg {
+  display: inline-flex; gap: var(--sp-2); padding: var(--sp-2); margin-bottom: var(--sp-24);
+  background: var(--color-card); border: 1px solid var(--color-line); border-radius: var(--r-12);
+}
+.seg-btn { height: 36px; padding: 0 var(--sp-20); border-radius: var(--r-8); color: var(--color-text); }
+.seg-btn.on { background: var(--color-tag); color: var(--color-title); }
+
+/* 固定收支清單：列的樣式比照交易清單 */
+.rules { gap: var(--sp-8); }
+.rules .block-head { margin-bottom: var(--sp-8); }
+.rules > .caption { margin-top: var(--sp-8); }
+.rule {
+  display: flex; align-items: center; gap: var(--sp-12); min-height: 50px;
+  border-radius: var(--r-12); text-align: left; padding: var(--sp-4); margin: 0 calc(-1 * var(--sp-4));
+  width: calc(100% + 2 * var(--sp-4));
+}
+button.rule:hover { background: rgba(32, 42, 58, .5); }
+.rule.ended { opacity: .5; }
+.cat-icon { width: 40px; height: 40px; border-radius: var(--r-12); background: var(--color-tag); display: grid; place-items: center; flex-shrink: 0; }
+.desc { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-4); justify-content: center; }
+.desc-title { font-size: 16px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+.desc-meta { display: flex; align-items: center; gap: var(--sp-4); font-size: 12px; color: var(--color-text); }
+.wallet { width: 230px; flex-shrink: 0; display: flex; align-items: center; }
+.amount { flex-shrink: 0; min-width: 150px; text-align: right; font-size: 16px; font-weight: 700; white-space: nowrap; }
+.divider { width: 100%; border: 0; border-top: 1px solid var(--color-line); margin: var(--sp-8) 0; }
+.rules-empty { display: flex; flex-direction: column; gap: var(--sp-4); padding: var(--sp-16) 0; }
+@media (max-width: 760px) {
+  .seg { display: flex; margin-bottom: var(--sp-16); }
+  .seg-btn { flex: 1; height: 40px; padding: 0; }
+  .wallet { display: none; }
+  .amount { min-width: 0; }
+}
+
 .manage { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--sp-24); align-items: start; }
 .block { display: flex; flex-direction: column; gap: var(--sp-16); min-width: 0; }
 .block-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); }

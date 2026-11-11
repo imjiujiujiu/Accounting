@@ -51,7 +51,7 @@ describe('demo：刪除分類', () => {
     const other = cats.find((c) => c.kind === 'expense' && c.name === '其他')
     const before = (await api.transactions.list({ types: ['expense'], categoryIds: [food.id] })).rows.filter((t) => t.category_id === food.id).length
     expect(before).toBeGreaterThan(0)
-    expect(await api.categories.remove(food.id)).toEqual({ movedTxns: before, movedRules: 0 })
+    expect(await api.categories.remove(food.id)).toEqual({ movedTxns: before, movedRules: 1 })
     const tag = (await api.tags.list()).find((t) => t.name === '餐飲')
     const { rows } = await api.transactions.list({ tagIds: [tag.id] })
     expect(rows).toHaveLength(before)
@@ -65,5 +65,41 @@ describe('demo：刪除分類', () => {
     expect(other.canDelete).toBe(false)
     await expect(api.categories.remove(other.id)).rejects.toMatchObject({ message: '「其他」不能刪除' })
     await expect(api.categories.update(other.id, { name: '雜項' })).rejects.toMatchObject({ message: '「其他」不能改名' })
+  })
+})
+
+// 固定收支：比照資料庫 save_recurring_rule（儲存後立刻補產生到今天）
+describe('demo：固定收支', () => {
+  const base = { type: 'expense', account_id: 'a-cash', category_id: 'c-expense-餐飲', amount: 100, note: '測試', interval: 1,
+    weekdays: null, month_day: null, month_of_year: null, weekend_adjust: 'none', end_date: null, max_count: null }
+
+  it('開始日在過去：補產生到今天；規則產生的交易帶 recurring_rule_id', async () => {
+    const api = createDemoApi()
+    const { today, addDays } = await import('../logic/period.js')
+    const res = await api.recurring.save({ rule: { ...base, id: 'r-x', freq: 'daily', start_date: addDays(today(), -2) }, tagNames: ['新標籤'] })
+    expect(res.generatedCount).toBe(3)
+    expect(await api.recurring.txnCount('r-x')).toBe(3)
+    const rule = (await api.recurring.list()).find((r) => r.id === 'r-x')
+    expect(rule.next_run_date).toBe(addDays(today(), 1))
+    expect(rule.tags.map((t) => t.name)).toEqual(['新標籤'])
+  })
+
+  it('開始日在未來：只存規則；重複 N 次用完後為已結束', async () => {
+    const api = createDemoApi()
+    const { today, addDays } = await import('../logic/period.js')
+    const future = await api.recurring.save({ rule: { ...base, id: 'r-f', freq: 'daily', start_date: addDays(today(), 3) } })
+    expect(future.generatedCount).toBe(0)
+    await api.recurring.save({ rule: { ...base, id: 'r-n', freq: 'daily', start_date: addDays(today(), -5), max_count: 2 } })
+    const done = (await api.recurring.list()).find((r) => r.id === 'r-n')
+    expect(done).toMatchObject({ generated_count: 2, is_finished: true, next_run_date: null })
+  })
+
+  it('刪除規則：已產生的交易保留、不再標示來源', async () => {
+    const api = createDemoApi()
+    expect(await api.recurring.txnCount('r-salary')).toBe(1)
+    await api.recurring.remove('r-salary')
+    expect((await api.recurring.list()).some((r) => r.id === 'r-salary')).toBe(false)
+    const { rows } = await api.transactions.list({})
+    expect(rows.some((t) => t.note === '薪水' && t.recurring_rule_id === null)).toBe(true)
   })
 })

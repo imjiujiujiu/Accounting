@@ -3,6 +3,9 @@
 // 版面（Figma Modal 71:1959）：一列欄位「帳戶｜分類｜日期｜備註｜標籤｜金額｜幣別」（轉帳時帳戶為轉出＋轉入），下一列為回壓欄位＋按鈕（actions slot）。
 // 分類下拉同時決定類型（支出／收入／轉帳）；轉帳時「帳戶」拆成轉出＋轉入，跨幣別時多「轉入金額」。
 // 幣別：預設為帳戶幣別；支出改成其他幣別＝外幣刷卡，金額記為原幣。編輯外幣交易時才出現「回壓」的實際金額與手續費。
+// 固定收支（需求 3.10）：「重複」緊接在日期後面；選了週期才在下一列（手機為下方）展開「結束」「遇週末」與自訂的間隔、星期幾。
+//   傳入 repeat（reactive）才顯示重複欄位；ruleMode＝編輯規則（日期改稱開始日、不能選轉帳與外幣）。
+//   ruleLink：這筆交易由固定收支產生時，重複的位置改顯示「來自固定收支：<週期> ›」。
 import { computed, ref, watch, onMounted } from 'vue'
 import Icon from './Icon.vue'
 import CategoryPicker from './CategoryPicker.vue'
@@ -11,13 +14,26 @@ import { refs, baseCurrency } from '../lib/store.js'
 import { api } from '../lib/api/index.js'
 import { isForeignForm, needsToAmount, normalizeTags, applyCategory, setCurrency, formCurrency } from '../lib/logic/transactionForm.js'
 import { formatEstimated, exchangeRate } from '../lib/logic/money.js'
+import { repeatOptions, showsWeekendAdjust, isoDow, WEEKDAY_CHIPS, UNIT_OPTIONS, END_OPTIONS, WEEKEND_OPTIONS } from '../lib/logic/recurring.js'
 import { parseAmount, minorUnitOf } from '../lib/logic/money.js'
 
 const props = defineProps({
   form: { type: Object, required: true },
   errors: { type: Object, default: () => ({}) },
   original: { type: Object, default: null }, // 編輯時的原始交易
+  /** 重複設定（logic/recurring.js 的 createRepeat）；null＝不顯示重複欄位 */
+  repeat: { type: Object, default: null },
+  repeatErrors: { type: Object, default: () => ({}) },
+  /** 重複選單停用（轉帳、外幣刷卡、離線） */
+  repeatDisabled: Boolean,
+  /** 編輯固定收支規則：日期為開始日，只能選收入／支出，幣別固定為帳戶幣別 */
+  ruleMode: Boolean,
+  /** 開始日不可改（已產生過交易的規則） */
+  lockDate: Boolean,
+  /** 這筆交易來自固定收支：顯示週期文字，點擊跳到該規則 */
+  ruleLink: { type: String, default: '' },
 })
+defineEmits(['open-rule'])
 
 const f = props.form
 const ctx = computed(() => ({ accounts: refs.accounts, currencies: refs.currencies, baseCurrency: baseCurrency.value }))
@@ -48,6 +64,22 @@ const currencyItems = computed(() => refs.currencies.map((c) => ({ value: c.code
 watch(accCur, (cur) => {
   if (foreign.value && f.originalCurrency === cur) setCurrency(f, cur, cur)
 })
+
+// 重複：選項文字依日期帶入；規則表單沒有「不重複」
+const rp = props.repeat
+const repeatItems = computed(() => (f.date ? repeatOptions(f.date, { allowNone: !props.ruleMode }) : []))
+const repeating = computed(() => !!rp && rp.mode !== 'none' && !props.ruleLink)
+const showWeekend = computed(() => repeating.value && showsWeekendAdjust(rp))
+// 第一次切到自訂：預設每 1 週、星期幾帶入日期當天
+watch(
+  () => rp?.mode,
+  (mode) => {
+    if (mode === 'custom' && rp.unit === 'week' && !rp.weekdays.length && f.date) rp.weekdays = [isoDow(f.date)]
+  },
+)
+function toggleWeekday(iso) {
+  rp.weekdays = rp.weekdays.includes(iso) ? rp.weekdays.filter((x) => x !== iso) : [...rp.weekdays, iso]
+}
 
 // 「金額」欄位：外幣刷卡時為原幣金額
 const amountModel = computed({
@@ -115,7 +147,7 @@ const isPhone = () => window.matchMedia('(max-width: 760px)').matches
 // 新增時金額自動聚焦，直接跳出數字鍵盤
 const amountEl = ref(null)
 onMounted(() => {
-  if (!props.original && isPhone()) amountEl.value?.$el?.focus()
+  if (!props.original && !props.ruleMode && isPhone()) amountEl.value?.$el?.focus()
 })
 // 備註按 Enter（鍵盤上的「下一步」）跳到標籤；電腦版維持 Enter＝儲存
 function onNoteKey(e) {
@@ -148,12 +180,25 @@ defineExpose({ flushTag })
           :category-id="f.categoryId"
           :categories="refs.categories"
           :invalid="!!(errors.categoryId || errors.type)"
+          :no-transfer="ruleMode"
           @pick="applyCategory(f, $event)"
         />
       </FormField>
 
-      <FormField label="日期" as="div" class="w-date f-date" :error="errors.date">
-        <DatePicker v-model="f.date" :icon-size="16" :invalid="!!errors.date" />
+      <FormField :label="ruleMode ? '開始日' : '日期'" as="div" class="w-date f-date" :error="errors.date" :hint="lockDate ? '已產生過交易，不能改' : ''">
+        <DatePicker v-model="f.date" :icon-size="16" :invalid="!!errors.date" :disabled="lockDate" />
+      </FormField>
+
+      <!-- 由固定收支產生的交易：重複的位置改為連到規則 -->
+      <FormField v-if="ruleLink" label="來自固定收支" as="div" class="w-repeat f-repeat">
+        <button type="button" class="rule-link body2" @click="$emit('open-rule')">
+          <Icon name="repeat" :size="16" color="var(--color-text)" />
+          <span class="value">{{ ruleLink }}</span>
+          <Icon name="right" :size="20" color="var(--color-text)" />
+        </button>
+      </FormField>
+      <FormField v-else-if="rp" label="重複" as="div" class="w-repeat f-repeat">
+        <SelectMenu v-model="rp.mode" :options="repeatItems" :disabled="repeatDisabled" />
       </FormField>
 
       <FormField label="備註" class="w-note f-note">
@@ -199,9 +244,47 @@ defineExpose({ flushTag })
       </FormField>
 
       <FormField label="幣別" as="div" class="w-currency f-currency" :error="errors.originalCurrency">
-        <SelectMenu v-model="currency" :options="currencyItems" :disabled="f.type !== 'expense'" :invalid="!!errors.originalCurrency" />
+        <SelectMenu v-model="currency" :options="currencyItems" :disabled="f.type !== 'expense' || ruleMode" :invalid="!!errors.originalCurrency" />
       </FormField>
 
+      <!-- 重複的附帶設定：選了週期才出現；電腦版換到下一列，手機排在「重複」下方 -->
+      <div v-if="repeating" class="repeat-row">
+        <FormField v-if="rp.mode === 'custom'" label="每隔" as="div" class="f-every" :error="repeatErrors.interval">
+          <div class="every">
+            <TextInput v-model="rp.interval" inputmode="numeric" maxlength="3" aria-label="間隔" :invalid="!!repeatErrors.interval" />
+            <SelectMenu v-model="rp.unit" :options="UNIT_OPTIONS" />
+          </div>
+        </FormField>
+        <FormField v-if="rp.mode === 'custom' && rp.unit === 'week'" label="星期" as="div" class="f-weekdays" :error="repeatErrors.weekdays">
+          <div class="weekdays" role="group" aria-label="星期幾">
+            <button
+              v-for="w in WEEKDAY_CHIPS"
+              :key="w.iso"
+              type="button"
+              class="wd body2"
+              :class="{ on: rp.weekdays.includes(w.iso) }"
+              :aria-pressed="rp.weekdays.includes(w.iso)"
+              :aria-label="`星期${w.label}`"
+              @click="toggleWeekday(w.iso)"
+            >
+              {{ w.label }}
+            </button>
+          </div>
+        </FormField>
+        <FormField label="結束" as="div" class="f-end" :error="repeatErrors.endDate || repeatErrors.maxCount">
+          <div class="end">
+            <SelectMenu v-model="rp.end" :options="END_OPTIONS" class="end-mode" />
+            <DatePicker v-if="rp.end === 'date'" v-model="rp.endDate" :icon-size="16" class="end-date" placeholder="結束日" :invalid="!!repeatErrors.endDate" />
+            <span v-else-if="rp.end === 'count'" class="end-count">
+              <TextInput v-model="rp.maxCount" inputmode="numeric" maxlength="3" aria-label="重複次數" placeholder="12" :invalid="!!repeatErrors.maxCount" />
+              <span class="body2 c-text">次</span>
+            </span>
+          </div>
+        </FormField>
+        <FormField v-if="showWeekend" label="遇週末" as="div" class="w-weekend f-weekend">
+          <SelectMenu v-model="rp.weekendAdjust" :options="WEEKEND_OPTIONS" />
+        </FormField>
+      </div>
     </div>
 
     <div class="bottom">
@@ -230,6 +313,28 @@ defineExpose({ flushTag })
 .w-amount { width: 100px; }
 .w-currency { width: 100px; }
 .w-account { width: 120px; }
+.w-repeat { width: 168px; }
+.w-weekend { width: 160px; }
+/* 重複的附帶設定換到下一列；width: 0 讓它不撐寬對話框（對話框寬度仍由第一列決定） */
+.repeat-row { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-8); width: 0; min-width: 100%; }
+.every { display: flex; gap: var(--sp-8); }
+.every > .input { width: 64px; }
+.every > .select-menu { width: 96px; }
+.weekdays { display: flex; gap: var(--sp-4); }
+.wd { width: 40px; height: 40px; border-radius: var(--r-pill); background: var(--color-page); color: var(--color-text); border: 1px solid transparent; }
+.wd:hover { border-color: var(--color-line-hover); }
+.wd.on { background: var(--color-primary); color: var(--color-card); font-weight: 700; }
+.end { display: flex; gap: var(--sp-8); }
+.end-mode { width: 140px; }
+.end-date { width: 128px; }
+.end-count { display: flex; align-items: center; gap: var(--sp-8); }
+.end-count > .input { width: 64px; }
+.rule-link {
+  width: 100%; height: 40px; display: flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-12);
+  background: var(--color-page); border: 1px solid transparent; border-radius: var(--r-8); text-align: left; color: var(--color-title);
+}
+.rule-link:hover { border-color: var(--color-line-hover); }
+.rule-link .value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fields .caption { white-space: nowrap; }
 .form :deep(.field > .label) { white-space: nowrap; }
 .w-amount.fit { width: min-content; min-width: 100px; }
@@ -264,8 +369,22 @@ defineExpose({ flushTag })
   .f-account { order: 5; }
   .f-to { order: 6; }
   .f-date { order: 7; }
-  .f-note { order: 8; }
-  .f-tags { order: 9; }
+  .f-repeat { order: 8; }
+  .f-every { order: 9; }
+  .f-weekdays { order: 10; }
+  .f-end { order: 11; }
+  .f-weekend { order: 12; }
+  .f-note { order: 13; }
+  .f-tags { order: 14; }
+  /* 手機：附帶設定直接排進單欄，緊接在「重複」下方 */
+  .repeat-row { display: contents; }
+  .repeat-row > * { grid-column: 1 / -1; width: auto; min-width: 0; max-width: none; }
+  .every > .input { width: 96px; }
+  .every > .select-menu { flex: 1; width: auto; }
+  .weekdays { justify-content: space-between; gap: 0; }
+  .wd { width: 44px; height: 44px; font-size: 16px; }
+  .end > * { flex: 1; width: auto; min-width: 0; }
+  .end-count > .input { flex: 1; width: auto; min-width: 0; }
   .fields .caption { white-space: normal; }
   /* 標籤建議改成輸入框下方的一排標籤，跟著版面排、不浮在其他欄位上（不會蓋住按鈕列） */
   .suggest {
