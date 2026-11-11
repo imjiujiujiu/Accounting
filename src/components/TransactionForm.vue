@@ -3,9 +3,10 @@
 // 版面（Figma Modal 71:1959）：一列欄位「帳戶｜分類｜日期｜備註｜標籤｜金額｜幣別」（轉帳時帳戶為轉出＋轉入），下一列為回壓欄位＋按鈕（actions slot）。
 // 分類下拉同時決定類型（支出／收入／轉帳）；轉帳時「帳戶」拆成轉出＋轉入，跨幣別時多「轉入金額」。
 // 幣別：預設為帳戶幣別；支出改成其他幣別＝外幣刷卡，金額記為原幣。編輯外幣交易時才出現「回壓」的實際金額與手續費。
-// 固定收支（需求 3.10）：「重複」緊接在日期後面；選了週期才在下一列（手機為下方）展開「結束」「遇週末」與自訂的間隔、星期幾。
-//   傳入 repeat（reactive）才顯示重複欄位；ruleMode＝編輯規則（日期改稱開始日、不能選轉帳與外幣）。
-//   ruleLink：這筆交易由固定收支產生時，重複的位置改顯示「來自固定收支：<週期> ›」。
+// 固定收支（需求 3.10）：大部分交易不需要重複，所以平常只在日期右邊放一顆重複圖示鈕；
+//   點了才在下一列（手機為日期下方）展開「重複」「結束」「遇週末」與自訂的間隔、星期幾，再點一次或選「不重複」收起。
+//   傳入 repeat（reactive）才有重複功能；ruleMode＝編輯規則（沒有圖示鈕、重複設定一直展開，日期改稱開始日、不能選轉帳與外幣）。
+//   ruleLink：這筆交易由固定收支產生時，圖示鈕為主色，點擊跳到該規則。
 import { computed, ref, watch, onMounted } from 'vue'
 import Icon from './Icon.vue'
 import CategoryPicker from './CategoryPicker.vue'
@@ -77,6 +78,10 @@ watch(
     if (mode === 'custom' && rp.unit === 'week' && !rp.weekdays.length && f.date) rp.weekdays = [isoDow(f.date)]
   },
 )
+// 日期旁的重複圖示鈕：開＝預設每月；關＝不重複
+function toggleRepeat() {
+  rp.mode = rp.mode === 'none' ? 'monthly' : 'none'
+}
 function toggleWeekday(iso) {
   rp.weekdays = rp.weekdays.includes(iso) ? rp.weekdays.filter((x) => x !== iso) : [...rp.weekdays, iso]
 }
@@ -185,20 +190,27 @@ defineExpose({ flushTag })
         />
       </FormField>
 
-      <FormField :label="ruleMode ? '開始日' : '日期'" as="div" class="w-date f-date" :error="errors.date" :hint="lockDate ? '已產生過交易，不能改' : ''">
-        <DatePicker v-model="f.date" :icon-size="16" :invalid="!!errors.date" :disabled="lockDate" />
-      </FormField>
-
-      <!-- 由固定收支產生的交易：重複的位置改為連到規則 -->
-      <FormField v-if="ruleLink" label="來自固定收支" as="div" class="w-repeat f-repeat">
-        <button type="button" class="rule-link body2" @click="$emit('open-rule')">
-          <Icon name="repeat" :size="16" color="var(--color-text)" />
-          <span class="value">{{ ruleLink }}</span>
-          <Icon name="right" :size="20" color="var(--color-text)" />
-        </button>
-      </FormField>
-      <FormField v-else-if="rp" label="重複" as="div" class="w-repeat f-repeat">
-        <SelectMenu v-model="rp.mode" :options="repeatItems" :disabled="repeatDisabled" />
+      <FormField :label="ruleMode ? '開始日' : '日期'" as="div" class="f-date" :error="errors.date" :hint="lockDate ? '已產生過交易，不能改' : ''">
+        <div class="date-row">
+          <DatePicker v-model="f.date" :icon-size="16" :invalid="!!errors.date" :disabled="lockDate" class="w-date" />
+          <!-- 由固定收支產生的交易：圖示鈕連到規則 -->
+          <button v-if="ruleLink" type="button" class="repeat-btn on" :title="`來自固定收支：${ruleLink}`" :aria-label="`來自固定收支：${ruleLink}，前往規則`" @click="$emit('open-rule')">
+            <Icon name="repeat" :size="20" color="var(--color-primary)" />
+          </button>
+          <button
+            v-else-if="rp && !ruleMode"
+            type="button"
+            class="repeat-btn"
+            :class="{ on: repeating }"
+            :disabled="repeatDisabled"
+            :aria-pressed="repeating"
+            aria-label="重複"
+            :title="repeatDisabled ? '轉帳、外幣刷卡與離線時不能設定重複' : repeating ? '取消重複' : '設為固定收支（重複）'"
+            @click="toggleRepeat"
+          >
+            <Icon name="repeat" :size="20" :color="repeating ? 'var(--color-primary)' : 'var(--color-text)'" />
+          </button>
+        </div>
       </FormField>
 
       <FormField label="備註" class="w-note f-note">
@@ -249,6 +261,9 @@ defineExpose({ flushTag })
 
       <!-- 重複的附帶設定：選了週期才出現；電腦版換到下一列，手機排在「重複」下方 -->
       <div v-if="repeating" class="repeat-row">
+        <FormField label="重複" as="div" class="w-repeat f-repeat">
+          <SelectMenu v-model="rp.mode" :options="repeatItems" :disabled="repeatDisabled" />
+        </FormField>
         <FormField v-if="rp.mode === 'custom'" label="每隔" as="div" class="f-every" :error="repeatErrors.interval">
           <div class="every">
             <TextInput v-model="rp.interval" inputmode="numeric" maxlength="3" aria-label="間隔" :invalid="!!repeatErrors.interval" />
@@ -307,7 +322,15 @@ defineExpose({ flushTag })
 .form { display: flex; flex-direction: column; gap: var(--sp-12); }
 /* 欄位一列排開，空間不夠時換行；寬度同設計稿的最小寬度 */
 .fields { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--sp-8); }
-.w-date { width: 128px; }
+.date-row { display: flex; gap: var(--sp-8); }
+.date-row > .w-date { width: 128px; }
+/* 日期旁的重複圖示鈕：平常灰色，設定了重複為主色 */
+.repeat-btn {
+  flex-shrink: 0; width: 40px; height: 40px; display: grid; place-items: center;
+  background: var(--color-page); border: 1px solid transparent; border-radius: var(--r-8);
+}
+.repeat-btn:not(:disabled):hover { border-color: var(--color-line-hover); }
+.repeat-btn.on { border-color: var(--color-primary); }
 .w-note { width: 200px; }
 .w-tags { min-width: 150px; max-width: 320px; flex: 0 0 auto; }
 .w-amount { width: 100px; }
@@ -329,12 +352,6 @@ defineExpose({ flushTag })
 .end-date { width: 128px; }
 .end-count { display: flex; align-items: center; gap: var(--sp-8); }
 .end-count > .input { width: 64px; }
-.rule-link {
-  width: 100%; height: 40px; display: flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-12);
-  background: var(--color-page); border: 1px solid transparent; border-radius: var(--r-8); text-align: left; color: var(--color-title);
-}
-.rule-link:hover { border-color: var(--color-line-hover); }
-.rule-link .value { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fields .caption { white-space: nowrap; }
 .form :deep(.field > .label) { white-space: nowrap; }
 .w-amount.fit { width: min-content; min-width: 100px; }
@@ -369,6 +386,7 @@ defineExpose({ flushTag })
   .f-account { order: 5; }
   .f-to { order: 6; }
   .f-date { order: 7; }
+  .date-row > .w-date { flex: 1; width: auto; }
   .f-repeat { order: 8; }
   .f-every { order: 9; }
   .f-weekdays { order: 10; }
