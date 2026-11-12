@@ -76,6 +76,7 @@ create table public.categories (
   kind       text not null check (kind in ('income', 'expense')),
   is_active  boolean not null default true,
   sort_order int not null default 0,
+  icon       text check (icon is null or icon ~ '^[A-Za-z0-9_]{1,40}$'),  -- 圖示代號（前端 icons.js 的 key）；null＝依名稱對應
   unique (user_id, kind, name),
   unique (id, user_id, kind)      -- 讓交易的分類必須與交易類型同為收入或支出
 );
@@ -739,7 +740,8 @@ select c.id,
        c.is_active,
        c.sort_order,
        coalesce(u.txn_count, 0) as txn_count,
-       (select count(*)::int from public.recurring_rules rr where rr.category_id = c.id) as rule_count
+       (select count(*)::int from public.recurring_rules rr where rr.category_id = c.id) as rule_count,
+       c.icon
   from public.categories c
   left join lateral (
     select count(*)::int as txn_count

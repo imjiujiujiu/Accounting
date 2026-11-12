@@ -54,6 +54,10 @@ describe('分類圖示', () => {
     expect(categoryIcon({ name: '寵物', kind: 'expense' })).toBe('otherExpense')
     expect(categoryIcon({ name: '股利', kind: 'income' })).toBe('otherIncome')
     expect(categoryIcon(null)).toBe('category')
+    // 自選圖示優先；不在清單裡的代號忽略，改回依名稱
+    expect(categoryIcon({ name: '寵物', kind: 'expense', icon: 'pets' })).toBe('pets')
+    expect(categoryIcon({ name: '餐飲', kind: 'expense', icon: 'local_cafe' })).toBe('local_cafe')
+    expect(categoryIcon({ name: '餐飲', kind: 'expense', icon: 'nope' })).toBe('food')
   })
 })
 

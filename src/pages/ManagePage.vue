@@ -1,7 +1,7 @@
 <script setup>
 // 管理：支出分類、收入分類、標籤（三欄）。設計稿：Figma「Manage v2」（node 123:138）。
 // 帳戶管理已移到左上角的帳戶側選單（AccountDrawer 的管理模式）。
-// 分類：可新增、改名、刪除（需求 3.3）；刪除時交易改套「其他」並加上同名標籤。「其他」不能刪除、不能改名。
+// 分類：可新增、改名、換圖示、刪除（需求 3.3）；圖示用 IconPicker 從精選清單挑選。刪除時交易改套「其他」並加上同名標籤。「其他」不能刪除、不能改名。
 // 標籤：改名、刪除（只移除關聯）。
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
 // 頁面頂端分段切換「分類與標籤｜固定收支」（需求 3.10）。固定收支：規則清單獨佔整頁寬，依下次產生日排序、
@@ -9,6 +9,7 @@
 // 管理頁只能編輯、刪除規則；新增一律從清單頁的新增交易（日期旁的重複圖示）。
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
+import IconPicker from '../components/IconPicker.vue'
 import { BaseButton, IconButton, TextInput, FormField, Skeleton } from '../components/ui/index.js'
 import { refs, loadRefs, afterTransactionChange, showToast } from '../lib/store.js'
 import { api } from '../lib/api/index.js'
@@ -87,10 +88,11 @@ const catGroups = computed(() =>
 )
 // 還沒執行 20261022_manage_categories.sql：讀不到使用次數，分類暫時都不能刪除
 const usageUnavailable = computed(() => refs.categories.some((c) => c.txn_count === null))
-const cat = reactive({ name: '', icon: '' })
+// 圖示：預設為目前顯示的圖示（新增時為該收支的「其他」）；只有改過才寫入 categories.icon
+const cat = reactive({ name: '', icon: '', initialIcon: '' })
 function editCategory(kind, c) {
-  // MVP：圖示依名稱對應、不可自選；新增的分類一律用該收支的「其他」圖示
-  Object.assign(cat, { name: c ? c.name : '', icon: categoryIcon(c ?? { kind, name: '其他' }) })
+  const icon = categoryIcon(c ?? { kind, name: OTHER })
+  Object.assign(cat, { name: c ? c.name : '', icon, initialIcon: icon })
   openEditor(kind, c ? c.id : 'new')
 }
 // 按 Enter（或「儲存」）送出；名稱沒填 → 欄位下顯示錯誤並把焦點移過去
@@ -99,8 +101,9 @@ async function saveCategory(kind, e) {
   if (editing.error) return focusFirstInvalid(e?.target)
   const isNew = editing.id === 'new'
   const id = editing.id
+  const icon = cat.icon !== cat.initialIcon ? cat.icon : undefined
   const ok = await act(
-    () => (isNew ? api.categories.create({ name: cat.name, kind }) : api.categories.update(id, { name: cat.name })),
+    () => (isNew ? api.categories.create({ name: cat.name, kind, icon }) : api.categories.update(id, { name: cat.name, icon })),
     isNew ? '已新增分類' : '已更新分類',
   )
   if (ok) closeEditor()
@@ -210,11 +213,7 @@ async function removeTag(t) {
         <form v-if="isEditing(g.kind, c.id)" class="editor" @submit.prevent="saveCategory(g.kind, $event)">
           <div class="cat-fields">
             <FormField label="圖示" as="div">
-              <!-- MVP 不可自選圖示（之後改為下拉選擇） -->
-              <button class="icon-select" type="button" disabled title="之後開放選擇圖示">
-                <Icon :name="cat.icon" :size="16" :color="g.color" />
-                <Icon name="down" :size="20" color="var(--color-text)" />
-              </button>
+              <IconPicker v-model="cat.icon" :color="g.color" />
             </FormField>
             <FormField label="名稱" class="grow-field" :error="editing.error"><TextInput v-model="cat.name" maxlength="20" :invalid="!!editing.error" @input="editing.error = ''" /></FormField>
           </div>
@@ -230,7 +229,7 @@ async function removeTag(t) {
           </span>
           <!-- 「其他」是刪除後的收容分類：不能改名、不能刪除 -->
           <span v-if="c.name !== OTHER" class="actions">
-            <IconButton icon="pen" label="改名" @click="editCategory(g.kind, c)" />
+            <IconButton icon="pen" label="編輯" @click="editCategory(g.kind, c)" />
             <IconButton v-if="c.canDelete" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="removeCategory(c)" />
           </span>
         </div>
@@ -324,10 +323,6 @@ button.rule:hover { background: rgba(32, 42, 58, .5); }
 .editor-foot > span { flex: 1; min-width: 0; }
 .cat-fields { display: flex; gap: var(--sp-12); align-items: flex-start; }
 .grow-field { flex: 1; }
-.icon-select {
-  display: inline-flex; align-items: center; gap: var(--sp-4); height: 40px; padding: 0 var(--sp-12);
-  background: var(--color-page); border-radius: var(--r-8); cursor: not-allowed;
-}
 
 @media (max-width: 1100px) { .manage { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 720px) { .manage { grid-template-columns: 1fr; } }
