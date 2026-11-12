@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   createEmptyForm,
+  continueForm,
   validateForm,
   formToPayload,
   txnToForm,
@@ -204,5 +205,24 @@ describe('setCurrency', () => {
     applyCategory(f, { type: 'income', categoryId: 'c' })
     setCurrency(f, 'JPY', 'TWD')
     expect(f.isForeign).toBe(false)
+  })
+})
+
+describe('continueForm', () => {
+  it('帶入帳戶、日期、幣別、分類；金額、備註、標籤清空、id 換新', () => {
+    const prev = form({
+      accountId: 'card', date: '2026-11-01', categoryId: 'food', isForeign: true, originalCurrency: 'JPY',
+      originalAmount: '1200', amount: '', note: '超商', tags: ['日本'], fee: '10',
+    })
+    const next = continueForm(prev)
+    expect(next.id).not.toBe(prev.id)
+    expect(next).toMatchObject({
+      accountId: 'card', date: '2026-11-01', type: 'expense', categoryId: 'food', isForeign: true, originalCurrency: 'JPY',
+      amount: '', originalAmount: '', toAmount: '', fee: '', note: '', tags: [],
+    })
+  })
+  it('轉帳：保留轉入帳戶', () => {
+    const next = continueForm(form({ type: 'transfer', categoryId: null, accountId: 'bank', toAccountId: 'jpy', amount: '100', toAmount: '450' }))
+    expect(next).toMatchObject({ type: 'transfer', accountId: 'bank', toAccountId: 'jpy', amount: '', toAmount: '' })
   })
 })

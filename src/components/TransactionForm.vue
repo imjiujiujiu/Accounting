@@ -33,6 +33,8 @@ const props = defineProps({
   lockDate: Boolean,
   /** 這筆交易來自固定收支：顯示週期文字，點擊跳到該規則 */
   ruleLink: { type: String, default: '' },
+  /** 新增時金額自動聚焦（手機一律；電腦版只在「再記一筆」開的新一筆） */
+  focusAmount: Boolean,
 })
 defineEmits(['open-rule'])
 
@@ -152,7 +154,7 @@ const isPhone = () => window.matchMedia('(max-width: 760px)').matches
 // 新增時金額自動聚焦，直接跳出數字鍵盤
 const amountEl = ref(null)
 onMounted(() => {
-  if (!props.original && !props.ruleMode && isPhone()) amountEl.value?.$el?.focus()
+  if (!props.original && !props.ruleMode && (isPhone() || props.focusAmount)) amountEl.value?.$el?.focus()
 })
 // 備註按 Enter（鍵盤上的「下一步」）跳到標籤；電腦版維持 Enter＝儲存
 function onNoteKey(e) {
