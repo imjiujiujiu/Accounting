@@ -17,10 +17,12 @@ export function useSummary() {
   const expense = ref([])
   const income = ref([])
   const error = ref('')
+  const loading = ref(false)
   let seq = 0
 
   async function load() {
     const my = ++seq
+    loading.value = true
     error.value = ''
     const f = query()
     const wants = (k) => !f.types.length || f.types.includes(k)
@@ -36,11 +38,13 @@ export function useSummary() {
       income.value = i
     } catch (err) {
       if (my === seq) error.value = err.message
+    } finally {
+      if (my === seq) loading.value = false
     }
   }
 
   watch([queryKey, dataVersion], load, { immediate: true })
-  return { summary, expense, income, error, reload: load }
+  return { summary, expense, income, error, loading, reload: load }
 }
 
 /** 分頁清單；篩選條件改變時回到第 1 頁。尚未同步的交易（離線時新增）併在第 1 頁 */
