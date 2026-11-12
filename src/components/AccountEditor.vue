@@ -19,7 +19,7 @@ const currencyOptions = computed(() => refs.currencies.map((c) => ({ value: c.co
 
 const dayOptions = [
   { value: null, label: '未設定' },
-  ...Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: i + 1 >= 29 ? `每月 ${i + 1} 日（小月為月底）` : `每月 ${i + 1} 日` })),
+  ...Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: i + 1 >= 29 ? `${i + 1}日（小月為月底）` : `${i + 1}日` })),
 ]
 
 const a = props.account
