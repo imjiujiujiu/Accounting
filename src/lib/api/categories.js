@@ -40,22 +40,25 @@ export function createCategoriesApi(db) {
       })
     },
 
-    /** kind：'income' 或 'expense'；新分類排在「其他」之前 */
-    async create({ name, kind, sort_order = 50 }) {
+    /** kind：'income' 或 'expense'；新分類排在「其他」之前。icon：圖示代號（icons.js 的 key），沒給＝依名稱對應 */
+    async create({ name, kind, sort_order = 50, icon }) {
       assertOnline()
+      const row = { name: name.trim(), kind, sort_order }
+      if (icon) row.icon = icon
       const { data } = await run(
-        db.from('categories').insert({ name: name.trim(), kind, sort_order }).select().single(),
+        db.from('categories').insert(row).select().single(),
         { duplicate: '已有同名分類' },
       )
       return data
     },
 
-    /** 可改名稱與排序；收支種類建立後不可改（已有交易時會不一致） */
-    async update(id, { name, sort_order }) {
+    /** 可改名稱、圖示與排序；收支種類建立後不可改（已有交易時會不一致） */
+    async update(id, { name, sort_order, icon }) {
       assertOnline()
       const patch = {}
       if (name !== undefined) patch.name = name.trim()
       if (sort_order !== undefined) patch.sort_order = sort_order
+      if (icon !== undefined) patch.icon = icon
       const { data } = await run(db.from('categories').update(patch).eq('id', id).select().single(), {
         duplicate: '已有同名分類',
       })

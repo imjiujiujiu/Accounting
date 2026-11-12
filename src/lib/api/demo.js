@@ -30,10 +30,10 @@ function seed() {
   const cats = [
     ['餐飲', 'expense', 1], ['交通', 'expense', 2], ['購物', 'expense', 3], ['居住', 'expense', 4],
     ['娛樂', 'expense', 5], ['醫療', 'expense', 6], ['學習', 'expense', 7], ['捐贈', 'expense', 8],
-    ['投資', 'expense', 9], ['送禮', 'expense', 10], ['其他', 'expense', 99],
+    ['投資', 'expense', 9], ['送禮', 'expense', 10], ['寵物', 'expense', 11, 'pets'], ['其他', 'expense', 99],
     ['薪水', 'income', 1], ['回饋', 'income', 2], ['投資', 'income', 3], ['其他', 'income', 99],
   ]
-  const categories = cats.map(([name, kind, sort_order]) => ({ id: `c-${kind}-${name}`, name, kind, sort_order, is_active: true }))
+  const categories = cats.map(([name, kind, sort_order, icon = null]) => ({ id: `c-${kind}-${name}`, name, kind, sort_order, is_active: true, icon }))
   const c = (kind, name) => `c-${kind}-${name}`
 
   const tags = [{ id: 't-lunch', name: '午餐' }, { id: 't-jeju', name: '濟州生日慶' }]
@@ -281,16 +281,17 @@ export function createDemoApi() {
           }),
         )
       },
-      async create({ name, kind, sort_order = 50 }) {
+      async create({ name, kind, sort_order = 50, icon = null }) {
         if (db.categories.some((c) => c.kind === kind && c.name === name.trim())) throw new ApiError('duplicate', '已有同名分類')
-        const row = { id: uid(), name: name.trim(), kind, sort_order, is_active: true }
+        const row = { id: uid(), name: name.trim(), kind, sort_order, is_active: true, icon }
         db.categories.push(row)
         return delay(row)
       },
-      async update(id, { name }) {
+      async update(id, { name, icon }) {
         const c = db.categories.find((x) => x.id === id)
         if (c.name === '其他' && name !== undefined && name.trim() !== c.name) throw new ApiError('invalid', '「其他」不能改名')
         if (name !== undefined) c.name = name.trim()
+        if (icon !== undefined) c.icon = icon
         return delay(c)
       },
       // 比照資料庫 delete_category：交易改套同收支的「其他」並加上同名標籤

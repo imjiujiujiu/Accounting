@@ -2,6 +2,7 @@
 import { minorUnitOf } from './money.js'
 import { isAll } from './period.js'
 import { deltaForAccount } from './transactionForm.js'
+import { CATEGORY_ICON_KEYS } from './categoryIcons.js'
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六']
 const numberFormats = new Map()
@@ -41,8 +42,8 @@ export function rangeLabel(range) {
   return range.from === range.to ? f(range.from) : `${f(range.from)} ~ ${f(range.to)}`
 }
 
-// 預設分類 → 圖示（依名稱）；對不到的（自訂分類）用該收支的「其他」圖示。
-// 之後若開放自選圖示，會改成存在分類上的 icon，這裡只當沒選時的預設。
+// 分類圖示：有自選（categories.icon，且在可選清單裡）用自選的；
+// 沒選時依名稱對應預設分類，對不到的（自訂分類）用該收支的「其他」圖示。
 const CATEGORY_ICONS = {
   expense: {
     餐飲: 'food', 交通: 'bus', 購物: 'shopping', 居住: 'home', 娛樂: 'entertainment', 醫療: 'medical',
@@ -55,6 +56,7 @@ const FALLBACK_ICON = { expense: 'otherExpense', income: 'otherIncome' }
 
 export function categoryIcon(category) {
   if (!category) return 'category'
+  if (category.icon && CATEGORY_ICON_KEYS.has(category.icon)) return category.icon
   return CATEGORY_ICONS[category.kind]?.[category.name] ?? FALLBACK_ICON[category.kind] ?? 'category'
 }
 
