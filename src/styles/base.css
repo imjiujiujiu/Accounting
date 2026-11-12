@@ -142,3 +142,12 @@ code { background: var(--color-tag); padding: 1px 6px; border-radius: 4px; }
 @media (max-width: 760px) {
   input:not([type=checkbox]):not([type=radio]), textarea, select { font-size: 16px !important; }
 }
+
+/* 手機左右滑切換期間（useSwipePeriod.js）：新內容從另一側滑入 */
+.swipe-in-left { animation: swipe-in-left 0.22s ease-out; }
+.swipe-in-right { animation: swipe-in-right 0.22s ease-out; }
+@keyframes swipe-in-left { from { transform: translateX(32px); opacity: 0.4; } }
+@keyframes swipe-in-right { from { transform: translateX(-32px); opacity: 0.4; } }
+@media (prefers-reduced-motion: reduce) {
+  .swipe-in-left, .swipe-in-right { animation: none; }
+}
