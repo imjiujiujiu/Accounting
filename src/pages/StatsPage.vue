@@ -8,7 +8,12 @@ import CategoryBreakdown from '../components/CategoryBreakdown.vue'
 import PeriodPicker from '../components/PeriodPicker.vue'
 import { useTrip, useSummary } from '../lib/useFiltered.js'
 import { scopeCurrency, filters, resetFilters, refs } from '../lib/store.js'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useSwipePeriod } from '../lib/useSwipePeriod.js'
+
+// 手機左右滑切換期間
+const pageEl = ref(null)
+useSwipePeriod(pageEl)
 
 const { trip } = useTrip()
 const { summary, expense, income, error } = useSummary()
@@ -19,7 +24,7 @@ const filtered = computed(
 </script>
 
 <template>
-  <div class="page">
+  <div ref="pageEl" class="page">
     <div class="toolbar"><PeriodPicker /></div>
     <SummaryCards :summary="sumSkeleton ? null : summary" />
     <OutboxNotice />

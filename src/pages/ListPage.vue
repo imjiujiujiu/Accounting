@@ -9,7 +9,12 @@ import Pager from '../components/Pager.vue'
 import { useTrip, useSummary, useTransactionList } from '../lib/useFiltered.js'
 import { openTransaction } from '../lib/dialog.js'
 import { scopeCurrency, refs, filters } from '../lib/store.js'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useSwipePeriod } from '../lib/useSwipePeriod.js'
+
+// 手機左右滑切換期間
+const pageEl = ref(null)
+useSwipePeriod(pageEl)
 
 const { trip } = useTrip()
 const { summary, expense, income, error: sumError } = useSummary()
@@ -26,7 +31,7 @@ function go(p) {
 </script>
 
 <template>
-  <div class="page">
+  <div ref="pageEl" class="page">
     <FilterBar />
     <SummaryCards :summary="sumSkeleton ? null : summary" />
     <OutboxNotice />
