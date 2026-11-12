@@ -13,12 +13,12 @@ import { computed, ref } from 'vue'
 import { useSwipePeriod } from '../lib/useSwipePeriod.js'
 
 // 手機左右滑切換期間
-const pageEl = ref(null)
-useSwipePeriod(pageEl)
+const bodyEl = ref(null)
 
 const { trip } = useTrip()
-const { summary, expense, income, error: sumError } = useSummary()
+const { summary, expense, income, error: sumError, loading: sumLoading } = useSummary()
 const { rows, page, pageCount, total, loading, error: listError } = useTransactionList()
+useSwipePeriod(bodyEl, () => sumLoading.value || loading.value)
 
 // 第一次讀取：參考資料（帳戶、分類名稱）或清單還沒到 → 骨架
 const listSkeleton = computed(() => !refs.loaded || (loading.value && !rows.value.length))
@@ -31,8 +31,9 @@ function go(p) {
 </script>
 
 <template>
-  <div ref="pageEl" class="page">
+  <div class="page">
     <FilterBar />
+    <div ref="bodyEl" class="swipe-body">
     <SummaryCards :summary="sumSkeleton ? null : summary" />
     <OutboxNotice />
     <TripSummary :trip="trip" :tag-id="filters.tagIds[0] ?? null" />
@@ -44,14 +45,19 @@ function go(p) {
       </div>
       <CategoryBreakdown class="breakdown" :expense="expense" :income="income" :currency="summary?.currency ?? scopeCurrency" :loading="sumSkeleton" />
     </section>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: var(--sp-24); }
+.page, .swipe-body { display: flex; flex-direction: column; gap: var(--sp-24); }
 .content { display: grid; grid-template-columns: minmax(0, 912fr) minmax(0, 448fr); gap: var(--sp-16); align-items: start; }
 .main { display: flex; flex-direction: column; gap: var(--sp-24); }
 @media (max-width: 1100px) { .content { grid-template-columns: 1fr; } }
 /* 手機：分類加總只在統計頁看 */
-@media (max-width: 760px) { .breakdown { display: none; } }
+@media (max-width: 760px) {
+  .breakdown { display: none; }
+  /* 左右滑時內容移出畫面，不產生橫向捲軸 */
+  .page { overflow-x: clip; }
+}
 </style>

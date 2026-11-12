@@ -12,11 +12,11 @@ import { computed, ref } from 'vue'
 import { useSwipePeriod } from '../lib/useSwipePeriod.js'
 
 // 手機左右滑切換期間
-const pageEl = ref(null)
-useSwipePeriod(pageEl)
+const bodyEl = ref(null)
 
 const { trip } = useTrip()
-const { summary, expense, income, error } = useSummary()
+const { summary, expense, income, error, loading } = useSummary()
+useSwipePeriod(bodyEl, () => loading.value)
 const sumSkeleton = computed(() => !refs.loaded || !summary.value)
 const filtered = computed(
   () => filters.types.length || filters.categoryIds.length || filters.tagIds.length || filters.pendingOnly || filters.keyword,
@@ -24,8 +24,9 @@ const filtered = computed(
 </script>
 
 <template>
-  <div ref="pageEl" class="page">
+  <div class="page">
     <div class="toolbar"><PeriodPicker /></div>
+    <div ref="bodyEl" class="swipe-body">
     <SummaryCards :summary="sumSkeleton ? null : summary" />
     <OutboxNotice />
     <TripSummary :trip="trip" :tag-id="filters.tagIds[0] ?? null" />
@@ -36,11 +37,14 @@ const filtered = computed(
     </p>
     <CategoryBreakdown :expense="expense" :income="income" :currency="summary?.currency ?? scopeCurrency" show-count :loading="sumSkeleton" />
     <p class="caption c-text">轉帳不計入收支。選「全部帳戶」時只計台幣帳戶，外幣現金錢包請在帳戶選單選該錢包查看。</p>
+    </div>
   </div>
 </template>
 
 <style scoped>
-.page { display: flex; flex-direction: column; gap: var(--sp-24); }
+.page, .swipe-body { display: flex; flex-direction: column; gap: var(--sp-24); }
 .toolbar { display: flex; justify-content: flex-end; }
-.page > p { display: flex; align-items: center; gap: var(--sp-12); }
+/* 左右滑時內容移出畫面，不產生橫向捲軸 */
+@media (max-width: 760px) { .page { overflow-x: clip; } }
+.swipe-body > p { display: flex; align-items: center; gap: var(--sp-12); }
 </style>
