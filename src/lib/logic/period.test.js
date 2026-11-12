@@ -79,3 +79,42 @@ describe('matchPreset / formatRange', () => {
     expect(formatRange({ from: null, to: null })).toBe('全部')
   })
 })
+
+// 信用卡帳單週期（需求 3.2）
+import { statementRange, isStatementRange, matchStatementPreset, shiftRange as shiftR } from './period.js'
+
+describe('信用卡帳單週期', () => {
+  it('結帳日 15 日、今天 11/12：本期 10/16～11/15、上期 9/16～10/15', () => {
+    expect(statementRange(15, 0, '2026-11-12')).toEqual({ from: '2026-10-16', to: '2026-11-15' })
+    expect(statementRange(15, -1, '2026-11-12')).toEqual({ from: '2026-09-16', to: '2026-10-15' })
+  })
+  it('結帳日當天仍屬本期；隔天進入下一期', () => {
+    expect(statementRange(15, 0, '2026-11-15').to).toBe('2026-11-15')
+    expect(statementRange(15, 0, '2026-11-16')).toEqual({ from: '2026-11-16', to: '2026-12-15' })
+  })
+  it('結帳日 31 日：小月取月底，等於整個月', () => {
+    expect(statementRange(31, 0, '2026-11-12')).toEqual({ from: '2026-11-01', to: '2026-11-30' })
+    expect(statementRange(31, 0, '2027-02-10')).toEqual({ from: '2027-02-01', to: '2027-02-28' })
+  })
+  it('結帳日 30 日跨 2 月', () => {
+    expect(statementRange(30, 0, '2027-02-10')).toEqual({ from: '2027-01-31', to: '2027-02-28' })
+    expect(statementRange(30, 0, '2027-03-05')).toEqual({ from: '2027-03-01', to: '2027-03-30' })
+  })
+  it('跨年', () => {
+    expect(statementRange(5, 0, '2026-12-20')).toEqual({ from: '2026-12-06', to: '2027-01-05' })
+  })
+  it('判斷與捷徑對應', () => {
+    expect(isStatementRange({ from: '2026-10-16', to: '2026-11-15' }, 15)).toBe(true)
+    expect(isStatementRange({ from: '2026-10-01', to: '2026-10-31' }, 15)).toBe(false)
+    expect(isStatementRange({ from: null, to: null }, 15)).toBe(false)
+    expect(matchStatementPreset({ from: '2026-09-16', to: '2026-10-15' }, 15, '2026-11-12')).toBe('statementLast')
+    expect(matchStatementPreset({ from: '2026-10-16', to: '2026-11-15' }, null, '2026-11-12')).toBe(null)
+  })
+  it('左右箭頭一期一期移動（30 日結帳跨 2 月不偏移）', () => {
+    const feb = { from: '2027-01-31', to: '2027-02-28' }
+    expect(shiftR(feb, 1, 30)).toEqual({ from: '2027-03-01', to: '2027-03-30' })
+    expect(shiftR(feb, -1, 30)).toEqual({ from: '2026-12-31', to: '2027-01-30' })
+    // 沒有結帳日或不是帳單區間時維持原本行為
+    expect(shiftR({ from: '2026-10-01', to: '2026-10-31' }, 1, 30)).toEqual({ from: '2026-11-01', to: '2026-11-30' })
+  })
+})

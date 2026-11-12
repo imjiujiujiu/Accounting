@@ -41,6 +41,8 @@ export const categoriesById = computed(() => new Map(refs.categories.map((c) => 
 export const baseCurrency = computed(() => refs.settings.base_currency ?? 'TWD')
 export const selectedAccount = computed(() => (filters.accountId ? accountsById.value.get(filters.accountId) : null))
 /** 合計與每日合計的幣別：選單一帳戶＝該帳戶幣別；全部帳戶＝主幣別 */
+/** 所選帳戶的信用卡結帳日（1～31）；沒選帳戶、不是信用卡或沒設定為 null */
+export const statementDay = computed(() => (selectedAccount.value?.type === 'credit_card' ? selectedAccount.value.statement_day ?? null : null))
 export const scopeCurrency = computed(() => selectedAccount.value?.currency ?? baseCurrency.value)
 
 /** 交易有新增、修改、刪除時 +1，清單與合計據此重新讀取 */

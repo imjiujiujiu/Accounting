@@ -1,10 +1,13 @@
 <script setup>
 // 期間選擇器：左右箭頭依區間長度移動；點中間開啟快速區間＋雙月曆（點兩下選起訖）
+// 帳戶選單選了有結帳日的信用卡時，快速區間最上方多「本期帳單」「上期帳單」（需求 3.2），左右箭頭一期一期移動
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 import { BaseButton } from './ui/index.js'
-import { filters } from '../lib/store.js'
-import { PRESETS, presetRange, shiftRange, matchPreset, isAll, today, addMonths, daysInMonth } from '../lib/logic/period.js'
+import { filters, statementDay } from '../lib/store.js'
+import {
+  PRESETS, STATEMENT_PRESETS, presetRange, statementRange, shiftRange, matchPreset, matchStatementPreset, isAll, today, addMonths, daysInMonth,
+} from '../lib/logic/period.js'
 import { rangeLabel } from '../lib/logic/display.js'
 import { useClickOutside } from '../lib/useClickOutside.js'
 
@@ -28,11 +31,15 @@ function toggle() {
 }
 
 function shift(dir) {
-  filters.range = shiftRange(filters.range, dir)
+  filters.range = shiftRange(filters.range, dir, statementDay.value)
 }
 
 function applyPreset(key) {
   filters.range = presetRange(key)
+  open.value = false
+}
+function applyStatement(offset) {
+  filters.range = statementRange(statementDay.value, offset)
   open.value = false
 }
 
@@ -78,7 +85,9 @@ function apply() {
   if (draft.value.from) filters.range = { ...draft.value }
   open.value = false
 }
-const current = computed(() => matchPreset(filters.range))
+// 帳單區間優先標示（31 日結帳時「本期帳單」與「本月」是同一段）
+const currentStatement = computed(() => matchStatementPreset(filters.range, statementDay.value))
+const current = computed(() => (currentStatement.value ? null : matchPreset(filters.range)))
 </script>
 
 <template>
@@ -101,6 +110,19 @@ const current = computed(() => matchPreset(filters.range))
         <p class="body1-bold">選擇期間</p>
       </div>
       <div class="presets">
+        <template v-if="statementDay">
+          <button
+            v-for="p in STATEMENT_PRESETS"
+            :key="p.key"
+            type="button"
+            class="preset"
+            :class="{ on: currentStatement === p.key }"
+            @click="applyStatement(p.offset)"
+          >
+            {{ p.label }}
+          </button>
+          <hr class="preset-sep" />
+        </template>
         <button
           v-for="p in PRESETS"
           :key="p.key"
@@ -155,9 +177,10 @@ const current = computed(() => matchPreset(filters.range))
 .range.on { border-color: var(--color-primary); }
 .panel { right: 0; top: calc(100% + 8px); display: flex; gap: var(--sp-16); padding: var(--sp-16); }
 .presets { display: flex; flex-direction: column; gap: var(--sp-4); min-width: 96px; border-right: 1px solid var(--color-line); padding-right: var(--sp-16); }
-.preset { text-align: left; padding: var(--sp-8) var(--sp-12); border-radius: var(--r-8); color: var(--color-text); font-weight: 700; }
+.preset { text-align: left; padding: var(--sp-8) var(--sp-12); border-radius: var(--r-8); color: var(--color-text); font-weight: 700; white-space: nowrap; }
 .preset:hover { background: var(--color-tag); color: var(--color-title); }
 .preset.on { color: var(--color-primary); }
+.preset-sep { width: 100%; border: 0; border-top: 1px solid var(--color-line); margin: var(--sp-4) 0; }
 .cal-wrap { position: relative; display: flex; flex-direction: column; gap: var(--sp-12); }
 .cal-nav { position: absolute; inset: 0 0 auto 0; display: flex; justify-content: space-between; pointer-events: none; }
 .cal-nav .control { pointer-events: auto; }
@@ -194,6 +217,7 @@ const current = computed(() => matchPreset(filters.range))
   }
   .preset { padding: var(--sp-8) var(--sp-16); border: 1px solid var(--color-line); border-radius: var(--r-pill); }
   .preset.on { border-color: var(--color-primary); }
+  .preset-sep { display: none; }
   .cals { display: block; }
   .grid { grid-template-columns: repeat(7, 1fr); }
   .day { height: 44px; font-size: 16px; }

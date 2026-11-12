@@ -9,7 +9,7 @@
 // 以下情況不觸發：上下捲動、從螢幕邊緣開始（留給系統返回手勢）、
 // 在輸入框／可橫向捲動的區塊／浮出面板內開始、對話框或鍵盤開著時。
 import { onMounted, onBeforeUnmount } from 'vue'
-import { filters } from './store.js'
+import { filters, statementDay } from './store.js'
 import { shiftRange, isAll } from './logic/period.js'
 import { swipeDirection, isVertical, nearEdge } from './logic/swipe.js'
 
@@ -98,7 +98,7 @@ export function useSwipePeriod(bodyRef, isLoading = () => false) {
     const t = e.changedTouches[0]
     const dir = swipeDirection(t.clientX - gesture.x + Math.sign(gesture.dx) * LOCK, t.clientY - gesture.y, e.timeStamp - gesture.time)
     if (!dir || reduceMotion()) {
-      if (dir) filters.range = shiftRange(filters.range, dir === 'left' ? 1 : -1)
+      if (dir) filters.range = shiftRange(filters.range, dir === 'left' ? 1 : -1, statementDay.value)
       busy = true
       set(0, dir ? 0 : BACK_MS)
       await wait(dir ? 0 : BACK_MS)
@@ -114,7 +114,7 @@ export function useSwipePeriod(bodyRef, isLoading = () => false) {
       set(sign * w, OUT_MS, 'ease-in')
       await wait(OUT_MS)
       // 切換期間，新內容在另一側隱藏待命（讀取中畫面上還是舊資料，不能露出來）
-      filters.range = shiftRange(filters.range, -sign)
+      filters.range = shiftRange(filters.range, -sign, statementDay.value)
       set(-sign * w * 0.35, 0, 'ease-out', 0)
       // 等資料（watch 觸發讀取是非同步的，先等一個 frame）
       await nextFrame()

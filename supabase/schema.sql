@@ -57,9 +57,11 @@ create table public.accounts (
   type            text not null check (type in ('cash', 'bank', 'e_wallet', 'credit_card', 'other')),
   currency        text not null default 'TWD' references public.currencies (code),
   initial_balance bigint not null default 0,
+  statement_day   smallint check (statement_day is null or statement_day between 1 and 31), -- 信用卡結帳日（小月取月底）
   is_active       boolean not null default true,
   sort_order      int not null default 0,
   created_at      timestamptz not null default now(),
+  constraint accounts_statement_day_credit_card check (statement_day is null or type = 'credit_card'),
   unique (id, user_id)            -- 供交易表做「同一使用者」的複合外鍵
 );
 
@@ -706,7 +708,8 @@ select a.id,
        coalesce(o.pending_count, 0)             as pending_count,
        coalesce(o.pending_unestimated_count, 0) as pending_unestimated_count,
        coalesce(o.txn_count, 0) + coalesce(i.txn_count, 0) as txn_count,
-       (select count(*)::int from public.recurring_rules rr where rr.account_id = a.id) as rule_count
+       (select count(*)::int from public.recurring_rules rr where rr.account_id = a.id) as rule_count,
+       a.statement_day
   from public.accounts a
   left join lateral (
     select sum(case t.type
