@@ -136,7 +136,7 @@ onBeforeUnmount(() => {
           :lock-date="lockDate"
         >
           <template #actions>
-            <span class="msg body2" :class="statusText ? 'c-expense' : 'c-text'">{{ statusText || (editing ? '修改只影響之後產生的交易' : '') }}</span>
+            <span class="msg body2 c-expense">{{ statusText }}</span>
             <!-- 編輯時「取消」換成「刪除」（關閉用右上角 ×） -->
             <BaseButton v-if="editing" danger :disabled="saving || !isOnline" @click="remove">刪除</BaseButton>
             <BaseButton v-else :disabled="saving" @click="close">取消</BaseButton>
