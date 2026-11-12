@@ -43,15 +43,16 @@ export const CATEGORY_ICON_GROUPS = [
     { key: 'laptop_mac', label: '電腦' }, // laptop_mac
     { key: 'devices', label: '3C' }, // devices
   ] },
-  { title: '美容與健康', icons: [
+  { title: '美容', icons: [
     { key: 'content_cut', label: '美髮' }, // content_cut
     { key: 'spa', label: '美容' }, // spa
-    { key: 'diamond', label: '飾品' }, // diamond
+  ] },
+  { title: '醫療', icons: [
     { key: 'medical', label: '醫療' }, // mixture_med
     { key: 'medication', label: '藥品' }, // medication
     { key: 'local_hospital', label: '醫院' }, // local_hospital
     { key: 'dentistry', label: '牙醫' }, // dentistry
-    { key: 'fitness_center', label: '健身' }, // fitness_center
+    { key: 'health_and_safety', label: '健保' }, // health_and_safety
   ] },
   { title: '娛樂與訂閱', icons: [
     { key: 'entertainment', label: '遊戲' }, // stadia_controller
@@ -73,15 +74,16 @@ export const CATEGORY_ICON_GROUPS = [
     { key: 'elderly', label: '孝親' }, // elderly
     { key: 'favorite', label: '約會' }, // favorite
   ] },
-  { title: '學習與工作', icons: [
+  { title: '學習、工作與運動', icons: [
     { key: 'learn', label: '學習' }, // school
     { key: 'auto_stories', label: '課程' }, // auto_stories
     { key: 'work', label: '工作' }, // work
     { key: 'handshake', label: '應酬' }, // handshake
+    { key: 'fitness_center', label: '健身' }, // fitness_center
+    { key: 'directions_run', label: '運動' }, // directions_run
   ] },
   { title: '保險與稅費', icons: [
     { key: 'shield', label: '保險' }, // shield
-    { key: 'health_and_safety', label: '健保' }, // health_and_safety
     { key: 'receipt_long', label: '稅費' }, // receipt_long
     { key: 'account_balance', label: '銀行' }, // account_balance
   ] },
