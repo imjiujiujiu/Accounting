@@ -1,15 +1,18 @@
 <script setup>
 // 左側滑出的帳戶選單。設計稿：Figma Mockup 頁「側選單 — 管理模式」node 124:532、「（編輯中）」124:919。
-// 點列＝以該帳戶篩選清單與統計（「全部帳戶」＝不篩選）。不做總額合計。
+// 點列＝以該帳戶篩選清單與統計（「全部帳戶」＝不篩選）。
+// 分成「資產」「負債」（信用卡）兩區並各自小計，「全部帳戶」列顯示淨資產（需求 3.2）；只計主幣別帳戶，
+// 外幣帳戶以自身幣別另列「外幣」一區、不計入。這個分區沒有 Figma 稿，直接實作後截圖確認。
 // 滑過（或鍵盤聚焦）列時右側出現操作：編輯；沒有交易使用的帳戶多一個垃圾桶。帳戶不能停用。
 // 編輯框同時只開一個：編輯就地取代該列；新增出現在清單最下方「新增帳戶」按鈕上方。
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 import AccountEditor from './AccountEditor.vue'
 import { BaseButton, IconButton, Skeleton } from './ui/index.js'
-import { filters, refs, loadRefs, showToast } from '../lib/store.js'
+import { filters, refs, loadRefs, showToast, baseCurrency } from '../lib/store.js'
 import { api, ACCOUNT_TYPES } from '../lib/api/index.js'
 import { formatSigned } from '../lib/logic/display.js'
+import { accountSections } from '../lib/logic/accounts.js'
 import { confirmDialog, confirmState } from '../lib/confirm.js'
 import { accountDrawer } from '../lib/accountDrawer.js'
 
@@ -23,10 +26,8 @@ const busy = ref(false)
 const SKELETON_GROUPS = [[40, 56], [48, 40, 64]]
 
 // 帳戶不再有停用狀態；舊資料裡停用的帳戶也照類型列出，不隱藏
-const byOrder = (a, b) => a.sort_order - b.sort_order
-const groups = computed(() =>
-  ACCOUNT_TYPES.map((t) => ({ ...t, accounts: refs.accounts.filter((a) => a.type === t.key).sort(byOrder) })).filter((g) => g.accounts.length),
-)
+const summary = computed(() => accountSections(refs.accounts, ACCOUNT_TYPES, baseCurrency.value))
+const money = (n) => formatSigned(n, baseCurrency.value, refs.currencies)
 const balance = (a) => formatSigned(a.balance, a.currency, refs.currencies)
 
 function select(id) {
@@ -83,7 +84,11 @@ watch(
       </div>
 
       <button class="row all" type="button" :class="{ on: !filters.accountId }" @click="select(null)">
-        <span class="body1-bold">全部帳戶</span>
+        <span class="name">
+          <span class="body1-bold">全部帳戶</span>
+          <span v-if="refs.loaded && refs.accounts.length" class="caption c-text">淨資產</span>
+        </span>
+        <span v-if="refs.loaded && refs.accounts.length" class="body1-bold num" :class="summary.netWorth < 0 ? 'c-expense' : 'c-title'">{{ money(summary.netWorth) }}</span>
       </button>
 
       <template v-if="!refs.loaded">
@@ -95,25 +100,33 @@ watch(
           </div>
         </div>
       </template>
-      <div v-for="g in groups" :key="g.key" class="group">
-        <p class="body2-bold c-text group-title">{{ g.label }}</p>
-        <template v-for="a in g.accounts" :key="a.id">
-          <AccountEditor v-if="editingId === a.id" :account="a" @done="editingId = null" @cancel="editingId = null" />
-          <div v-else class="row item" :class="{ on: filters.accountId === a.id }">
-            <!-- 整列可點（選帳戶）；操作圖示疊在右側 -->
-            <button class="pick" type="button" :aria-label="`只看「${a.name}」`" @click="select(a.id)" />
-            <span class="name">
-              <span class="body1-bold">{{ a.name }}</span>
-              <span v-if="a.pending_count" class="caption c-supply">另有 {{ a.pending_count }} 筆預估</span>
-            </span>
-            <span class="body1-bold num" :class="a.balance < 0 ? 'c-expense' : 'c-title'">{{ balance(a) }}</span>
-            <span class="actions">
-              <IconButton icon="pen" label="編輯" @click="editingId = a.id" />
-              <IconButton v-if="a.canDelete" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="remove(a)" />
-            </span>
-          </div>
-        </template>
-      </div>
+      <section v-for="sec in summary.sections" :key="sec.key" class="section">
+        <div class="section-head">
+          <p class="h6">{{ sec.label }}</p>
+          <span v-if="sec.total !== null" class="body2-bold c-text num">{{ money(sec.total) }}</span>
+          <span v-else class="caption c-text">不計入淨資產</span>
+        </div>
+        <div v-for="g in sec.groups" :key="g.key" class="group">
+          <!-- 負債只有信用卡一種，不再重複小標 -->
+          <p v-if="sec.key !== 'liability'" class="body2-bold c-text group-title">{{ g.label }}</p>
+          <template v-for="a in g.accounts" :key="a.id">
+            <AccountEditor v-if="editingId === a.id" :account="a" @done="editingId = null" @cancel="editingId = null" />
+            <div v-else class="row item" :class="{ on: filters.accountId === a.id }">
+              <!-- 整列可點（選帳戶）；操作圖示疊在右側 -->
+              <button class="pick" type="button" :aria-label="`只看「${a.name}」`" @click="select(a.id)" />
+              <span class="name">
+                <span class="body1-bold">{{ a.name }}</span>
+                <span v-if="a.pending_count" class="caption c-supply">另有 {{ a.pending_count }} 筆預估</span>
+              </span>
+              <span class="body1-bold num" :class="a.balance < 0 ? 'c-expense' : 'c-title'">{{ balance(a) }}</span>
+              <span class="actions">
+                <IconButton icon="pen" label="編輯" @click="editingId = a.id" />
+                <IconButton v-if="a.canDelete" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="remove(a)" />
+              </span>
+            </div>
+          </template>
+        </div>
+      </section>
 
       <p v-if="refs.loaded && !refs.accounts.length && editingId !== 'new'" class="body2 c-text">還沒有帳戶。先建立常用的現金、銀行與信用卡帳戶。</p>
       <template v-if="refs.loaded">
@@ -142,6 +155,13 @@ watch(
 .close:hover { background: var(--color-tag); }
 .add { width: 100%; justify-content: center; flex-shrink: 0; }
 
+/* 資產／負債／外幣：區標題＋小計，底下依類型分組 */
+.section { display: flex; flex-direction: column; gap: var(--sp-12); }
+.section-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-12);
+  padding: 0 var(--sp-12) var(--sp-8) 0; border-bottom: 1px solid var(--color-line);
+}
+.section .group-title { padding-left: 0; }
 .group { display: flex; flex-direction: column; gap: var(--sp-2); }
 .group-title { padding-bottom: var(--sp-4); }
 .group-title-sk { margin: 4px 0 7px; }
@@ -152,7 +172,7 @@ watch(
 }
 .row.all:hover, .row.item:hover, .row.item:focus-within { background: var(--color-tag); }
 .row.on { border-color: var(--color-primary); }
-.row.all.on .body1-bold { color: var(--color-primary); }
+.row.all.on .name > .body1-bold { color: var(--color-primary); }
 /* 選取鈕鋪滿整列；文字不攔點擊，操作圖示在其上 */
 .pick { position: absolute; inset: 0; border-radius: inherit; }
 .pick:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
