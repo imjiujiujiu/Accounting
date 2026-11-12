@@ -8,6 +8,8 @@ import { openAccountDrawer } from '../lib/accountDrawer.js'
 // 下拉選單、日期、標籤輸入框各自處理自己的 Enter（選取、加標籤），不會觸發儲存。
 // 固定收支（需求 3.10）：新增時可設定「重複」，儲存時改存成規則（資料庫立刻補產生到今天為止的交易）；
 // 只有收入／支出、非外幣、連線中可以設定。由規則產生的交易顯示「來自固定收支 ›」，點擊跳到管理頁的該規則。
+// 「儲存後再記一筆」（需求 3.8）：新增時勾選，儲存成功（或暫存）後不關閉，換成新的一筆並帶入帳戶、日期、幣別、分類。
+// 每次開啟對話框都是未勾選；設定了重複時不顯示。
 import { ref, reactive, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from './Icon.vue'
@@ -19,7 +21,7 @@ import { refs, baseCurrency, afterTransactionChange, showToast } from '../lib/st
 import { api } from '../lib/api/index.js'
 import { isOnline, OFFLINE_MESSAGE, OFFLINE_QUEUE_MESSAGE } from '../lib/api/online.js'
 import { outbox, enqueue, dequeue } from '../lib/outbox.js'
-import { createEmptyForm, txnToForm, validateForm, formToPayload } from '../lib/logic/transactionForm.js'
+import { createEmptyForm, continueForm, txnToForm, validateForm, formToPayload } from '../lib/logic/transactionForm.js'
 import { focusFirstInvalid, isSubmitEnter } from '../lib/focusInvalid.js'
 import { createRepeat, canRepeat, validateRepeat, formToRulePayload, ruleLabel, savedRuleToast } from '../lib/logic/recurring.js'
 import { openRule, manageTab } from '../lib/ruleDialog.js'
@@ -44,6 +46,19 @@ const statusText = computed(() => {
 const statusError = computed(() => !!failMessage.value || (!isOnline.value && !canQueue.value) || !!txnDialog.txn?.syncError)
 const ctx = () => ({ accounts: refs.accounts, currencies: refs.currencies, baseCurrency: baseCurrency.value })
 const noAccounts = computed(() => !refs.accounts.length)
+
+// 儲存後再記一筆
+const keepAdding = ref(false)
+const showKeepAdding = computed(() => !editing.value && repeat.mode === 'none')
+const continued = ref(false) // 目前這筆是「再記一筆」開的：金額自動聚焦（電腦版也是）
+/** 儲存完成：勾了「再記一筆」就換成新的一筆，否則關閉 */
+function done(toast) {
+  showToast(toast)
+  if (!keepAdding.value || !showKeepAdding.value) return closeTransaction()
+  errors.value = {}
+  continued.value = true
+  form.value = continueForm(form.value)
+}
 
 // 重複：只在新增時提供；轉帳、外幣刷卡或離線時停用並回到「不重複」
 const repeat = reactive(createRepeat())
@@ -71,6 +86,8 @@ watch(
     failMessage.value = ''
     repeatErrors.value = {}
     Object.assign(repeat, createRepeat())
+    keepAdding.value = false
+    continued.value = false
     if (txnDialog.txn) {
       form.value = txnToForm(txnDialog.txn, txnDialog.txn.tags ?? [], ctx())
       return
@@ -106,8 +123,7 @@ async function save() {
   const updated = editing.value
   const keepLocal = () => {
     enqueue(payload)
-    closeTransaction()
-    showToast('已暫存，連線後同步')
+    done('已暫存，連線後同步')
   }
   if (canQueue.value && !isOnline.value) return keepLocal()
   saving.value = true
@@ -115,9 +131,8 @@ async function save() {
   try {
     await api.transactions.save(payload)
     if (queued.value) dequeue(payload.txn.id)
-    closeTransaction()
-    showToast(updated ? '已更新' : '已儲存')
     afterTransactionChange()
+    done(updated ? '已更新' : '已儲存')
   } catch (e) {
     if (canQueue.value && (e.kind === 'offline' || e.kind === 'network')) return keepLocal()
     failMessage.value = e.kind === 'offline' ? OFFLINE_MESSAGE : e.kind === 'invalid' ? e.message : '儲存失敗，請重試'
@@ -256,9 +271,22 @@ function addFirstAccount() {
           :repeat-errors="repeatErrors"
           :repeat-disabled="!repeatAllowed"
           :rule-link="sourceRule ? ruleLabel(sourceRule) : ''"
+          :focus-amount="continued"
           @open-rule="openSourceRule"
         >
           <template #actions>
+            <button
+              v-if="showKeepAdding"
+              type="button"
+              class="keep body2"
+              :class="{ on: keepAdding }"
+              role="checkbox"
+              :aria-checked="keepAdding"
+              @click="keepAdding = !keepAdding"
+            >
+              <span class="box"><Icon v-if="keepAdding" name="check" :size="14" color="var(--color-card)" /></span>
+              儲存後再記一筆
+            </button>
             <span class="msg body2" :class="statusError ? 'c-expense' : 'c-text'">{{ statusText }}</span>
             <!-- 編輯時「取消」換成「刪除」（關閉用右上角 ×） -->
             <BaseButton v-if="editing" danger :disabled="saving || (!isOnline && !queued)" @click="remove">刪除</BaseButton>
@@ -291,6 +319,19 @@ function addFirstAccount() {
 .close:hover { background: var(--coldgray-400); }
 .no-account { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-16); padding-right: var(--sp-24); }
 .msg { flex: 1; min-width: 0; text-align: right; }
+/* 「儲存後再記一筆」勾選框（比照篩選選單的勾選框） */
+.keep {
+  display: inline-flex; align-items: center; gap: var(--sp-8); height: 40px; flex-shrink: 0;
+  color: var(--color-text); white-space: nowrap; -webkit-tap-highlight-color: transparent;
+}
+.keep:hover { color: var(--color-title); }
+.keep.on { color: var(--color-title); }
+.box {
+  width: 16px; height: 16px; border-radius: var(--r-4); border: 1px solid var(--color-line);
+  display: grid; place-items: center; flex-shrink: 0;
+}
+.keep:hover .box { border-color: var(--color-line-hover); }
+.keep.on .box { background: var(--color-primary); border-color: var(--color-primary); }
 .pop-enter-active, .pop-leave-active { transition: opacity .15s; }
 .pop-enter-from, .pop-leave-to { opacity: 0; }
 
@@ -317,6 +358,7 @@ function addFirstAccount() {
   .close :deep(svg) { width: 20px; height: 20px; }
   .close :deep(path) { fill: var(--color-text); }
   .msg { text-align: left; flex: 1 0 100%; }
+  .keep { flex: 1 0 100%; height: 36px; }
   .msg:empty { display: none; }
   .dialog :deep(.bottom) { flex-direction: row; flex-wrap: wrap; }
   .dialog :deep(.bottom > .settle) { flex: 1 0 100%; }

@@ -36,6 +36,21 @@ export function createEmptyForm({ lastAccountId = null, date = today() } = {}) {
   }
 }
 
+/**
+ * 「儲存後再記一筆」：存完後開新的一筆（新 id），帶入帳戶、日期、幣別、分類（含收支類型、轉帳的轉入帳戶）；
+ * 金額、備註、標籤清空。混合消費拆兩筆記時用（需求 3.8）
+ */
+export function continueForm(prev) {
+  return {
+    ...createEmptyForm({ lastAccountId: prev.accountId, date: prev.date }),
+    type: prev.type,
+    categoryId: prev.categoryId,
+    toAccountId: prev.toAccountId,
+    isForeign: prev.isForeign,
+    originalCurrency: prev.originalCurrency,
+  }
+}
+
 function accountOf(ctx, id) {
   return (ctx.accounts ?? []).find((a) => a.id === id) ?? null
 }
