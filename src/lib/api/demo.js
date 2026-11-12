@@ -21,11 +21,11 @@ function seed() {
     { id: 'a-cash', name: '現金', type: 'cash', currency: 'TWD', initial_balance: 3000, sort_order: 1 },
     { id: 'a-esun', name: '玉山', type: 'bank', currency: 'TWD', initial_balance: 52000, sort_order: 2 },
     { id: 'a-linepay', name: 'LINE Pay', type: 'e_wallet', currency: 'TWD', initial_balance: 0, sort_order: 3 },
-    { id: 'a-cube', name: 'Cube', type: 'credit_card', currency: 'TWD', initial_balance: 0, sort_order: 4 },
+    { id: 'a-cube', name: 'Cube', type: 'credit_card', currency: 'TWD', initial_balance: 0, sort_order: 4, statement_day: 15 },
     { id: 'a-richart', name: 'Richart', type: 'credit_card', currency: 'TWD', initial_balance: 0, sort_order: 5 },
     { id: 'a-krw', name: '韓幣', type: 'cash', currency: 'KRW', initial_balance: 0, sort_order: 6 },
     { id: 'a-post', name: '郵局', type: 'bank', currency: 'TWD', initial_balance: 0, sort_order: 7 },
-  ].map((a) => ({ is_active: true, created_at: at(10000), ...a }))
+  ].map((a) => ({ is_active: true, statement_day: null, created_at: at(10000), ...a }))
 
   const cats = [
     ['餐飲', 'expense', 1], ['交通', 'expense', 2], ['購物', 'expense', 3], ['居住', 'expense', 4],

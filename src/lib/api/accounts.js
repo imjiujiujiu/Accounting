@@ -10,7 +10,8 @@ export const ACCOUNT_TYPES = [
   { key: 'other', label: '其他' },
 ]
 
-const EDITABLE = ['name', 'type', 'currency', 'initial_balance', 'sort_order', 'is_active']
+// statement_day：信用卡結帳日（1～31，小月取月底；null＝未設定），需要 20261112_statement_day.sql
+const EDITABLE = ['name', 'type', 'currency', 'initial_balance', 'sort_order', 'is_active', 'statement_day']
 
 function pick(obj) {
   const out = {}
@@ -45,11 +46,12 @@ export function createAccountsApi(db) {
         balance: Number(a.balance),
         initial_balance: Number(a.initial_balance),
         rule_count: Number(a.rule_count ?? 0),
+        statement_day: a.statement_day ?? null,
         canDelete: a.txn_count === 0 && Number(a.rule_count ?? 0) === 0,
       }))
     },
 
-    /** account：{ name, type, currency, initial_balance（最小單位整數）, sort_order } */
+    /** account：{ name, type, currency, initial_balance（最小單位整數）, sort_order, statement_day（僅信用卡） } */
     async create(account) {
       assertOnline()
       const { data } = await run(

@@ -117,8 +117,12 @@ export function monthSpan(range) {
  * 以「月」為單位的區間（整月、整年、信用卡結帳週期）按月移動，避免月份天數不同造成偏移；
  * 其他區間按天數移動。「全部」不移動。
  */
-export function shiftRange(range, dir) {
+export function shiftRange(range, dir, statementDay = null) {
   if (isAll(range)) return { from: null, to: null }
+  // 目前區間剛好是所選信用卡的一期帳單：一期一期移動（29～31 日結帳遇小月時天數不固定，不能按月份數或天數移）
+  if (statementDay && isStatementRange(range, statementDay)) {
+    return statementRangeEnding(monthIndex(range.to) + dir, statementDay)
+  }
   const n = monthSpan(range)
   if (n) {
     const from = addMonths(range.from, dir * n)
@@ -126,6 +130,54 @@ export function shiftRange(range, dir) {
   }
   const len = rangeDays(range)
   return { from: addDays(range.from, dir * len), to: addDays(range.to, dir * len) }
+}
+
+/* ===== 信用卡帳單週期（需求 3.2）=====
+ * 結帳日為每月 N 日（1～31；小月取月底）。一期＝上個月結帳日的隔天 ～ 這個月的結帳日。 */
+const monthIndex = (d) => {
+  const p = parse(d)
+  return p.y * 12 + (p.m - 1)
+}
+/** 第 idx 個月（年 × 12 ＋ 月 − 1）的結帳日 */
+function statementDate(idx, day) {
+  const y = Math.floor(idx / 12)
+  const m = (idx % 12) + 1
+  return fmt(y, m, Math.min(day, daysInMonth(y, m)))
+}
+function statementRangeEnding(idx, day) {
+  return { from: addDays(statementDate(idx - 1, day), 1), to: statementDate(idx, day) }
+}
+
+export const STATEMENT_PRESETS = [
+  { key: 'statementCurrent', label: '本期帳單', offset: 0 },
+  { key: 'statementLast', label: '上期帳單', offset: -1 },
+]
+
+/**
+ * 帳單區間。offset 0＝本期（含今天、還沒結帳的那一期）；-1＝上期（最近一期已結帳的）。
+ * 例：結帳日 15 日、今天 11/12 → 本期 10/16～11/15、上期 9/16～10/15。
+ */
+export function statementRange(day, offset = 0, t = today()) {
+  let idx = monthIndex(t)
+  if (t > statementDate(idx, day)) idx += 1
+  return statementRangeEnding(idx + offset, day)
+}
+
+/** 區間是否剛好是結帳日為 day 的某一期帳單 */
+export function isStatementRange(range, day) {
+  if (isAll(range) || !day) return false
+  const r = statementRangeEnding(monthIndex(range.to), day)
+  return r.from === range.from && r.to === range.to
+}
+
+/** 目前區間對應哪個帳單捷徑（'statementCurrent'／'statementLast'），沒有則 null */
+export function matchStatementPreset(range, day, t = today()) {
+  if (!day) return null
+  for (const p of STATEMENT_PRESETS) {
+    const r = statementRange(day, p.offset, t)
+    if (r.from === range?.from && r.to === range?.to) return p.key
+  }
+  return null
 }
 
 /** 目前區間對應哪個快速區間（給快速區間按鈕標示選取狀態），沒有則 null */

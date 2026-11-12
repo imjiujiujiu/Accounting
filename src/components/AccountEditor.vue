@@ -1,6 +1,7 @@
 <script setup>
 // 帳戶的新增／編輯表單（側選單管理模式用）。設計稿：Figma「側選單 — 管理模式（編輯中）」node 124:919。
-// 版面：名稱／類型＋幣別／初始餘額，最後是取消、儲存。帳戶已有交易時幣別鎖定。
+// 版面：名稱／類型＋幣別／初始餘額（信用卡時右邊多「結帳日」），最後是取消、儲存。帳戶已有交易時幣別鎖定。
+// 結帳日（需求 3.2）：只有信用卡有；1～31 日，小月取月底；設定後期間選擇器多「本期帳單」「上期帳單」。
 // Enter（或「儲存」）送出；名稱沒填、初始餘額格式不對 → 欄位下顯示錯誤並把焦點移到第一個有錯的欄位。
 // 用法：<AccountEditor :account="a 或 null" @done="..." @cancel="..." />
 import { reactive, ref, computed } from 'vue'
@@ -16,11 +17,16 @@ const emit = defineEmits(['done', 'cancel'])
 const typeOptions = ACCOUNT_TYPES.map((t) => ({ value: t.key, label: t.label }))
 const currencyOptions = computed(() => refs.currencies.map((c) => ({ value: c.code, label: `${c.name_zh} ${c.code}` })))
 
+const dayOptions = [
+  { value: null, label: '未設定' },
+  ...Array.from({ length: 31 }, (_, i) => ({ value: i + 1, label: i + 1 >= 29 ? `每月 ${i + 1} 日（小月為月底）` : `每月 ${i + 1} 日` })),
+]
+
 const a = props.account
 const f = reactive(
   a
-    ? { name: a.name, type: a.type, currency: a.currency, initial: toInputString(a.initial_balance, minorUnitOf(a.currency, refs.currencies)), locked: a.txn_count > 0 }
-    : { name: '', type: 'bank', currency: baseCurrency.value, initial: '0', locked: false },
+    ? { name: a.name, type: a.type, currency: a.currency, initial: toInputString(a.initial_balance, minorUnitOf(a.currency, refs.currencies)), locked: a.txn_count > 0, statementDay: a.statement_day ?? null }
+    : { name: '', type: 'bank', currency: baseCurrency.value, initial: '0', locked: false, statementDay: null },
 )
 const errors = reactive({ name: '', initial: '' })
 const error = ref('') // 儲存失敗
@@ -36,6 +42,9 @@ async function save() {
   if (errors.name || errors.initial) return focusFirstInvalid(formEl.value)
   const payload = { name: f.name, type: f.type, initial_balance: (raw.startsWith('-') ? -1 : 1) * initial }
   if (!f.locked) payload.currency = f.currency
+  // 結帳日只屬於信用卡；改成其他類型時清掉。沒設定過也沒要設定就不送（資料庫還沒有這個欄位時不受影響）
+  const day = f.type === 'credit_card' ? f.statementDay : null
+  if (day !== (a?.statement_day ?? null)) payload.statement_day = day
   busy.value = true
   try {
     if (a) await api.accounts.update(a.id, payload)
@@ -61,7 +70,12 @@ async function save() {
         <SelectMenu v-model="f.currency" :options="currencyOptions" :disabled="f.locked" />
       </FormField>
     </div>
-    <FormField label="初始餘額" hint="信用卡欠款請填負數" :error="errors.initial"><TextInput v-model="f.initial" inputmode="decimal" :invalid="!!errors.initial" @input="errors.initial = ''" /></FormField>
+    <div :class="{ pair: f.type === 'credit_card' }">
+      <FormField label="初始餘額" hint="信用卡欠款請填負數" :error="errors.initial"><TextInput v-model="f.initial" inputmode="decimal" :invalid="!!errors.initial" @input="errors.initial = ''" /></FormField>
+      <FormField v-if="f.type === 'credit_card'" label="結帳日" as="div">
+        <SelectMenu v-model="f.statementDay" :options="dayOptions" />
+      </FormField>
+    </div>
     <div class="foot">
       <span class="body2 c-expense">{{ error }}</span>
       <BaseButton @click="emit('cancel')">取消</BaseButton>
