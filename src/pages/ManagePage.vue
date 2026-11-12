@@ -6,6 +6,7 @@
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
 // 頁面頂端分段切換「分類與標籤｜固定收支」（需求 3.10）。固定收支：規則清單獨佔整頁寬，依下次產生日排序、
 // 已結束的排在最下方並調淡；點整列開啟規則對話框（RuleDialog），刪除在對話框裡。
+// 管理頁只能編輯、刪除規則；新增一律從清單頁的新增交易（日期旁的重複圖示）。
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
 import { BaseButton, IconButton, TextInput, FormField, Skeleton } from '../components/ui/index.js'
@@ -18,7 +19,7 @@ import { focusFirstInvalid } from '../lib/focusInvalid.js'
 import { accountsById, categoriesById } from '../lib/store.js'
 import { formatSigned } from '../lib/logic/display.js'
 import { ruleMeta, sortRules } from '../lib/logic/recurring.js'
-import { manageTab, openRule, openNewRule } from '../lib/ruleDialog.js'
+import { manageTab, openRule } from '../lib/ruleDialog.js'
 
 const TABS = [
   { key: 'categories', name: '分類與標籤' },
@@ -164,7 +165,6 @@ async function removeTag(t) {
   <section v-if="manageTab === 'rules'" class="card block rules" :aria-busy="!refs.loaded">
     <div class="block-head">
       <p class="h5">固定收支</p>
-      <BaseButton icon="plus" :disabled="!refs.loaded" @click="openNewRule">新增</BaseButton>
     </div>
     <template v-if="!refs.loaded">
       <div v-for="w in [20, 28, 16]" :key="w" class="rule sk" aria-hidden="true">
@@ -188,10 +188,10 @@ async function removeTag(t) {
       </template>
       <div v-if="!ruleRows.length" class="rules-empty">
         <p class="body2 c-text">還沒有固定收支。房租、薪水、訂閱這類固定的收入或支出，設定一次，之後到日期當天會自動記一筆。</p>
-        <p class="body2 c-text">也可以在新增交易時，從「重複」欄位設定。</p>
+        <p class="body2 c-text">在清單頁新增交易時，點日期旁的重複圖示就能設定。</p>
       </div>
     </template>
-    <p v-if="ruleRows.length" class="caption c-text">到日期當天自動新增一筆交易；修改只影響之後產生的交易。也可以在新增交易時，從「重複」欄位設定。</p>
+    <p v-if="ruleRows.length" class="caption c-text">到日期當天自動新增一筆交易；修改只影響之後產生的交易。要新增固定收支，請在清單頁新增交易時點日期旁的重複圖示。</p>
   </section>
 
   <div v-else class="manage">
