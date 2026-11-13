@@ -102,6 +102,16 @@ export function createDemoApi() {
   const ms = (typeof location !== 'undefined' && Number(new URLSearchParams(location.search).get('delay'))) || 80
   const delay = (v) => new Promise((r) => setTimeout(() => r(clone(v)), ms))
   // 比照資料庫 require_leaf_category：交易與固定收支只能用最底層的分類
+  // 比照資料庫 collapse_category：大分類只剩「其他X」時，交易與規則歸回大分類並刪除「其他X」
+  const collapse = (parentId) => {
+    const parent = db.categories.find((x) => x.id === parentId)
+    const children = db.categories.filter((x) => x.parent_id === parentId)
+    if (!parent || children.length !== 1 || children[0].name !== `其他${parent.name}`) return false
+    const other = children[0]
+    for (const x of [...db.transactions, ...db.rules]) if (x.category_id === other.id) x.category_id = parent.id
+    db.categories = db.categories.filter((x) => x.id !== other.id)
+    return true
+  }
   const assertLeaf = (categoryId) => {
     if (categoryId && db.categories.some((x) => x.parent_id === categoryId)) {
       const name = db.categories.find((x) => x.id === categoryId)?.name
@@ -326,11 +336,68 @@ export function createDemoApi() {
         if (icon !== undefined) c.icon = icon
         return delay(c)
       },
-      // 比照資料庫 delete_category：交易改套同收支的「其他」並加上同名標籤
+      // 比照資料庫 save_category：新增／編輯（含換組）；第一個小分類自動建「其他X」接收大分類的交易；原大分類只剩「其他X」就收回
+      async save(p) {
+        const otherName = (parentName) => `其他${parentName}`
+        const cur = p.id ? db.categories.find((x) => x.id === p.id) : null
+        const kind = cur ? cur.kind : p.kind
+        const name = (p.name ?? cur?.name ?? '').trim()
+        if (!name) throw new ApiError('invalid', '請輸入名稱')
+        const oldParent = cur?.parent_id ?? null
+        const parentId = 'parent_id' in p ? p.parent_id || null : oldParent
+        const childrenOf = (id) => db.categories.filter((x) => x.parent_id === id)
+        const parentOfCur = oldParent && db.categories.find((x) => x.id === oldParent)
+        if (cur && parentOfCur && cur.name === otherName(parentOfCur.name)) {
+          if (name !== cur.name) throw new ApiError('invalid', `「${cur.name}」不能改名`)
+          if (parentId !== oldParent) throw new ApiError('invalid', `「${cur.name}」不能換組`)
+        }
+        if (cur?.name === '其他' && !cur.parent_id && name !== cur.name) throw new ApiError('invalid', '「其他」不能改名')
+        if (db.categories.some((x) => x.id !== cur?.id && x.kind === kind && x.name === name)) throw new ApiError('duplicate', '已有同名分類')
+        let split = null
+        if (parentId && parentId !== oldParent) {
+          const parent = db.categories.find((x) => x.id === parentId && x.kind === kind)
+          if (!parent) throw new ApiError('not_found', '找不到所屬分類')
+          if (parent.parent_id) throw new ApiError('invalid', `分類只有兩層：「${parent.name}」已經是小分類`)
+          if (parent.name === '其他') throw new ApiError('invalid', '「其他」不能有小分類')
+          if (cur && childrenOf(cur.id).length) throw new ApiError('invalid', `「${cur.name}」底下有小分類，不能成為小分類`)
+          if (cur?.name === '其他' && !cur.parent_id) throw new ApiError('invalid', '「其他」不能成為小分類')
+          if (!childrenOf(parent.id).length) {
+            const other = { id: uid(), name: otherName(parent.name), kind, sort_order: 99, is_active: true, icon: parent.icon, parent_id: parent.id }
+            const txns = db.transactions.filter((t) => t.category_id === parent.id)
+            const rules = db.rules.filter((r) => r.category_id === parent.id)
+            for (const x of [...txns, ...rules]) x.category_id = other.id
+            db.categories.push(other)
+            if (txns.length || rules.length) split = { otherName: other.name, movedTxns: txns.length, movedRules: rules.length }
+          }
+        }
+        let row = cur
+        if (!row) {
+          row = { id: p.id ?? uid(), name, kind, sort_order: p.sort_order ?? 50, is_active: true, icon: p.icon || null, parent_id: parentId }
+          db.categories.push(row)
+        } else {
+          // 大分類改名：「其他X」跟著改
+          if (!row.parent_id && name !== row.name) {
+            for (const ch of childrenOf(row.id)) if (ch.name === otherName(row.name)) ch.name = otherName(name)
+          }
+          row.name = name
+          row.parent_id = parentId
+          if ('icon' in p) row.icon = p.icon || null
+          if (p.sort_order != null) row.sort_order = p.sort_order
+        }
+        const collapsed = oldParent && oldParent !== parentId && collapse(oldParent) ? { parentId: oldParent } : null
+        return delay({ id: row.id, split, collapsed })
+      },
+      // 比照資料庫 delete_category：大分類改套同收支的「其他」、小分類改套同大分類的「其他X」，並加上同名標籤；
+      // 小分類刪到只剩「其他X」就收回單層。有小分類的大分類不能刪除
       async remove(id) {
         const c = db.categories.find((x) => x.id === id)
-        if (c.name === '其他') throw new ApiError('invalid', '「其他」不能刪除')
-        const other = db.categories.find((x) => x.kind === c.kind && x.name === '其他')
+        if (c.name === '其他' && !c.parent_id) throw new ApiError('invalid', '「其他」不能刪除')
+        if (db.categories.some((x) => x.parent_id === id)) throw new ApiError('invalid', `「${c.name}」還有小分類，請先刪除小分類`)
+        const parent = c.parent_id ? db.categories.find((x) => x.id === c.parent_id) : null
+        if (parent && c.name === `其他${parent.name}`) throw new ApiError('invalid', `「${c.name}」不能刪除`)
+        const other = parent
+          ? db.categories.find((x) => x.parent_id === parent.id && x.name === `其他${parent.name}`)
+          : db.categories.find((x) => x.kind === c.kind && x.name === '其他' && !x.parent_id)
         const used = db.transactions.filter((t) => t.category_id === id)
         const usedRules = db.rules.filter((r) => r.category_id === id)
         if (used.length || usedRules.length) {
@@ -346,6 +413,7 @@ export function createDemoApi() {
           }
         }
         db.categories = db.categories.filter((x) => x.id !== id)
+        if (parent) collapse(parent.id)
         return delay({ movedTxns: used.length, movedRules: usedRules.length })
       },
     },

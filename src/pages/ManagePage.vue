@@ -2,6 +2,9 @@
 // 管理：支出分類、收入分類、標籤（三欄）。設計稿：Figma「Manage v2」（node 123:138）。
 // 帳戶管理已移到左上角的帳戶側選單（AccountDrawer 的管理模式）。
 // 分類：可新增、改名、換圖示、刪除（需求 3.3）；圖示用 IconPicker 從精選清單挑選。刪除時交易改套「其他」並加上同名標籤。「其他」不能刪除、不能改名。
+// 兩層分類：清單為樹狀（小分類縮排在大分類下方）；編輯框多「所屬分類」（無＝大分類）。新增、編輯一律走 save_category：
+// 第一次拆開有交易的大分類時，交易移到自動建立的「其他X」（toast 告知筆數）；小分類換組或刪除後，原大分類只剩「其他X」就收回單層。
+// 有小分類的大分類不能刪除（不顯示垃圾桶）；「其他X」不能改名、刪除（沒有操作圖示）。
 // 標籤：改名、刪除（只移除關聯）。
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
 // 頁面頂端分段切換「分類與標籤｜固定收支」（需求 3.10）。固定收支：規則清單獨佔整頁寬，依下次產生日排序、
@@ -10,11 +13,12 @@
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
 import IconPicker from '../components/IconPicker.vue'
-import { BaseButton, IconButton, TextInput, FormField, Skeleton } from '../components/ui/index.js'
+import { BaseButton, IconButton, TextInput, FormField, SelectMenu, Skeleton } from '../components/ui/index.js'
 import { refs, loadRefs, afterTransactionChange, showToast } from '../lib/store.js'
 import { api } from '../lib/api/index.js'
 import { OTHER } from '../lib/api/categories.js'
 import { categoryIcon } from '../lib/logic/display.js'
+import { categoryTree } from '../lib/logic/categoryTree.js'
 import { confirmDialog } from '../lib/confirm.js'
 import { focusFirstInvalid } from '../lib/focusInvalid.js'
 import { accountsById, categoriesById } from '../lib/store.js'
@@ -74,26 +78,51 @@ function closeEditor() {
   Object.assign(editing, { section: null, id: null, error: '' })
 }
 
-const bySort = (a, b) => a.sort_order - b.sort_order
-
 /* 第一次讀取中：各卡片顯示骨架列（寬度為名稱長度的百分比） */
 const SKELETON_ROWS = { expense: [24, 32, 20, 28, 24, 36], income: [28, 20, 32], tag: [36, 52] }
 
 /* ===== 分類 ===== */
+// 樹狀列：大分類（depth 0）之後接它的小分類（depth 1）
 const catGroups = computed(() =>
   [
     { kind: 'expense', title: '支出分類', color: 'var(--color-expense)' },
     { kind: 'income', title: '收入分類', color: 'var(--color-income)' },
-  ].map((g) => ({ ...g, items: refs.categories.filter((c) => c.kind === g.kind).sort(bySort) })),
+  ].map((g) => ({
+    ...g,
+    items: categoryTree(refs.categories, g.kind).flatMap(({ category, children }) => [
+      { ...category, depth: 0, hasChildren: children.length > 0 },
+      ...children.map((ch) => ({ ...ch, depth: 1, isOtherSub: ch.name === `${OTHER}${category.name}`, parentName: category.name })),
+    ]),
+  })),
 )
+const isFixed = (c) => (c.name === OTHER && !c.parent_id) || c.isOtherSub
+/** 「所屬分類」選項：無＋同收支的大分類（不含「其他」與自己） */
+function parentOptions(kind, selfId) {
+  return [
+    { value: '', label: '無（大分類）' },
+    ...categoryTree(refs.categories, kind)
+      .map((n) => n.category)
+      .filter((c) => c.name !== OTHER && c.id !== selfId)
+      .map((c) => ({ value: c.id, label: c.name, icon: categoryIcon(c), iconColor: kind === 'income' ? 'var(--color-income)' : 'var(--color-expense)' })),
+  ]
+}
 // 還沒執行 20261022_manage_categories.sql：讀不到使用次數，分類暫時都不能刪除
 const usageUnavailable = computed(() => refs.categories.some((c) => c.txn_count === null))
 // 圖示：預設為目前顯示的圖示（新增時為該收支的「其他」）；只有改過才寫入 categories.icon
-const cat = reactive({ name: '', icon: '', initialIcon: '' })
+// 新增小分類時，沒動過圖示就預覽大分類的圖示（不寫入，之後沿用大分類）
+const cat = reactive({ name: '', icon: '', initialIcon: '', parentId: '', hasChildren: false })
 function editCategory(kind, c) {
   const icon = categoryIcon(c ?? { kind, name: OTHER })
-  Object.assign(cat, { name: c ? c.name : '', icon, initialIcon: icon })
+  Object.assign(cat, { name: c ? c.name : '', icon, initialIcon: icon, parentId: c?.parent_id ?? '', hasChildren: !!c?.hasChildren })
   openEditor(kind, c ? c.id : 'new')
+}
+function changeParent(kind, parentId) {
+  const untouched = cat.icon === cat.initialIcon
+  cat.parentId = parentId
+  if (editing.id === 'new' && untouched) {
+    const parent = refs.categories.find((x) => x.id === parentId)
+    cat.icon = cat.initialIcon = categoryIcon(parent ?? { kind, name: OTHER })
+  }
 }
 // 按 Enter（或「儲存」）送出；名稱沒填 → 欄位下顯示錯誤並把焦點移過去
 async function saveCategory(kind, e) {
@@ -102,11 +131,33 @@ async function saveCategory(kind, e) {
   const isNew = editing.id === 'new'
   const id = editing.id
   const icon = cat.icon !== cat.initialIcon ? cat.icon : undefined
-  const ok = await act(
-    () => (isNew ? api.categories.create({ name: cat.name, kind, icon }) : api.categories.update(id, { name: cat.name, icon })),
-    isNew ? '已新增分類' : '已更新分類',
-  )
-  if (ok) closeEditor()
+  let result = null
+  const ok = await act(async () => {
+    result = await api.categories.save({
+      ...(isNew ? { kind } : { id }),
+      name: cat.name,
+      parent_id: cat.parentId || null,
+      ...(icon !== undefined ? { icon } : {}),
+    })
+  }, null)
+  if (!ok) return
+  closeEditor()
+  showToast(saveToast(isNew, result))
+  // 有交易換了分類：清單與合計要重讀
+  if (result?.split || result?.collapsed) afterTransactionChange()
+}
+// 例：已新增分類，12 筆交易及 1 條固定收支移到「其他交通」
+function saveToast(isNew, r) {
+  const base = isNew ? '已新增分類' : '已更新分類'
+  if (r?.split) {
+    const moved = [r.split.movedTxns && `${r.split.movedTxns} 筆交易`, r.split.movedRules && `${r.split.movedRules} 條固定收支`].filter(Boolean)
+    return `${base}，${moved.join('及 ')}移到「${r.split.otherName}」`
+  }
+  if (r?.collapsed) {
+    const p = refs.categories.find((x) => x.id === r.collapsed.parentId)
+    return p ? `${base}；「${p.name}」已沒有小分類` : base
+  }
+  return base
 }
 async function removeCategory(c) {
   const ok = await confirmDialog({ title: `刪除「${c.name}」？`, message: removeMessage(c), confirmText: '刪除' })
@@ -115,10 +166,17 @@ async function removeCategory(c) {
   if (await act(() => api.categories.remove(c.id), '已刪除分類')) afterTransactionChange()
 }
 // 例：12 筆交易及 2 條固定收支將改為「其他」，並加上「娛樂」標籤。刪除後無法復原。
+// 小分類改為同大分類的「其他X」；刪完只剩「其他X」時，另說明大分類會收回成沒有小分類
 function removeMessage(c) {
+  const target = c.parent_id ? `${OTHER}${c.parentName}` : OTHER
   const used = [c.txn_count && `${c.txn_count} 筆交易`, c.rule_count && `${c.rule_count} 條固定收支`].filter(Boolean)
-  if (!used.length) return '刪除後無法復原。'
-  return `${used.join('及 ')}將改為「${OTHER}」，並加上「${c.name}」標籤。刪除後無法復原。`
+  const siblings = c.parent_id ? refs.categories.filter((x) => x.parent_id === c.parent_id && x.id !== c.id) : []
+  const collapse =
+    c.parent_id && siblings.length === 1 && siblings[0].name === target
+      ? `「${c.parentName}」將沒有小分類，「${target}」的交易會歸回「${c.parentName}」。`
+      : ''
+  if (!used.length) return `${collapse}刪除後無法復原。`
+  return `${used.join('及 ')}將改為「${target}」，並加上「${c.name}」標籤。${collapse}刪除後無法復原。`
 }
 
 /* ===== 標籤 ===== */
@@ -217,25 +275,36 @@ async function removeTag(t) {
             </FormField>
             <FormField label="名稱" class="grow-field" :error="editing.error"><TextInput v-model="cat.name" maxlength="20" :invalid="!!editing.error" @input="editing.error = ''" /></FormField>
           </div>
+          <FormField label="所屬分類" as="div">
+            <SelectMenu
+              :model-value="cat.parentId"
+              :options="parentOptions(g.kind, c.id)"
+              :disabled="cat.hasChildren"
+              @update:model-value="changeParent(g.kind, $event)"
+            />
+          </FormField>
+          <p v-if="cat.hasChildren" class="caption c-text">這個分類底下有小分類，不能成為小分類。</p>
           <div class="editor-foot">
             <BaseButton @click="closeEditor">取消</BaseButton>
             <BaseButton variant="primary" type="submit" :disabled="busy">儲存</BaseButton>
           </div>
         </form>
-        <div v-else-if="c.id !== 'new'" class="item">
+        <div v-else-if="c.id !== 'new'" class="item" :class="{ sub: c.depth === 1, parent: c.hasChildren }">
           <span class="label-row">
             <Icon :name="categoryIcon(c)" :size="16" :color="g.color" />
             <span class="body1">{{ c.name }}</span>
           </span>
-          <!-- 「其他」是刪除後的收容分類：不能改名、不能刪除 -->
-          <span v-if="c.name !== OTHER" class="actions">
+          <!-- 「其他」與「其他X」是收容分類：不能改名、不能刪除；有小分類的大分類只能編輯 -->
+          <span v-if="!isFixed(c)" class="actions">
             <IconButton icon="pen" label="編輯" @click="editCategory(g.kind, c)" />
-            <IconButton v-if="c.canDelete" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="removeCategory(c)" />
+            <IconButton v-if="c.canDelete && !c.hasChildren" icon="trash" label="刪除" tone="danger" :disabled="busy" @click="removeCategory(c)" />
+            <!-- 有小分類的大分類沒有垃圾桶：留位置讓筆對齊其他列 -->
+            <span v-else-if="c.hasChildren" class="action-spacer" aria-hidden="true"></span>
           </span>
         </div>
       </template>
       <p v-if="usageUnavailable" class="caption c-supply">資料庫尚未更新，分類暫時都不能刪除。請到 Supabase 執行 20261022_manage_categories.sql。</p>
-      <p class="caption c-text">刪除分類時，使用中的交易會改為「其他」，並加上與原分類同名的標籤。「其他」不能改名或刪除。</p>
+      <p class="caption c-text">刪除分類時，使用中的交易會改為「其他」（小分類改為同組的「其他X」），並加上與原分類同名的標籤。「其他」不能改名或刪除。有小分類的大分類，需先刪除小分類。</p>
     </section>
 
     <!-- 標籤 -->
@@ -308,13 +377,17 @@ button.rule:hover { background: rgba(32, 42, 58, .5); }
 
 /* 清單列 */
 .item { display: flex; align-items: center; gap: var(--sp-16); min-height: 32px; }
+/* 小分類：縮排在大分類下方，左側一條細線標示同一組 */
+.item.sub { margin-left: 7px; padding-left: var(--sp-16); border-left: 1px solid var(--color-line); min-height: 36px; }
+.item.parent .body1 { font-weight: 700; }
 .label-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-8); }
 .label-row > .body1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .actions { display: flex; gap: var(--sp-16); flex-shrink: 0; }
+.action-spacer { width: 24px; flex-shrink: 0; }
 /* 觸控裝置：圖示點擊範圍 44px（視覺位置不變），比照帳戶側選單 */
 @media (hover: none), (pointer: coarse) {
   .actions { gap: 0; margin: -10px -10px -10px 0; }
-  .actions :deep(.icon-button) { width: 44px; height: 44px; }
+  .actions :deep(.icon-button), .action-spacer { width: 44px; height: 44px; }
 }
 
 /* 編輯框（新增在最上方；編輯就地取代該列） */

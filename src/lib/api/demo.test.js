@@ -67,6 +67,42 @@ describe('demo：兩層分類', () => {
   })
 })
 
+describe('demo：兩層分類的新增、換組、刪除（比照 save_category／delete_category）', () => {
+  it('第一個小分類：大分類的交易移到「其他X」；刪到只剩「其他X」就收回', async () => {
+    const api = createDemoApi()
+    const traffic = (await api.categories.list()).find((c) => c.kind === 'expense' && c.name === '交通')
+    const before = (await api.categories.list()).find((c) => c.id === traffic.id).txn_count
+    const r = await api.categories.save({ kind: 'expense', name: '捷運', parent_id: traffic.id })
+    expect(r.split).toEqual({ otherName: '其他交通', movedTxns: before, movedRules: 0 })
+    let cats = await api.categories.list()
+    expect(cats.find((c) => c.name === '其他交通').txn_count).toBe(before)
+    expect(cats.find((c) => c.id === r.id).parent_id).toBe(traffic.id)
+    await expect(api.categories.remove(traffic.id)).rejects.toMatchObject({ message: '「交通」還有小分類，請先刪除小分類' })
+    const other = cats.find((c) => c.name === '其他交通')
+    await expect(api.categories.remove(other.id)).rejects.toMatchObject({ message: '「其他交通」不能刪除' })
+    await api.categories.remove(r.id)
+    cats = await api.categories.list()
+    expect(cats.some((c) => c.name === '其他交通')).toBe(false)
+    expect(cats.find((c) => c.id === traffic.id).txn_count).toBe(before)
+  })
+
+  it('換組：原大分類只剩「其他X」就收回；大分類改名時「其他X」跟著改', async () => {
+    const api = createDemoApi()
+    let cats = await api.categories.list()
+    const home = cats.find((c) => c.kind === 'expense' && c.name === '居住')
+    const shop = cats.find((c) => c.kind === 'expense' && c.name === '購物')
+    const a = await api.categories.save({ kind: 'expense', name: '家具', parent_id: home.id })
+    expect(a.split).toEqual({ otherName: '其他居住', movedTxns: 0, movedRules: 1 })
+    const moved = await api.categories.save({ id: a.id, parent_id: shop.id })
+    expect(moved.collapsed).toEqual({ parentId: home.id })
+    await api.categories.save({ id: shop.id, name: '採買' })
+    cats = await api.categories.list()
+    expect(cats.some((c) => c.name === '其他採買' && c.parent_id === shop.id)).toBe(true)
+    expect(cats.some((c) => c.parent_id === home.id)).toBe(false)
+    await expect(api.categories.save({ kind: 'expense', name: 'X', parent_id: a.id })).rejects.toMatchObject({ message: '分類只有兩層：「家具」已經是小分類' })
+  })
+})
+
 describe('demo：刪除分類', () => {
   it('交易改為「其他」並加上同名標籤', async () => {
     const api = createDemoApi()
