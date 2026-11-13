@@ -227,7 +227,7 @@ function onKey(e) {
           </div>
         </section>
 
-        <section v-for="s in sections" :key="s.key" class="group" :aria-label="s.header ?? undefined">
+        <section v-for="s in sections" :key="s.key" class="group" :class="{ nested: s.header }" :aria-label="s.header ?? undefined">
           <div v-if="s.header" class="group-label caption">
             <Icon v-if="s.parent" :name="categoryIcon(s.parent)" :size="14" :color="TONE[tab]" />
             <span>{{ s.header }}</span>
@@ -305,6 +305,8 @@ function onKey(e) {
   padding: 0 var(--sp-8); border-radius: var(--r-4); text-align: left; color: var(--color-title);
 }
 .option .text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 小分類稍微縮排 */
+.nested .option { padding-left: var(--sp-20); }
 .option.active { background: var(--color-tag); }
 .option.on { color: var(--color-primary); font-weight: 700; }
 
