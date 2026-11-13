@@ -6,6 +6,7 @@ import { PAGE_SIZE } from './transactions.js'
 import { today, addDays } from '../logic/period.js'
 import { DEFAULT_CURRENCIES, minorUnitOf } from '../logic/money.js'
 import { computeTripParts } from '../logic/trip.js'
+import { isAdvanceCategory } from '../logic/advance.js'
 import { nextOccurrence, adjustWeekend, isRuleFinished } from '../logic/recurring.js'
 import { withParentIcons } from '../logic/display.js'
 
@@ -26,14 +27,13 @@ function seed() {
     { id: 'a-richart', name: 'Richart', type: 'credit_card', currency: 'TWD', initial_balance: 0, sort_order: 5 },
     { id: 'a-krw', name: '韓幣', type: 'cash', currency: 'KRW', initial_balance: 0, sort_order: 6 },
     { id: 'a-post', name: '郵局', type: 'bank', currency: 'TWD', initial_balance: 0, sort_order: 7 },
-    { id: 'a-advance', name: '代墊', type: 'other', currency: 'TWD', initial_balance: 0, sort_order: 8 },
   ].map((a) => ({ is_active: true, statement_day: null, created_at: at(10000), ...a }))
 
   const cats = [
     ['餐飲', 'expense', 1], ['交通', 'expense', 2], ['購物', 'expense', 3], ['居住', 'expense', 4],
     ['娛樂', 'expense', 5], ['醫療', 'expense', 6], ['學習', 'expense', 7], ['捐贈', 'expense', 8],
-    ['投資', 'expense', 9], ['送禮', 'expense', 10], ['寵物', 'expense', 11, 'pets'], ['其他', 'expense', 99],
-    ['薪水', 'income', 1], ['回饋', 'income', 2], ['投資', 'income', 3], ['其他', 'income', 99],
+    ['投資', 'expense', 9], ['送禮', 'expense', 10], ['寵物', 'expense', 11, 'pets'], ['代墊', 'expense', 98], ['其他', 'expense', 99],
+    ['薪水', 'income', 1], ['回饋', 'income', 2], ['投資', 'income', 3], ['代墊', 'income', 98], ['其他', 'income', 99],
   ]
   // 兩層分類：[小分類, 大分類, 排序, 圖示]（只示範支出；「其他X」比照資料庫自動建立的名稱）
   const subs = [
@@ -71,9 +71,9 @@ function seed() {
       original_amount: 10320, original_currency: 'KRW', note: '儲值 Tmoney', tags: ['t-jeju'], settled_at: at(100), created_at: at(3000) }),
     tx({ date: d(2), type: 'expense', account_id: 'a-krw', category_id: c('expense', '晚餐'), amount: 26300, note: '清沙浦小吃', tags: ['t-jeju'], created_at: at(3010) }),
     tx({ date: d(2), type: 'expense', account_id: 'a-linepay', category_id: c('expense', '娛樂'), amount: 280, note: '電影', created_at: at(3020) }),
-    tx({ date: d(3), type: 'transfer', account_id: 'a-cube', to_account_id: 'a-advance', amount: 860, to_amount: 860, note: '幫小姿代購', created_at: at(4400) }),
-    tx({ date: d(3), type: 'expense', account_id: 'a-advance', category_id: c('expense', '其他'), amount: 60, note: '代購運費（自己吸收）', created_at: at(4410) }),
-    tx({ date: d(0), type: 'transfer', account_id: 'a-advance', to_account_id: 'a-linepay', amount: 800, to_amount: 800, note: '小姿還款', created_at: at(30) }),
+    // 代墊：幫別人付記支出「代墊」，對方還錢記收入「代墊」（小姿還了一部分）
+    tx({ date: d(3), type: 'expense', account_id: 'a-cube', category_id: c('expense', '代墊'), amount: 860, note: '幫小姿代購', created_at: at(4400) }),
+    tx({ date: d(0), type: 'income', account_id: 'a-linepay', category_id: c('income', '代墊'), amount: 500, note: '小姿還款', created_at: at(30) }),
     tx({ date: d(40), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-cube', amount: 3200, to_amount: 3200, note: '繳 Cube 卡費', created_at: at(60000) }),
   ]
 
@@ -166,6 +166,10 @@ export function createDemoApi() {
   }
   const scopeOf = (f) => (f.accountId ? acc(f.accountId)?.currency : 'TWD')
   const inScope = (f) => (t) => t.type !== 'transfer' && acc(t.account_id)?.currency === scopeOf(f)
+  // 代墊：比照資料庫 advance_counted（選單一帳戶、或分類只選代墊時才算）
+  const catOf = (id) => db.categories.find((x) => x.id === id)
+  const advanceCounted = (f) => !!f.accountId || (!!f.categoryIds?.length && f.categoryIds.every((id) => isAdvanceCategory(catOf(id))))
+  const counts = (f) => (t) => advanceCounted(f) || !isAdvanceCategory(catOf(t.category_id))
 
   return {
     transactions: {
@@ -175,7 +179,7 @@ export function createDemoApi() {
         return delay({ rows, total: all.length, page, pageCount: Math.max(1, Math.ceil(all.length / PAGE_SIZE)) })
       },
       async summary(f = {}) {
-        const rows = filtered(f).filter(inScope(f))
+        const rows = filtered(f).filter(inScope(f)).filter(counts(f))
         const sum = (type) => rows.filter((t) => t.type === type).reduce((s, t) => s + (t.counted_amount ?? 0), 0)
         const income = sum('income')
         const expense = sum('expense')
@@ -186,7 +190,7 @@ export function createDemoApi() {
         })
       },
       async byCategory(f = {}, kind = 'expense') {
-        const rows = filtered({ ...f, types: [kind] }).filter(inScope(f))
+        const rows = filtered({ ...f, types: [kind] }).filter(inScope(f)).filter(counts(f))
         const m = new Map()
         for (const t of rows) {
           const g = m.get(t.category_id) ?? { categoryId: t.category_id, total: 0, count: 0, estimatedCount: 0 }
@@ -198,7 +202,7 @@ export function createDemoApi() {
         return delay([...m.values()].sort((a, b) => b.total - a.total))
       },
       async trip(f = {}, tagId) {
-        const expenses = filtered({ ...f, types: ['expense'], tagIds: [tagId] }).map((t) => ({
+        const expenses = filtered({ ...f, types: ['expense'], tagIds: [tagId] }).filter(counts(f)).map((t) => ({
           ...t, currency: acc(t.account_id)?.currency,
         }))
         const exchanges = db.transactions

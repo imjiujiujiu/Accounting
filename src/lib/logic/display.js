@@ -4,6 +4,7 @@ import { isAll } from './period.js'
 import { deltaForAccount } from './transactionForm.js'
 import { CATEGORY_ICON_KEYS } from './categoryIcons.js'
 import { isAdvanceAccount } from './accounts.js'
+import { isUncountedAdvance } from './advance.js'
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六']
 const numberFormats = new Map()
@@ -48,10 +49,10 @@ export function rangeLabel(range) {
 const CATEGORY_ICONS = {
   expense: {
     餐飲: 'food', 交通: 'bus', 購物: 'shopping', 居住: 'home', 娛樂: 'entertainment', 醫療: 'medical',
-    學習: 'learn', 捐贈: 'donate', 投資: 'invest', 送禮: 'gift', 其他: 'otherExpense',
+    學習: 'learn', 捐贈: 'donate', 投資: 'invest', 送禮: 'gift', 代墊: 'handshake', 其他: 'otherExpense',
   },
   // 獎金、投資收益為舊版預設，保留對應
-  income: { 薪水: 'salary', 回饋: 'redeem', 投資: 'stock', 其他: 'otherIncome', 獎金: 'gift', 投資收益: 'stock' },
+  income: { 薪水: 'salary', 回饋: 'redeem', 投資: 'stock', 代墊: 'handshake', 其他: 'otherIncome', 獎金: 'gift', 投資收益: 'stock' },
 }
 const FALLBACK_ICON = { expense: 'otherExpense', income: 'otherIncome' }
 
@@ -77,7 +78,8 @@ export function categoryIcon(category) {
 
 /**
  * 清單一列要顯示的內容。
- * ctx：{ accountsById: Map, categoriesById: Map, currencies, accountId（左上角選的帳戶，null＝全部）}
+ * ctx：{ accountsById: Map, categoriesById: Map, currencies, accountId（左上角選的帳戶，null＝全部）,
+ *        advanceCounted（代墊是否計入收支，見 advance.js；未給＝計入）}
  * 回傳：{ title, icon, tone, accountName, toAccountName, isPending, foreignText, amountText, amountTone }
  *   tone：'income' | 'expense' | 'transfer'（圖示顏色）
  */
@@ -127,13 +129,14 @@ export function rowView(txn, ctx) {
     foreignText:
       txn.original_amount != null ? `${sign < 0 ? '-' : '+'} ${formatAmount(txn.original_amount, txn.original_currency, cs)}` : '',
     amountText: counted === null ? '—' : formatSigned(sign * counted, cur, cs),
-    amountTone: txn.type,
+    // 代墊在「全部帳戶」不計入收支：金額改灰色（同轉帳）
+    amountTone: isUncountedAdvance(txn, ctx.categoriesById, ctx.advanceCounted ?? true) ? 'transfer' : txn.type,
   }
 }
 
 /**
  * 依日期分組，並算每日合計。合計規則與上方合計相同：
- * 轉帳不計；只計 scopeCurrency 的帳戶（全部帳戶＝主幣別；選單一帳戶＝該帳戶幣別）；預估無預估值者不計。
+ * 轉帳不計；代墊在不計入時不計（ctx.advanceCounted）；只計 scopeCurrency 的帳戶（全部帳戶＝主幣別；選單一帳戶＝該帳戶幣別）；預估無預估值者不計。
  */
 export function groupByDay(rows, ctx, scopeCurrency = 'TWD') {
   const groups = []
@@ -145,6 +148,7 @@ export function groupByDay(rows, ctx, scopeCurrency = 'TWD') {
     }
     cur.rows.push(t)
     if (t.type === 'transfer' || t.counted_amount == null) continue
+    if (isUncountedAdvance(t, ctx.categoriesById ?? new Map(), ctx.advanceCounted ?? true)) continue
     const acc = ctx.accountsById.get(t.account_id)
     if ((acc?.currency ?? 'TWD') !== scopeCurrency) continue
     cur.total += t.type === 'income' ? t.counted_amount : -t.counted_amount

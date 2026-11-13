@@ -5,6 +5,8 @@ import Icon from './Icon.vue'
 import { Skeleton } from './ui/index.js'
 import { filters, refs, accountsById, categoriesById, scopeCurrency } from '../lib/store.js'
 import { rowView, groupByDay } from '../lib/logic/display.js'
+import { advanceCounted } from '../lib/logic/advance.js'
+import { toQueryFilters } from '../lib/logic/categoryFilter.js'
 
 // skeleton：還沒有任何資料可顯示（第一次讀取）時顯示骨架；之後重讀只把清單調淡
 const props = defineProps({ rows: { type: Array, default: () => [] }, loading: Boolean, skeleton: Boolean })
@@ -20,6 +22,7 @@ const days = computed(() => {
     categoriesById: categoriesById.value,
     currencies: refs.currencies,
     accountId: filters.accountId,
+    advanceCounted: advanceCounted(toQueryFilters({ ...filters }, refs.categories), categoriesById.value),
   }
   return groupByDay(props.rows, ctx, scopeCurrency.value).map((g) => ({
     ...g,
