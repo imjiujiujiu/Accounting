@@ -63,7 +63,7 @@ describe('demo：兩層分類', () => {
     expect(ids[0]).toBe('c-expense-午餐')
     expect(new Set(ids).size).toBe(ids.length)
     expect(ids.length).toBeLessThanOrEqual(5)
-    expect(await api.categories.recent('income')).toEqual([])
+    expect(await api.categories.recent('income')).toEqual(['c-income-代墊'])
   })
 })
 
