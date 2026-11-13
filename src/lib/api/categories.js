@@ -44,6 +44,35 @@ export function createCategoriesApi(db) {
     },
 
     /**
+     * 新增或編輯分類（兩層分類，資料庫函式 save_category）。
+     * payload：{ id?, name?, kind?（新增時必填）, parent_id?（有給才改；null＝大分類）, icon?, sort_order? }
+     * 回傳 { id, split, collapsed }：
+     *   split     { otherName, movedTxns, movedRules }：第一次拆開有交易的大分類，原有交易移到「其他X」（否則 null）
+     *   collapsed { parentId }：原大分類只剩「其他X」而收回單層（否則 null）
+     */
+    async save(payload) {
+      assertOnline()
+      const body = { ...payload }
+      if (typeof body.name === 'string') body.name = body.name.trim()
+      if (body.icon === undefined) delete body.icon
+      let data
+      try {
+        ;({ data } = await run(db.rpc('save_category', { p_category: body }), { duplicate: '已有同名分類' }))
+      } catch (e) {
+        if (MISSING_FUNCTION.includes(e.code)) {
+          throw new ApiError('auth', '無法儲存：資料庫尚未更新，請先執行 20261113_category_tree.sql', e)
+        }
+        throw e
+      }
+      const r = data ?? {}
+      return {
+        id: r.id,
+        split: r.split ? { otherName: r.split.other_name, movedTxns: Number(r.split.moved_txns ?? 0), movedRules: Number(r.split.moved_rules ?? 0) } : null,
+        collapsed: r.collapsed ? { parentId: r.collapsed.parent_id } : null,
+      }
+    },
+
+    /**
      * 「最近使用」：依記帳時間由新到舊、不重複的分類 id（固定收支產生的不算）。
      * 讀不到（離線、資料庫尚未更新）時回傳空陣列，不影響記帳。
      */

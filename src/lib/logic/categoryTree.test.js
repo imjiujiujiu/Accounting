@@ -43,6 +43,8 @@ describe('pickerSections', () => {
       ['購物', ['clothes']],
       [null, ['other']],
     ])
+    expect(s[0].parent.id).toBe('food')
+    expect(s[1].parent).toBeNull()
   })
   it('搜尋：部分符合、符合大分類名稱時列出整組', () => {
     expect(pickerSections(cats, 'expense', '餐').map((x) => [x.header, x.options.map((o) => o.id)])).toEqual([
