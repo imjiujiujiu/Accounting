@@ -132,7 +132,7 @@ function moveDrag(e) {
   if (e.pointerType !== 'touch') dragTo(e.clientY)
 }
 
-// 觸控：長按整列任何地方開始拖；長按前手指移動＝捲動，取消長按
+// 觸控：長按整列任何地方開始拖（震動交給系統）；長按前手指移動＝捲動，取消長按
 const LONG_PRESS_MS = 350
 const MOVE_TOLERANCE = 8
 let press = null // { timer, x, y }
@@ -146,8 +146,7 @@ function onTouchStart(e, g, a) {
     timer: setTimeout(() => {
       press = null
       beginDrag(rowEl, a.id, t.clientY)
-      // 一次溫和、中等長度的震動（10ms 太短，Pixel 上像抖兩下）
-      navigator.vibrate?.(40)
+      // 不自己震動：Android 長按時系統會震一下，再加上 vibrate 會變成兩下
     }, LONG_PRESS_MS),
   }
 }
