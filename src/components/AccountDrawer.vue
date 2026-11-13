@@ -1,6 +1,6 @@
 <script setup>
 // 左側滑出的帳戶選單。設計稿：Figma Mockup 頁「側選單 — 管理模式」node 124:532、「（編輯中）」124:919。
-// 點列＝以該帳戶篩選清單與統計（「全部帳戶」＝不篩選）。
+// 點列＝以該帳戶篩選清單與統計（「全部帳戶」＝不篩選）；在管理、設定頁點選時回到清單頁最上方。
 // 依類型分組（現金 → 銀行 → 電子支付 → 信用卡 → 其他，順序固定）；「全部帳戶」列顯示淨資產（需求 3.2）。
 // 外幣帳戶（例如日幣現金）照類型放在該組，餘額以自身幣別顯示並標「不計入」，不算進淨資產與小計。
 // 只有負債類型（信用卡）的組標題右側顯示小計。
@@ -19,9 +19,12 @@ import { formatSigned } from '../lib/logic/display.js'
 import { accountGroups, moveAccount } from '../lib/logic/accounts.js'
 import { confirmDialog, confirmState, confirmDiscard } from '../lib/confirm.js'
 import { accountDrawer } from '../lib/accountDrawer.js'
+import { useRoute, useRouter } from 'vue-router'
 
 const props = defineProps({ open: Boolean })
 const emit = defineEmits(['close'])
+const route = useRoute()
+const router = useRouter()
 /** 開著的編輯框：null＝沒有；'new'＝新增；其餘為帳戶 id */
 const editingId = ref(null)
 const editorRef = ref(null)
@@ -55,8 +58,15 @@ async function startEdit(id) {
 async function requestClose() {
   if (await leaveEditor()) emit('close')
 }
+// 在管理、設定頁切換帳戶：回到清單頁最上方；在清單、統計頁則畫面不動
+const PAGES_WITH_ACCOUNT = ['/', '/stats']
 async function select(id) {
   if (!(await leaveEditor())) return
+  if (!PAGES_WITH_ACCOUNT.includes(route.path)) {
+    // 管理頁有編輯到一半的內容時會先問；選了「繼續編輯」就不切換
+    if (await router.push('/')) return
+    window.scrollTo(0, 0)
+  }
   filters.accountId = id
   emit('close')
 }
@@ -308,7 +318,7 @@ watch(
 
 /* 拖曳把手：在列內左側，預設就留好位置（不擠動名稱），滑過或聚焦時才顯示 */
 .handle, .handle-spacer {
-  position: relative; flex-shrink: 0; width: 16px; align-self: stretch; margin: -12px -4px -12px 0;
+  position: relative; flex-shrink: 0; width: 16px; align-self: stretch; margin: -12px -8px -12px 0;
   display: flex; align-items: center; justify-content: center;
 }
 .handle { visibility: hidden; cursor: grab; touch-action: none; border-radius: var(--r-4); }
@@ -324,7 +334,7 @@ watch(
   .actions :deep(.icon-button) { width: 44px; height: 44px; }
   /* 把手常駐，點擊範圍加寬（視覺位置不變） */
   .handle { visibility: visible; }
-  .handle, .handle-spacer { width: 32px; margin-left: -12px; margin-right: -8px; }
+  .handle, .handle-spacer { width: 32px; margin-left: -12px; margin-right: -16px; }
 }
 
 /* 手機：右側留 48px 可點遮罩關閉；內距比照手機版面 16；底部留安全區域 */
