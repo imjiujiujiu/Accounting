@@ -4,7 +4,7 @@
 // 依類型分組（現金 → 銀行 → 電子支付 → 信用卡 → 其他，順序固定）；「全部帳戶」列顯示淨資產（需求 3.2）。
 // 外幣帳戶（例如日幣現金）照類型放在該組，餘額以自身幣別顯示並標「不計入」，不算進淨資產與小計。
 // 只有負債類型（信用卡）的組標題右側顯示小計。
-// 滑過（或鍵盤聚焦）列時：左側出現拖曳把手、右側出現編輯；沒有交易使用的帳戶多一個垃圾桶。觸控裝置一律顯示。帳戶不能停用。
+// 滑過（或鍵盤聚焦）列時：左側出現拖曳把手（位置預設留好，不擠動名稱）、右側出現編輯；沒有交易使用的帳戶多一個垃圾桶。觸控裝置一律顯示。帳戶不能停用。
 // 拖曳排序：按住把手只能在同一類型裡上下移動，放開就儲存（失敗跳錯誤 toast 並還原）；把手聚焦時 ↑↓ 也能移動。
 // 編輯框開著時不能拖曳。這個版面沒有 Figma 稿，直接實作後截圖確認。
 // 編輯框同時只開一個：編輯就地取代該列；新增出現在清單最下方「新增帳戶」按鈕上方。
@@ -238,7 +238,7 @@ watch(
             >
               <Icon name="drag" :size="16" color="var(--color-text)" />
             </button>
-            <!-- 觸控裝置把手常駐在列內：不能拖的列留同樣寬度，名稱才對齊 -->
+            <!-- 不能拖的列（同類型只有一個、編輯中）留同樣寬度，名稱才對齊 -->
             <span v-else class="handle-spacer" aria-hidden="true"></span>
             <span class="name">
               <span class="body1-bold">{{ a.name }}</span>
@@ -306,14 +306,14 @@ watch(
 .name > .body1-bold { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .num { white-space: nowrap; }
 
-/* 拖曳把手：滑過或聚焦時才出現，放在列左側的留白（側選單內距）裡，不擠動名稱 */
-.handle {
-  position: absolute; left: calc(-1 * var(--sp-24)); top: 0; bottom: 0; width: var(--sp-24);
-  display: none; align-items: center; justify-content: center; cursor: grab; touch-action: none; border-radius: var(--r-4);
+/* 拖曳把手：在列內左側，預設就留好位置（不擠動名稱），滑過或聚焦時才顯示 */
+.handle, .handle-spacer {
+  position: relative; flex-shrink: 0; width: 16px; align-self: stretch; margin: -12px -4px -12px 0;
+  display: flex; align-items: center; justify-content: center;
 }
-.handle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: -2px; }
-.row.item:hover .handle, .row.item:focus-within .handle, .row.item.lifted .handle { display: flex; }
-.handle-spacer { display: none; }
+.handle { visibility: hidden; cursor: grab; touch-action: none; border-radius: var(--r-4); }
+.handle:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.row.item:hover .handle, .row.item:focus-within .handle, .row.item.lifted .handle { visibility: visible; }
 
 /* 操作：滑過或聚焦時才出現（間距 12、左右內距 8） */
 .actions { position: relative; display: none; align-items: center; gap: var(--sp-12); padding: 0 var(--sp-8); flex-shrink: 0; }
@@ -322,8 +322,9 @@ watch(
 @media (hover: none), (pointer: coarse) {
   .actions { display: flex; gap: 0; padding: 0; margin: -10px -10px -10px 0; }
   .actions :deep(.icon-button) { width: 44px; height: 44px; }
-  /* 把手常駐、放進列內（點擊範圍 44 寬） */
-  .handle, .handle-spacer { display: flex; position: relative; left: auto; width: 32px; margin: -12px -8px -12px -12px; align-self: stretch; height: auto; flex-shrink: 0; }
+  /* 把手常駐，點擊範圍加寬（視覺位置不變） */
+  .handle { visibility: visible; }
+  .handle, .handle-spacer { width: 32px; margin-left: -12px; margin-right: -8px; }
 }
 
 /* 手機：右側留 48px 可點遮罩關閉；內距比照手機版面 16；底部留安全區域 */
