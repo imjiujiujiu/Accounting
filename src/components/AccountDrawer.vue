@@ -146,7 +146,8 @@ function onTouchStart(e, g, a) {
     timer: setTimeout(() => {
       press = null
       beginDrag(rowEl, a.id, t.clientY)
-      navigator.vibrate?.(10)
+      // 一次溫和、中等長度的震動（10ms 太短，Pixel 上像抖兩下）
+      navigator.vibrate?.(40)
     }, LONG_PRESS_MS),
   }
 }
