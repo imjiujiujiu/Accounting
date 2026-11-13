@@ -2,6 +2,7 @@
 // 刪除時使用中的交易與固定收支改套同收支的「其他」，並加上與原分類同名的標籤（資料庫函式 delete_category）。
 // 「其他」不能刪除、不能改名。分類不再有停用（is_active 欄位保留但不再使用）。
 import { run, assertOnline, ApiError } from './errors.js'
+import { withParentIcons } from '../logic/display.js'
 
 // 資料表或 view 不存在（PostgREST／PostgreSQL）
 const MISSING_RELATION = ['PGRST205', '42P01']
@@ -33,11 +34,26 @@ export function createCategoriesApi(db) {
         ;({ data } = await run(query('categories')))
         return (data ?? []).map((c) => ({ ...c, txn_count: null, canDelete: false }))
       }
-      return (data ?? []).map((c) => {
-        const txn_count = Number(c.txn_count ?? 0)
-        const rule_count = Number(c.rule_count ?? 0)
-        return { ...c, txn_count, rule_count, canDelete: c.name !== OTHER }
-      })
+      return withParentIcons(
+        (data ?? []).map((c) => {
+          const txn_count = Number(c.txn_count ?? 0)
+          const rule_count = Number(c.rule_count ?? 0)
+          return { ...c, parent_id: c.parent_id ?? null, txn_count, rule_count, canDelete: c.name !== OTHER }
+        }),
+      )
+    },
+
+    /**
+     * 「最近使用」：依記帳時間由新到舊、不重複的分類 id（固定收支產生的不算）。
+     * 讀不到（離線、資料庫尚未更新）時回傳空陣列，不影響記帳。
+     */
+    async recent(kind, limit = 5) {
+      try {
+        const { data } = await run(db.rpc('recent_categories', { p_kind: kind, p_limit: limit }))
+        return (data ?? []).map((r) => r.category_id)
+      } catch {
+        return []
+      }
     },
 
     /** kind：'income' 或 'expense'；新分類排在「其他」之前。icon：圖示代號（icons.js 的 key），沒給＝依名稱對應 */
