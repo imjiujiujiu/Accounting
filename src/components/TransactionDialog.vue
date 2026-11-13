@@ -17,10 +17,12 @@ import { useRouter } from 'vue-router'
 import Icon from './Icon.vue'
 import TransactionForm from './TransactionForm.vue'
 import { BaseButton } from './ui/index.js'
-import { confirmDialog, confirmState } from '../lib/confirm.js'
+import { confirmDialog, confirmState, confirmDiscard } from '../lib/confirm.js'
+import { createDirty } from '../lib/dirty.js'
 import { txnDialog, closeTransaction } from '../lib/dialog.js'
 import { refs, baseCurrency, afterTransactionChange, showToast } from '../lib/store.js'
-import { api } from '../lib/api/index.js'
+import { api, ACCOUNT_TYPES } from '../lib/api/index.js'
+import { orderedAccounts } from '../lib/logic/accounts.js'
 import { isOnline, OFFLINE_MESSAGE, OFFLINE_QUEUE_MESSAGE } from '../lib/api/online.js'
 import { outbox, enqueue, dequeue } from '../lib/outbox.js'
 import { createEmptyForm, continueForm, txnToForm, validateForm, formToPayload } from '../lib/logic/transactionForm.js'
@@ -62,6 +64,7 @@ function done(toast) {
   errors.value = {}
   continued.value = true
   form.value = continueForm(form.value)
+  dirty.mark()
 }
 
 // 重複：只在新增時提供；轉帳、外幣刷卡或離線時停用並回到「不重複」
@@ -71,6 +74,8 @@ const repeatAllowed = computed(() => !!form.value && !editing.value && canRepeat
 watch(repeatAllowed, (ok) => {
   if (!ok) repeat.mode = 'none'
 })
+// 編輯到一半離開要提醒：表單內容＋重複設定，跟開啟（或自動帶入帳戶、再記一筆）時比
+const dirty = createDirty(() => (form.value ? { form: form.value, repeat } : null))
 // 拆帳
 const splitDisabled = computed(() => {
   const f = form.value
@@ -83,9 +88,10 @@ const splitId = computed(() => form.value?.split?.id ?? form.value?.splitWas ?? 
 
 // 由固定收支產生的交易：連到規則（規則已刪除時 recurring_rule_id 為 null，不顯示）
 const sourceRule = computed(() => refs.rules.find((r) => r.id === txnDialog.txn?.recurring_rule_id) ?? null)
-function openSourceRule() {
+async function openSourceRule() {
   const rule = sourceRule.value
   if (!rule || saving.value) return
+  if (!(await confirmDiscard(dirty.isDirty()))) return
   closeTransaction()
   manageTab.value = 'rules'
   router.push('/manage')
@@ -115,9 +121,11 @@ watch(
         f.amount = toInputString(lines.reduce((sum, l) => sum + (l.amount ?? 0), 0), minorUnitOf(baseCurrency.value, c.currencies))
       }
       form.value = f
+      dirty.mark()
       return
     }
     form.value = createEmptyForm()
+    dirty.mark()
     const f = form.value // reactive 版本，下方比對才會相等
     // 帳戶自動帶入上一筆使用的帳戶（找不到時用排序第一的帳戶）
     // 佇列裡有還沒同步的交易時，以最後一筆為準
@@ -131,7 +139,10 @@ watch(
     }
     if (form.value !== f || f.accountId) return
     const ok = refs.accounts.find((a) => a.id === last)
-    f.accountId = ok?.id ?? [...refs.accounts].sort((a, b) => a.sort_order - b.sort_order)[0]?.id ?? null
+    // 自動帶入的帳戶不算使用者改的
+    const clean = !dirty.isDirty()
+    f.accountId = ok?.id ?? orderedAccounts(refs.accounts, ACCOUNT_TYPES)[0]?.id ?? null
+    if (clean) dirty.mark()
     await nextTick()
   },
 )
@@ -235,8 +246,10 @@ async function remove() {
   }
 }
 
-function close() {
-  if (!saving.value) closeTransaction()
+/** Esc、取消、點背景、✕：改過內容先問「放棄編輯？」 */
+async function close() {
+  if (saving.value) return
+  if (await confirmDiscard(dirty.isDirty())) closeTransaction()
 }
 const onKey = (e) => {
   if (!txnDialog.open || confirmState.open) return

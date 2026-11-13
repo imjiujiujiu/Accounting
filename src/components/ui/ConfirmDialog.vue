@@ -15,11 +15,14 @@ watch(
   },
 )
 
+// 捕獲階段先攔下 Esc：只關這個對話框，不會再傳給底下的彈窗或側選單（否則又會觸發一次「離開」）
 function onKey(e) {
-  if (confirmState.open && e.key === 'Escape') answerConfirm(false)
+  if (!confirmState.open || e.key !== 'Escape') return
+  e.stopPropagation()
+  answerConfirm(false)
 }
-onMounted(() => document.addEventListener('keydown', onKey))
-onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
+onMounted(() => document.addEventListener('keydown', onKey, true))
+onBeforeUnmount(() => document.removeEventListener('keydown', onKey, true))
 </script>
 
 <template>
@@ -29,7 +32,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
         <p class="h5">{{ confirmState.title }}</p>
         <p v-if="confirmState.message" class="body2 c-text">{{ confirmState.message }}</p>
         <div class="foot">
-          <BaseButton @click="answerConfirm(false)">取消</BaseButton>
+          <BaseButton @click="answerConfirm(false)">{{ confirmState.cancelText }}</BaseButton>
           <BaseButton ref="okBtn" variant="primary" @click="answerConfirm(true)">{{ confirmState.confirmText }}</BaseButton>
         </div>
       </div>

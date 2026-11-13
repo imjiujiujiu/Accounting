@@ -7,10 +7,12 @@ import { ref, reactive, watch, computed, nextTick, onMounted, onBeforeUnmount } 
 import Icon from './Icon.vue'
 import TransactionForm from './TransactionForm.vue'
 import { BaseButton } from './ui/index.js'
-import { confirmDialog, confirmState } from '../lib/confirm.js'
+import { confirmDialog, confirmState, confirmDiscard } from '../lib/confirm.js'
+import { createDirty } from '../lib/dirty.js'
 import { ruleDialog, closeRule } from '../lib/ruleDialog.js'
 import { refs, baseCurrency, afterTransactionChange, showToast } from '../lib/store.js'
-import { api } from '../lib/api/index.js'
+import { api, ACCOUNT_TYPES } from '../lib/api/index.js'
+import { orderedAccounts } from '../lib/logic/accounts.js'
 import { isOnline, OFFLINE_MESSAGE } from '../lib/api/online.js'
 import { createEmptyForm, validateForm } from '../lib/logic/transactionForm.js'
 import { focusFirstInvalid, isSubmitEnter } from '../lib/focusInvalid.js'
@@ -31,6 +33,8 @@ const lockDate = computed(() => (ruleDialog.rule?.generated_count ?? 0) > 0)
 const statusText = computed(() => failMessage.value || (isOnline.value ? '' : OFFLINE_MESSAGE))
 const ctx = () => ({ accounts: refs.accounts, currencies: refs.currencies, baseCurrency: baseCurrency.value })
 const noAccounts = computed(() => !refs.accounts.length)
+// 編輯到一半離開要提醒
+const dirty = createDirty(() => (form.value ? { form: form.value, repeat } : null))
 
 watch(
   () => ruleDialog.open,
@@ -46,9 +50,10 @@ watch(
       Object.assign(repeat, ruleToRepeat(rule))
     } else {
       // 新增：預設每月；帳戶帶排序第一的帳戶
-      form.value = createEmptyForm({ lastAccountId: [...refs.accounts].sort((a, b) => a.sort_order - b.sort_order)[0]?.id ?? null })
+      form.value = createEmptyForm({ lastAccountId: orderedAccounts(refs.accounts, ACCOUNT_TYPES)[0]?.id ?? null })
       Object.assign(repeat, createRepeat('monthly'))
     }
+    dirty.mark()
   },
 )
 
@@ -94,8 +99,10 @@ async function remove() {
   }
 }
 
-function close() {
-  if (!saving.value) closeRule()
+/** Esc、取消、點背景、✕：改過內容先問「放棄編輯？」 */
+async function close() {
+  if (saving.value) return
+  if (await confirmDiscard(dirty.isDirty())) closeRule()
 }
 const onKey = (e) => {
   if (!ruleDialog.open || confirmState.open) return

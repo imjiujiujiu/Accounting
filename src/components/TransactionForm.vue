@@ -14,7 +14,8 @@ import Icon from './Icon.vue'
 import CategoryPicker from './CategoryPicker.vue'
 import { TextInput, SelectMenu, DatePicker, FormField } from './ui/index.js'
 import { refs, baseCurrency } from '../lib/store.js'
-import { api } from '../lib/api/index.js'
+import { api, ACCOUNT_TYPES } from '../lib/api/index.js'
+import { accountGroups } from '../lib/logic/accounts.js'
 import { isForeignForm, needsToAmount, normalizeTags, applyCategory, setCurrency, formCurrency } from '../lib/logic/transactionForm.js'
 import { formatEstimated, exchangeRate } from '../lib/logic/money.js'
 import { repeatOptions, showsWeekendAdjust, isoDow, WEEKDAY_CHIPS, UNIT_OPTIONS, END_OPTIONS, WEEKEND_OPTIONS } from '../lib/logic/recurring.js'
@@ -51,13 +52,15 @@ const account = computed(() => accountOf(f.accountId))
 const accCur = computed(() => account.value?.currency ?? baseCurrency.value)
 const toAccount = computed(() => accountOf(f.toAccountId))
 
-// 帳戶選項：全部帳戶（帳戶不能停用）
-const accountOptions = computed(() => [...refs.accounts].sort((a, b) => a.sort_order - b.sort_order))
+// 帳戶選項：全部帳戶（帳戶不能停用），跟帳戶選單同順序、依類型分組加小標
 const accountLabel = (a) => (a.currency === baseCurrency.value ? a.name : `${a.name}（${a.currency}）`)
 const accountItems = computed(() =>
-  accountOptions.value.map((a) => ({ value: a.id, label: accountLabel(a) })),
+  accountGroups(refs.accounts, ACCOUNT_TYPES, baseCurrency.value).groups.flatMap((g) => [
+    { value: `type:${g.key}`, label: g.label, heading: true },
+    ...g.accounts.map((a) => ({ value: a.id, label: accountLabel(a) })),
+  ]),
 )
-const toAccountItems = computed(() => accountItems.value.map((o) => ({ ...o, disabled: o.value === f.accountId })))
+const toAccountItems = computed(() => accountItems.value.map((o) => (o.heading ? o : { ...o, disabled: o.value === f.accountId })))
 
 const foreign = computed(() => isForeignForm(f))
 const showToAmount = computed(() => needsToAmount(f, ctx.value))
