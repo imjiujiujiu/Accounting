@@ -218,7 +218,6 @@ defineExpose({ flushTag })
             :no-transfer="ruleMode"
             @pick="applyCategory(f, $event)"
           />
-          <span v-else class="split-count body2">拆成 {{ f.split.lines.length }} 行</span>
           <!-- 拆帳圖示鈕：大部分交易不拆，平常灰色；拆帳中為主色，再點一次取消（保留第一行的分類） -->
           <button
             v-if="splitDisabled !== null"
@@ -415,7 +414,6 @@ defineExpose({ flushTag })
 .repeat-btn.on { border-color: var(--color-primary); }
 .w-note { width: 200px; }
 .cat-row { display: flex; gap: var(--sp-8); align-items: center; }
-.split-count { height: 40px; line-height: 40px; padding: 0 var(--sp-4); color: var(--color-title); white-space: nowrap; }
 /* 拆帳的各行換到下一列；width: 0 讓它不撐寬對話框 */
 .split-row { display: flex; flex-direction: column; gap: var(--sp-8); width: 0; min-width: 100%; }
 .split-line { display: flex; gap: var(--sp-8); align-items: center; }
