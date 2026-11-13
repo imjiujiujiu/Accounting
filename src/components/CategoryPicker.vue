@@ -20,6 +20,10 @@ const props = defineProps({
   invalid: Boolean,
   /** 不提供「轉帳」（固定收支只能是收入或支出） */
   noTransfer: Boolean,
+  /** 只有支出（拆帳的每一行） */
+  onlyExpense: Boolean,
+  /** 電腦版觸發鈕也顯示分類名稱（拆帳的每一行） */
+  showLabel: Boolean,
 })
 const emit = defineEmits(['pick']) // pick({ type, categoryId })
 
@@ -33,7 +37,9 @@ const ALL_TABS = [
   { type: 'income', name: '收入' },
   { type: 'transfer', name: '轉帳' },
 ]
-const TABS = computed(() => (props.noTransfer ? ALL_TABS.filter((t) => t.type !== 'transfer') : ALL_TABS))
+const TABS = computed(() =>
+  props.onlyExpense ? ALL_TABS.filter((t) => t.type === 'expense') : props.noTransfer ? ALL_TABS.filter((t) => t.type !== 'transfer') : ALL_TABS,
+)
 const TRANSFER = { key: 'transfer', type: 'transfer', categoryId: null, label: '轉帳', icon: 'transfer' }
 const toOption = (c) => ({ key: c.id, type: c.kind, categoryId: c.id, label: c.name, icon: categoryIcon(c) })
 const isOn = (o) => (o.type === 'transfer' ? props.type === 'transfer' : o.categoryId === props.categoryId)
@@ -156,7 +162,7 @@ function onKey(e) {
 </script>
 
 <template>
-  <div ref="root" class="category-picker" :class="{ open, invalid }">
+  <div ref="root" class="category-picker" :class="{ open, invalid, 'with-label': showLabel }">
     <button
       ref="trigger"
       class="trigger"
@@ -176,7 +182,7 @@ function onKey(e) {
     </button>
 
     <div v-if="open" class="panel">
-      <div class="seg" role="tablist" aria-label="交易類型">
+      <div v-if="TABS.length > 1" class="seg" role="tablist" aria-label="交易類型">
         <button
           v-for="t in TABS"
           :key="t.type"
@@ -322,6 +328,9 @@ function onKey(e) {
 
 /* 手機：觸發鈕撐滿寬度並顯示分類名稱；面板同寬 */
 .m-label { display: none; }
+.with-label .trigger { width: 100%; gap: var(--sp-8); }
+.with-label .m-label { display: block; flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.with-label .m-label.empty { color: var(--color-placeholder); }
 @media (max-width: 760px) {
   .trigger { width: 100%; gap: var(--sp-8); }
   .m-label { display: block; flex: 1; text-align: left; }

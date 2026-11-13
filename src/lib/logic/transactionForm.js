@@ -33,6 +33,7 @@ export function createEmptyForm({ lastAccountId = null, date = today() } = {}) {
     fee: '',
     note: '',
     tags: [],
+    split: null, // 拆帳（logic/split.js）：{ id, lines }；null＝一般交易
   }
 }
 
@@ -163,7 +164,7 @@ export function validateForm(form, ctx = {}) {
   }
 
   if (form.type === 'income' || form.type === 'expense') {
-    if (!form.categoryId) errors.categoryId = '請選擇分類'
+    if (!form.categoryId && !form.split) errors.categoryId = '請選擇分類'
 
     if (isForeignForm(form)) {
       if (!form.originalCurrency) errors.originalCurrency = '請選擇外幣幣別'

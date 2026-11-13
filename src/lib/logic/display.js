@@ -5,6 +5,7 @@ import { deltaForAccount } from './transactionForm.js'
 import { CATEGORY_ICON_KEYS } from './categoryIcons.js'
 import { isAdvanceAccount } from './accounts.js'
 import { isUncountedAdvance } from './advance.js'
+import { splitAmounts } from './split.js'
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六']
 const numberFormats = new Map()
@@ -131,6 +132,36 @@ export function rowView(txn, ctx) {
     amountText: counted === null ? '—' : formatSigned(sign * counted, cur, cs),
     // 代墊在「全部帳戶」不計入收支：金額改灰色（同轉帳）
     amountTone: isUncountedAdvance(txn, ctx.categoriesById, ctx.advanceCounted ?? true) ? 'transfer' : txn.type,
+  }
+}
+
+/**
+ * 清單一列（拆帳，見 split.js 的 mergeSplits）。ctx 同 rowView，另需 categoryFiltered（有沒有篩分類）。
+ * 沒篩分類：主金額＝總額，明細「午餐 528・代墊 770」；有篩分類：主金額＝符合的行加總，明細「午餐（共 1,298 TWD）」。
+ */
+export function splitView(split, ctx) {
+  const first = split.all[0]
+  const acc = ctx.accountsById.get(first.account_id)
+  const cur = acc?.currency ?? 'TWD'
+  const cs = ctx.currencies
+  const catOf = (l) => ctx.categoriesById.get(l.category_id)
+  const { total, main, partial, shown } = splitAmounts(split, !!ctx.categoryFiltered)
+  const num = (n) => formatAmount(n, cur, cs).replace(/ [A-Z]+$/, '')
+  const detailText = partial
+    ? `${shown.map((l) => catOf(l)?.name ?? '—').join('・')}（共 ${formatAmount(total, cur, cs)}）`
+    : split.all.map((l) => `${catOf(l)?.name ?? '—'} ${num(l.counted_amount ?? 0)}`).join('・')
+  const allUncounted = shown.every((l) => isUncountedAdvance(l, ctx.categoriesById, ctx.advanceCounted ?? true))
+  return {
+    title: first.note || catOf(first)?.name || '支出',
+    icon: categoryIcon(catOf(first)),
+    tone: 'expense',
+    accountName: acc?.name ?? '—',
+    toAccountName: '',
+    isPending: false,
+    foreignText: '',
+    detailText,
+    amountText: formatSigned(-main, cur, cs),
+    amountTone: allUncounted ? 'transfer' : 'expense',
   }
 }
 

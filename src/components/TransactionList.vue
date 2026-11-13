@@ -4,7 +4,8 @@ import { computed } from 'vue'
 import Icon from './Icon.vue'
 import { Skeleton } from './ui/index.js'
 import { filters, refs, accountsById, categoriesById, scopeCurrency } from '../lib/store.js'
-import { rowView, groupByDay } from '../lib/logic/display.js'
+import { rowView, groupByDay, splitView } from '../lib/logic/display.js'
+import { mergeSplits } from '../lib/logic/split.js'
 import { advanceCounted } from '../lib/logic/advance.js'
 import { toQueryFilters } from '../lib/logic/categoryFilter.js'
 
@@ -17,17 +18,31 @@ const TONE_COLOR = { income: 'var(--color-income)', expense: 'var(--color-expens
 const AMOUNT_CLASS = { income: 'c-income', expense: 'c-expense', transfer: 'c-text' }
 
 const days = computed(() => {
+  const q = toQueryFilters({ ...filters }, refs.categories)
   const ctx = {
     accountsById: accountsById.value,
     categoriesById: categoriesById.value,
     currencies: refs.currencies,
     accountId: filters.accountId,
-    advanceCounted: advanceCounted(toQueryFilters({ ...filters }, refs.categories), categoriesById.value),
+    advanceCounted: advanceCounted(q, categoriesById.value),
+    categoryFiltered: !!q.categoryIds?.length,
   }
-  return groupByDay(props.rows, ctx, scopeCurrency.value).map((g) => ({
-    ...g,
-    rows: g.rows.map((t) => ({ txn: t, v: rowView(t, ctx) })),
-  }))
+  return groupByDay(props.rows, ctx, scopeCurrency.value).map((g) => {
+    const linesBySplit = new Map(g.rows.filter((t) => t.split_lines).map((t) => [t.split_id, t.split_lines]))
+    return {
+      ...g,
+      // 拆帳：同一筆的各行併成一列；點開時帶上全部行（編輯整筆）
+      rows: mergeSplits(g.rows, linesBySplit).map((it) =>
+        it.txn
+          ? { key: it.txn.id, txn: it.txn, v: rowView(it.txn, ctx) }
+          : {
+              key: it.split.id,
+              txn: { ...it.split.lines[0], split_lines: it.split.all },
+              v: splitView(it.split, ctx),
+            },
+      ),
+    }
+  })
 })
 </script>
 
@@ -46,7 +61,7 @@ const days = computed(() => {
   <div v-else class="list" :class="{ loading }">
     <div v-for="d in days" :key="d.date" class="day">
       <div class="day-head"><span>{{ d.label }}</span><span>{{ d.totalText }}</span></div>
-      <button v-for="{ txn, v } in d.rows" :key="txn.id" class="item" type="button" @click="$emit('open', txn)">
+      <button v-for="{ key, txn, v } in d.rows" :key="key" class="item" type="button" @click="$emit('open', txn)">
         <span class="cat-icon"><Icon :name="v.icon" :color="TONE_COLOR[v.tone]" /></span>
         <span class="desc">
           <span class="desc-title">
@@ -54,7 +69,9 @@ const days = computed(() => {
             <!-- 手機沒有帳戶那一欄：重複圖示接在標題後面 -->
             <span v-if="txn.recurring_rule_id" class="repeat m-repeat" title="固定收支"><Icon name="repeat" :size="14" color="var(--color-text)" /></span>
           </span>
-          <span v-if="txn.tags.length || v.foreignText || txn.queued" class="desc-meta">
+          <span v-if="txn.tags.length || v.foreignText || v.detailText || txn.queued" class="desc-meta">
+            <!-- 拆帳的明細 -->
+            <span v-if="v.detailText" class="split-detail"><Icon name="call_split" :size="14" color="var(--color-text)" />{{ v.detailText }}</span>
             <span v-if="txn.syncError" class="tag error">同步失敗</span>
             <span v-else-if="txn.queued" class="tag supply">未同步</span>
             <span v-for="t in txn.tags" :key="t.id" class="tag">{{ t.name }}</span>
@@ -101,6 +118,7 @@ const days = computed(() => {
 .wallet { width: 230px; flex-shrink: 0; display: flex; align-items: center; gap: var(--sp-8); }
 .amount { flex-shrink: 0; min-width: 150px; text-align: right; font-size: 16px; font-weight: 700; white-space: nowrap; }
 .repeat { display: inline-flex; align-items: center; }
+.split-detail { display: inline-flex; align-items: center; gap: var(--sp-2); margin-right: var(--sp-4); }
 .m-repeat { display: none; }
 @media (max-width: 760px) {
   .m-repeat { display: inline-flex; vertical-align: -1px; margin-left: var(--sp-2); }
