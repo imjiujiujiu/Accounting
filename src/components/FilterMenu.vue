@@ -8,7 +8,7 @@ const props = defineProps({
   label: String,
   /** 篩選鈕上顯示的選取數量；0＝未篩選 */
   count: { type: Number, default: 0 },
-  /** [{ name, items: [{ key, label, state: 'on' | 'mixed' | 'off', dim? }] }]；name 空白＝不顯示群組標題 */
+  /** [{ name, items: [{ key, label, state: 'on' | 'mixed' | 'off', dim?, indent? }] }]；name 空白＝不顯示群組標題；indent＝小分類縮排 */
   groups: { type: Array, default: () => [] },
   searchable: Boolean,
   emptyText: { type: String, default: '沒有選項' },
@@ -45,7 +45,7 @@ const shown = computed(() => {
             :key="o.key"
             type="button"
             class="row body1"
-            :class="[o.state, { dim: o.dim }]"
+            :class="[o.state, { dim: o.dim, indent: o.indent }]"
             role="checkbox"
             :aria-checked="o.state === 'mixed' ? 'mixed' : o.state === 'on'"
             @click="emit('toggle', o.key)"
@@ -86,6 +86,7 @@ const shown = computed(() => {
 .group { display: flex; flex-direction: column; gap: var(--sp-4); }
 .row { display: flex; align-items: center; gap: var(--sp-8); width: 100%; text-align: left; white-space: nowrap; }
 .row .text { flex: 1; }
+.row.indent { padding-left: var(--sp-20); }
 .box {
   width: 16px; height: 16px; border-radius: var(--r-4); border: 1px solid var(--color-line);
   display: grid; place-items: center; flex-shrink: 0;
