@@ -2,7 +2,7 @@
 // 左側滑出的帳戶選單。設計稿：Figma Mockup 頁「側選單 — 管理模式」node 124:532、「（編輯中）」124:919。
 // 點列＝以該帳戶篩選清單與統計（「全部帳戶」＝不篩選）；在管理、設定頁點選時回到清單頁最上方。
 // 依類型分組（現金 → 銀行 → 電子支付 → 信用卡 → 其他，順序固定）；「全部帳戶」列顯示淨資產（需求 3.2）。
-// 外幣帳戶（例如日幣現金）照類型放在該組，餘額以自身幣別顯示並標「不計入」，不算進淨資產與小計。
+// 外幣帳戶（例如日幣現金）照類型放在該組，餘額以自身幣別顯示（不另加標示），不算進淨資產與小計。
 // 只有負債類型（信用卡）的組標題右側顯示小計。
 // 滑過（或鍵盤聚焦）列時：左側出現拖曳把手（位置預設留好，不擠動名稱）、右側出現編輯；沒有交易使用的帳戶多一個垃圾桶。觸控裝置一律顯示。帳戶不能停用。
 // 拖曳排序：按住把手只能在同一類型裡上下移動，放開就儲存（失敗跳錯誤 toast 並還原）；把手聚焦時 ↑↓ 也能移動。
@@ -252,8 +252,7 @@ watch(
             <span v-else class="handle-spacer" aria-hidden="true"></span>
             <span class="name">
               <span class="body1-bold">{{ a.name }}</span>
-              <span v-if="a.excluded" class="caption c-text">不計入</span>
-              <span v-else-if="a.pending_count" class="caption c-supply">另有 {{ a.pending_count }} 筆預估</span>
+              <span v-if="a.pending_count" class="caption c-supply">另有 {{ a.pending_count }} 筆預估</span>
             </span>
             <span class="body1-bold num" :class="a.balance < 0 ? 'c-expense' : 'c-title'">{{ balance(a) }}</span>
             <span class="actions">
