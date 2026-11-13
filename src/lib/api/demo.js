@@ -26,6 +26,7 @@ function seed() {
     { id: 'a-richart', name: 'Richart', type: 'credit_card', currency: 'TWD', initial_balance: 0, sort_order: 5 },
     { id: 'a-krw', name: '韓幣', type: 'cash', currency: 'KRW', initial_balance: 0, sort_order: 6 },
     { id: 'a-post', name: '郵局', type: 'bank', currency: 'TWD', initial_balance: 0, sort_order: 7 },
+    { id: 'a-advance', name: '代墊', type: 'other', currency: 'TWD', initial_balance: 0, sort_order: 8 },
   ].map((a) => ({ is_active: true, statement_day: null, created_at: at(10000), ...a }))
 
   const cats = [
@@ -70,6 +71,9 @@ function seed() {
       original_amount: 10320, original_currency: 'KRW', note: '儲值 Tmoney', tags: ['t-jeju'], settled_at: at(100), created_at: at(3000) }),
     tx({ date: d(2), type: 'expense', account_id: 'a-krw', category_id: c('expense', '晚餐'), amount: 26300, note: '清沙浦小吃', tags: ['t-jeju'], created_at: at(3010) }),
     tx({ date: d(2), type: 'expense', account_id: 'a-linepay', category_id: c('expense', '娛樂'), amount: 280, note: '電影', created_at: at(3020) }),
+    tx({ date: d(3), type: 'transfer', account_id: 'a-cube', to_account_id: 'a-advance', amount: 860, to_amount: 860, note: '幫小姿代購', created_at: at(4400) }),
+    tx({ date: d(3), type: 'expense', account_id: 'a-advance', category_id: c('expense', '其他'), amount: 60, note: '代購運費（自己吸收）', created_at: at(4410) }),
+    tx({ date: d(0), type: 'transfer', account_id: 'a-advance', to_account_id: 'a-linepay', amount: 800, to_amount: 800, note: '小姿還款', created_at: at(30) }),
     tx({ date: d(40), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-cube', amount: 3200, to_amount: 3200, note: '繳 Cube 卡費', created_at: at(60000) }),
   ]
 

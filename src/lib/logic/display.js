@@ -3,6 +3,7 @@ import { minorUnitOf } from './money.js'
 import { isAll } from './period.js'
 import { deltaForAccount } from './transactionForm.js'
 import { CATEGORY_ICON_KEYS } from './categoryIcons.js'
+import { isAdvanceAccount } from './accounts.js'
 
 const WEEK = ['日', '一', '二', '三', '四', '五', '六']
 const numberFormats = new Map()
@@ -90,9 +91,13 @@ export function rowView(txn, ctx) {
     const to = ctx.accountsById.get(txn.to_account_id)
     const toCur = to?.currency ?? cur
     let amountText
+    let amountTone = 'transfer'
     if (ctx.accountId) {
       const sel = ctx.accountsById.get(ctx.accountId)
-      amountText = formatSigned(deltaForAccount(txn, ctx.accountId), sel?.currency ?? cur, cs)
+      const delta = deltaForAccount(txn, ctx.accountId)
+      amountText = formatSigned(delta, sel?.currency ?? cur, cs)
+      // 代墊帳戶：轉帳金額也依正負上色（正數綠、負數粉紅）
+      if (isAdvanceAccount(sel) && delta) amountTone = delta > 0 ? 'income' : 'expense'
     } else {
       amountText = formatAmount(txn.amount, cur, cs)
     }
@@ -106,7 +111,7 @@ export function rowView(txn, ctx) {
       // 跨幣別換錢：另外標出轉入的外幣金額
       foreignText: toCur !== cur ? `→ ${formatAmount(txn.to_amount, toCur, cs)}` : '',
       amountText,
-      amountTone: 'transfer',
+      amountTone,
     }
   }
 
