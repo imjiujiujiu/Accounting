@@ -215,13 +215,13 @@ function onKey(e) {
               v-for="o in recent"
               :key="o.key"
               type="button"
-              class="chip caption"
+              class="recent-chip caption"
               :class="{ on: isOn(o) }"
               tabindex="-1"
               @mousedown.prevent
               @click="pick(o)"
             >
-              <Icon :name="o.icon" :size="14" :color="TONE[o.type]" />
+              <Icon :name="o.icon" :size="12" :color="TONE[o.type]" />
               <span>{{ o.label }}</span>
             </button>
           </div>
@@ -307,12 +307,12 @@ function onKey(e) {
 
 /* 最近使用：一排圓角鈕，可換行 */
 .recent { display: flex; flex-wrap: wrap; gap: var(--sp-4); padding: 0 var(--sp-4) var(--sp-4); }
-.chip {
-  display: inline-flex; align-items: center; gap: var(--sp-4); height: 28px; padding: 0 var(--sp-8);
+.recent-chip {
+  display: inline-flex; align-items: center; gap: var(--sp-2); height: 24px; padding: 0 var(--sp-8) 0 6px;
   border-radius: var(--r-pill); background: var(--color-page); color: var(--color-title); border: 1px solid transparent;
 }
-.chip:hover { background: var(--color-tag); }
-.chip.on { border-color: var(--color-primary); color: var(--color-primary); }
+.recent-chip:hover { background: var(--color-tag); }
+.recent-chip.on { border-color: var(--color-primary); color: var(--color-primary); }
 .empty { padding: var(--sp-12) var(--sp-8); color: var(--color-text); text-align: center; }
 
 /* 手機：觸發鈕撐滿寬度並顯示分類名稱；面板同寬 */
@@ -325,6 +325,6 @@ function onKey(e) {
   .option { min-height: 44px; }
   .seg-btn { height: 40px; }
   .search { height: 40px; }
-  .chip { height: 36px; padding: 0 var(--sp-12); }
+  .recent-chip { height: 28px; padding: 0 var(--sp-10) 0 var(--sp-8); gap: var(--sp-4); }
 }
 </style>
