@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { accountSections } from './accounts.js'
+import { accountSections, isAdvanceAccount } from './accounts.js'
 
 const TYPES = [
   { key: 'cash', label: '現金' },
@@ -38,5 +38,14 @@ describe('帳戶選單：資產／負債＋淨資產', () => {
   it('沒有帳戶的區不出現；沒有帳戶時淨資產為 0', () => {
     expect(accountSections([acc('cash', 'cash', 100)], TYPES).sections.map((s) => s.key)).toEqual(['asset'])
     expect(accountSections([], TYPES)).toEqual({ netWorth: 0, sections: [] })
+  })
+})
+
+describe('isAdvanceAccount', () => {
+  it('以名稱「代墊」辨認（忽略前後空白）', () => {
+    expect(isAdvanceAccount({ name: '代墊' })).toBe(true)
+    expect(isAdvanceAccount({ name: ' 代墊 ' })).toBe(true)
+    expect(isAdvanceAccount({ name: '欠款' })).toBe(false)
+    expect(isAdvanceAccount(null)).toBe(false)
   })
 })

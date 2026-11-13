@@ -6,6 +6,7 @@ const accounts = [
   { id: 'cube', name: 'Cube', currency: 'TWD' },
   { id: 'krw', name: '韓幣', currency: 'KRW' },
   { id: 'usd', name: '美金', currency: 'USD' },
+  { id: 'adv', name: '代墊', currency: 'TWD' },
 ]
 const categories = [
   { id: 'food', name: '餐飲', kind: 'expense' },
@@ -121,5 +122,23 @@ describe('依日分組', () => {
     expect(g.map((x) => x.totalText)).toEqual(['-175 TWD', '+49,738 TWD'])
     expect(g[1].rows).toHaveLength(4)
     expect(g[0].label).toBe('09/05 (六)')
+  })
+})
+
+describe('代墊帳戶', () => {
+  const lend = { id: 'l', date: '2026-11-10', type: 'transfer', account_id: 'cube', to_account_id: 'adv', amount: 860, to_amount: 860, note: '', tags: [] }
+  const repay = { id: 'r', date: '2026-11-10', type: 'transfer', account_id: 'adv', to_account_id: 'cash', amount: 800, to_amount: 800, note: '', tags: [] }
+  const exp = { id: 'e', date: '2026-11-10', type: 'expense', account_id: 'adv', category_id: 'food', amount: 60, counted_amount: 60, note: '', tags: [] }
+
+  it('選代墊時轉帳金額依正負上色', () => {
+    expect(rowView(lend, ctx('adv'))).toMatchObject({ amountText: '+860 TWD', amountTone: 'income', tone: 'transfer' })
+    expect(rowView(repay, ctx('adv'))).toMatchObject({ amountText: '-800 TWD', amountTone: 'expense' })
+  })
+  it('其他帳戶與全部帳戶的轉帳維持灰色', () => {
+    expect(rowView(lend, ctx('cube')).amountTone).toBe('transfer')
+    expect(rowView(lend, ctx()).amountTone).toBe('transfer')
+  })
+  it('選代墊時每日合計仍不計轉帳', () => {
+    expect(groupByDay([lend, repay, exp], ctx('adv'))[0].total).toBe(-60)
   })
 })
