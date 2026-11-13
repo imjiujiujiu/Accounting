@@ -7,6 +7,7 @@
 // 有小分類的大分類不能刪除（不顯示垃圾桶）；「其他X」不能改名、刪除（沒有操作圖示）。
 // 標籤：改名、刪除（只移除關聯）。
 // 編輯：同一時間只開一個編輯框；新增出現在清單最上方，編輯就地取代該列。刪除前跳出確認對話框。
+// 離開編輯框（Esc、取消、改編輯別的項目、切換分頁、換頁）時，改過內容先問「放棄編輯？」。
 // 頁面頂端分段切換「分類與標籤｜固定收支」（需求 3.10）。固定收支：規則清單獨佔整頁寬，依下次產生日排序、
 // 已結束的排在最下方並調淡；點整列開啟規則對話框（RuleDialog），刪除在對話框裡。
 // 管理頁只能編輯、刪除規則；新增一律從清單頁的新增交易（日期旁的重複圖示）。
@@ -19,7 +20,9 @@ import { api } from '../lib/api/index.js'
 import { OTHER } from '../lib/api/categories.js'
 import { categoryIcon } from '../lib/logic/display.js'
 import { categoryTree } from '../lib/logic/categoryTree.js'
-import { confirmDialog } from '../lib/confirm.js'
+import { confirmDialog, confirmDiscard } from '../lib/confirm.js'
+import { createDirty } from '../lib/dirty.js'
+import { onBeforeRouteLeave } from 'vue-router'
 import { focusFirstInvalid } from '../lib/focusInvalid.js'
 import { accountsById, categoriesById } from '../lib/store.js'
 import { formatSigned } from '../lib/logic/display.js'
@@ -73,10 +76,28 @@ const editing = reactive({ section: null, id: null, error: '' })
 const isEditing = (section, id) => editing.section === section && editing.id === id
 function openEditor(section, id) {
   Object.assign(editing, { section, id, error: '' })
+  dirty.mark()
 }
 function closeEditor() {
   Object.assign(editing, { section: null, id: null, error: '' })
+  dirty.clear()
 }
+// 改過沒有：分類看名稱、圖示、所屬分類；標籤看名稱
+const dirty = createDirty(() =>
+  editing.section === 'tag' ? tagName.value : { name: cat.name, icon: cat.icon, parentId: cat.parentId },
+)
+/** 要離開目前的編輯框：沒開或沒改過直接關；改過先問。回傳是否已關閉 */
+async function leaveEditor() {
+  if (!editing.section) return true
+  if (!(await confirmDiscard(dirty.isDirty()))) return false
+  closeEditor()
+  return true
+}
+// 切換分頁、換頁也算離開
+async function switchTab(key) {
+  if (key !== manageTab.value && (await leaveEditor())) manageTab.value = key
+}
+onBeforeRouteLeave(() => leaveEditor())
 
 /* 第一次讀取中：各卡片顯示骨架列（寬度為名稱長度的百分比） */
 const SKELETON_ROWS = { expense: [24, 32, 20, 28, 24, 36], income: [28, 20, 32], tag: [36, 52] }
@@ -111,7 +132,8 @@ const usageUnavailable = computed(() => refs.categories.some((c) => c.txn_count 
 // 圖示：預設為目前顯示的圖示（新增時為該收支的「其他」）；只有改過才寫入 categories.icon
 // 新增小分類時，沒動過圖示就預覽大分類的圖示（不寫入，之後沿用大分類）
 const cat = reactive({ name: '', icon: '', initialIcon: '', parentId: '', hasChildren: false })
-function editCategory(kind, c) {
+async function editCategory(kind, c) {
+  if (!(await leaveEditor())) return
   const icon = categoryIcon(c ?? { kind, name: OTHER })
   Object.assign(cat, { name: c ? c.name : '', icon, initialIcon: icon, parentId: c?.parent_id ?? '', hasChildren: !!c?.hasChildren })
   openEditor(kind, c ? c.id : 'new')
@@ -181,7 +203,8 @@ function removeMessage(c) {
 
 /* ===== 標籤 ===== */
 const tagName = ref('')
-function editTag(t) {
+async function editTag(t) {
+  if (!(await leaveEditor())) return
   tagName.value = t.name
   openEditor('tag', t.id)
 }
@@ -216,7 +239,7 @@ async function removeTag(t) {
       :class="{ on: manageTab === t.key }"
       role="tab"
       :aria-selected="manageTab === t.key"
-      @click="manageTab = t.key"
+      @click="switchTab(t.key)"
     >
       {{ t.name }}
     </button>
@@ -268,7 +291,7 @@ async function removeTag(t) {
         <span class="actions"><Skeleton w="24" h="24" r="6" /><Skeleton w="24" h="24" r="6" /></span>
       </div>
       <template v-for="c in [{ id: 'new' }, ...g.items]" :key="c.id">
-        <form v-if="isEditing(g.kind, c.id)" class="editor" @submit.prevent="saveCategory(g.kind, $event)">
+        <form v-if="isEditing(g.kind, c.id)" class="editor" @submit.prevent="saveCategory(g.kind, $event)" @keydown.esc.stop="leaveEditor">
           <div class="cat-fields">
             <FormField label="圖示" as="div">
               <IconPicker v-model="cat.icon" :color="g.color" />
@@ -285,7 +308,7 @@ async function removeTag(t) {
           </FormField>
           <p v-if="cat.hasChildren" class="caption c-text">這個分類底下有小分類，不能成為小分類。</p>
           <div class="editor-foot">
-            <BaseButton @click="closeEditor">取消</BaseButton>
+            <BaseButton @click="leaveEditor">取消</BaseButton>
             <BaseButton variant="primary" type="submit" :disabled="busy">儲存</BaseButton>
           </div>
         </form>
@@ -315,10 +338,10 @@ async function removeTag(t) {
         <span class="actions"><Skeleton w="24" h="24" r="6" /><Skeleton w="24" h="24" r="6" /></span>
       </div>
       <template v-for="t in refs.tags" :key="t.id">
-        <form v-if="isEditing('tag', t.id)" class="editor" @submit.prevent="saveTag($event)">
+        <form v-if="isEditing('tag', t.id)" class="editor" @submit.prevent="saveTag($event)" @keydown.esc.stop="leaveEditor">
           <FormField label="名稱" :error="editing.error"><TextInput v-model="tagName" maxlength="30" :invalid="!!editing.error" @input="editing.error = ''" /></FormField>
           <div class="editor-foot">
-            <BaseButton @click="closeEditor">取消</BaseButton>
+            <BaseButton @click="leaveEditor">取消</BaseButton>
             <BaseButton variant="primary" type="submit" :disabled="busy">儲存</BaseButton>
           </div>
         </form>

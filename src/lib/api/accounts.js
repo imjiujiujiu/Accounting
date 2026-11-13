@@ -72,6 +72,12 @@ export function createAccountsApi(db) {
       return this.update(id, { is_active: isActive })
     },
 
+    /** 拖曳排序：updates＝[{ id, sort_order }]（logic/accounts.js 的 moveAccount） */
+    async reorder(updates) {
+      assertOnline()
+      await Promise.all(updates.map((u) => run(db.from('accounts').update({ sort_order: u.sort_order }).eq('id', u.id))))
+    },
+
     /** 只有沒有交易的帳戶能刪；有交易的請改用 setActive(id, false) */
     async remove(id) {
       assertOnline()

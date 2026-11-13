@@ -337,6 +337,10 @@ export function createDemoApi() {
       async setActive(id, isActive) {
         return this.update(id, { is_active: isActive })
       },
+      async reorder(updates) {
+        for (const u of updates) acc(u.id).sort_order = u.sort_order
+        return delay(null)
+      },
       async remove(id) {
         if (db.transactions.some((t) => t.account_id === id || t.to_account_id === id) || db.rules.some((r) => r.account_id === id)) {
           throw new ApiError('in_use', '這個帳戶已有交易，無法刪除')

@@ -1,6 +1,7 @@
 <script setup>
 // 單選下拉（取代原生 <select>）。觸發鈕樣式同輸入框；展開面板沿用篩選下拉（FilterMenu）的樣式。
 // 用法：<SelectMenu v-model="type" :options="[{ value, label, disabled?, icon?, iconColor? }]" :invalid="!!error" />
+// 分組小標：選項加 heading: true（value 仍要唯一），只顯示、不能選，鍵盤會跳過。
 // 鍵盤：Enter／空白／↓ 開啟，↑↓ 移動，Enter 選取，Esc 關閉。
 import { ref, computed, nextTick } from 'vue'
 import Icon from '../Icon.vue'
@@ -23,17 +24,19 @@ const root = ref(null)
 const list = ref(null)
 useClickOutside(root, () => (open.value = false), () => open.value)
 
-const selected = computed(() => props.options.find((o) => o.value === props.modelValue))
+const selected = computed(() => props.options.find((o) => !o.heading && o.value === props.modelValue))
+const selectable = (o) => o && !o.disabled && !o.heading
 
 async function show() {
   if (props.disabled) return
   open.value = true
-  active.value = Math.max(0, props.options.findIndex((o) => o.value === props.modelValue))
+  const cur = props.options.findIndex((o) => !o.heading && o.value === props.modelValue)
+  active.value = cur >= 0 ? cur : Math.max(0, props.options.findIndex(selectable))
   await nextTick()
   list.value?.children[active.value]?.scrollIntoView({ block: 'nearest' })
 }
 function pick(o) {
-  if (o.disabled) return
+  if (!selectable(o)) return
   emit('update:modelValue', o.value)
   open.value = false
 }
@@ -52,13 +55,13 @@ function onKey(e) {
     let i = active.value
     for (let k = 0; k < n; k++) {
       i = (i + step + n) % n
-      if (!props.options[i].disabled) break
+      if (selectable(props.options[i])) break
     }
     active.value = i
     list.value?.children[active.value]?.scrollIntoView({ block: 'nearest' })
   } else if (e.key === 'Enter' || e.key === ' ') {
     e.preventDefault()
-    if (props.options[active.value]) pick(props.options[active.value])
+    if (selectable(props.options[active.value])) pick(props.options[active.value])
   } else if (e.key === 'Tab') {
     open.value = false
   }
@@ -82,9 +85,10 @@ function onKey(e) {
       <Icon name="down" :size="20" color="var(--color-text)" />
     </button>
     <div v-if="open" ref="list" class="panel" role="listbox">
+      <template v-for="(o, i) in options" :key="o.value">
+      <p v-if="o.heading" class="heading caption c-text" role="presentation">{{ o.label }}</p>
       <button
-        v-for="(o, i) in options"
-        :key="o.value"
+        v-else
         type="button"
         class="option body2"
         :class="{ on: o.value === modelValue, active: i === active && !o.disabled }"
@@ -100,6 +104,7 @@ function onKey(e) {
         <span class="text">{{ o.label }}</span>
         <Icon v-if="o.value === modelValue" name="check" :size="16" color="var(--color-primary)" />
       </button>
+      </template>
     </div>
   </div>
 </template>
@@ -133,4 +138,7 @@ function onKey(e) {
 .option.active { background: var(--color-tag); }
 .option:disabled { color: var(--color-text); opacity: .5; cursor: not-allowed; }
 .option.on { color: var(--color-primary); font-weight: 700; }
+/* 分組小標（例如帳戶依類型分組）：第一個以外上方多留空 */
+.heading { padding: var(--sp-4) var(--sp-8) var(--sp-2); }
+.heading:not(:first-child) { margin-top: var(--sp-8); }
 </style>

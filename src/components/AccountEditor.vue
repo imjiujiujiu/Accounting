@@ -3,6 +3,7 @@
 // 版面：名稱／類型＋幣別／初始餘額（信用卡時右邊多「結帳日」），最後是取消、儲存。帳戶已有交易時幣別鎖定。
 // 結帳日（需求 3.2）：只有信用卡有；1～31 日，小月取月底；設定後期間選擇器多「本期帳單」「上期帳單」。
 // Enter（或「儲存」）送出；名稱沒填、初始餘額格式不對 → 欄位下顯示錯誤並把焦點移到第一個有錯的欄位。
+// 取消、Esc：改過內容先問「放棄編輯？」。外層（側選單）要關閉或換編輯別的帳戶時，用 ref 呼叫 isDirty() 判斷。
 // 用法：<AccountEditor :account="a 或 null" @done="..." @cancel="..." />
 import { reactive, ref, computed } from 'vue'
 import { BaseButton, TextInput, SelectMenu, FormField } from './ui/index.js'
@@ -10,6 +11,9 @@ import { refs, loadRefs, afterTransactionChange, showToast, baseCurrency } from 
 import { api, ACCOUNT_TYPES } from '../lib/api/index.js'
 import { parseAmount, toInputString, minorUnitOf } from '../lib/logic/money.js'
 import { focusFirstInvalid } from '../lib/focusInvalid.js'
+import { nextSortOrder } from '../lib/logic/accounts.js'
+import { confirmDiscard } from '../lib/confirm.js'
+import { createDirty } from '../lib/dirty.js'
 
 const props = defineProps({ account: { type: Object, default: null } })
 const emit = defineEmits(['done', 'cancel'])
@@ -28,6 +32,12 @@ const f = reactive(
     ? { name: a.name, type: a.type, currency: a.currency, initial: toInputString(a.initial_balance, minorUnitOf(a.currency, refs.currencies)), locked: a.txn_count > 0, statementDay: a.statement_day ?? null }
     : { name: '', type: 'bank', currency: baseCurrency.value, initial: '0', locked: false, statementDay: null },
 )
+const dirty = createDirty(() => f)
+dirty.mark()
+defineExpose({ isDirty: () => dirty.isDirty() })
+async function cancel() {
+  if (await confirmDiscard(dirty.isDirty())) emit('cancel')
+}
 const errors = reactive({ name: '', initial: '' })
 const error = ref('') // 儲存失敗
 const formEl = ref(null)
@@ -48,7 +58,7 @@ async function save() {
   busy.value = true
   try {
     if (a) await api.accounts.update(a.id, payload)
-    else await api.accounts.create({ ...payload, sort_order: refs.accounts.length + 1 })
+    else await api.accounts.create({ ...payload, sort_order: nextSortOrder(refs.accounts) })
     await loadRefs()
     afterTransactionChange()
     showToast(a ? '已更新帳戶' : '已新增帳戶')
@@ -62,7 +72,7 @@ async function save() {
 </script>
 
 <template>
-  <form ref="formEl" class="editor" @submit.prevent="save" @keydown.esc.stop="emit('cancel')">
+  <form ref="formEl" class="editor" @submit.prevent="save" @keydown.esc.stop="cancel">
     <FormField label="名稱" :error="errors.name"><TextInput v-model="f.name" maxlength="40" :invalid="!!errors.name" @input="errors.name = ''" /></FormField>
     <div class="pair">
       <FormField label="類型" as="div"><SelectMenu v-model="f.type" :options="typeOptions" /></FormField>
@@ -78,7 +88,7 @@ async function save() {
     </div>
     <div class="foot">
       <span class="body2 c-expense">{{ error }}</span>
-      <BaseButton @click="emit('cancel')">取消</BaseButton>
+      <BaseButton @click="cancel">取消</BaseButton>
       <BaseButton variant="primary" type="submit" :disabled="busy">儲存</BaseButton>
     </div>
   </form>
