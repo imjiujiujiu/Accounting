@@ -377,8 +377,8 @@ button.rule:hover { background: rgba(32, 42, 58, .5); }
 
 /* 清單列 */
 .item { display: flex; align-items: center; gap: var(--sp-16); min-height: 32px; }
-/* 小分類：縮排在大分類下方，左側一條細線標示同一組 */
-.item.sub { margin-left: 7px; padding-left: var(--sp-16); border-left: 1px solid var(--color-line); min-height: 36px; }
+/* 小分類：縮排在大分類下方 */
+.item.sub { padding-left: var(--sp-24); }
 .item.parent .body1 { font-weight: 700; }
 .label-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-8); }
 .label-row > .body1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
