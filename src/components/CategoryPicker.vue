@@ -1,7 +1,7 @@
 <script setup>
 // 交易表單的分類下拉：同時決定交易類型。
 // 選單頂部為「支出｜收入｜轉帳」分段切換，下方只列目前分頁的分類；點「轉帳」直接選取（轉帳沒有分類）。
-// 兩層分類（需求 3.3）：只能選最底層。有小分類的大分類只當分組標題（不能點），沒拆的大分類是一般選項。
+// 兩層分類（需求 3.3）：只能選最底層。有小分類的大分類只當分組標題（圖示＋名稱，不能點），沒拆的大分類是一般選項。
 // 分類多時：頂端一排「最近使用」、搜尋框（搜尋時「最近使用」隱藏；符合大分類名稱時列出整組）。
 // 開啟時停在目前選取的分頁（未選或轉帳時為支出）。觸發鈕只顯示圖示，未選時為主色圓底＋加號。
 // 鍵盤：Enter／空白／↓ 開啟，↑↓ 移動，←→ 切換分頁，Enter 選取，Esc 關閉；有搜尋框時開啟後直接打字搜尋（電腦版）。
@@ -228,7 +228,10 @@ function onKey(e) {
         </section>
 
         <section v-for="s in sections" :key="s.key" class="group" :aria-label="s.header ?? undefined">
-          <div v-if="s.header" class="group-label caption">{{ s.header }}</div>
+          <div v-if="s.header" class="group-label caption">
+            <Icon v-if="s.parent" :name="categoryIcon(s.parent)" :size="14" :color="TONE[tab]" />
+            <span>{{ s.header }}</span>
+          </div>
           <button
             v-for="o in s.options"
             :key="o.key"
@@ -296,7 +299,7 @@ function onKey(e) {
 .group { display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-4) 0; }
 .group + .group { border-top: 1px solid var(--color-line); }
 .group:first-child { padding-top: 0; }
-.group-label { padding: var(--sp-4) var(--sp-8) var(--sp-2); color: var(--color-text); }
+.group-label { display: flex; align-items: center; gap: var(--sp-4); padding: var(--sp-4) var(--sp-8) var(--sp-2); color: var(--color-text); }
 .option {
   display: flex; align-items: center; gap: var(--sp-8); width: 100%; min-height: 36px;
   padding: 0 var(--sp-8); border-radius: var(--r-4); text-align: left; color: var(--color-title);

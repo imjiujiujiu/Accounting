@@ -36,7 +36,7 @@ export function isLeaf(category, categories) {
 const norm = (s) => String(s ?? '').trim().toLowerCase()
 
 /**
- * 分類選單的區塊：[{ key, header, options: [category] }]
+ * 分類選單的區塊：[{ key, header, parent, options: [category] }]（parent＝有小分類的大分類，用來顯示標題圖示）
  *   有小分類的大分類 → 一個區塊，header＝大分類名稱，options＝小分類
  *   連續幾個沒拆的大分類 → 合成一個沒有 header 的區塊
  * query：關鍵字（不分大小寫、部分符合）；符合大分類名稱時列出整組小分類
@@ -50,10 +50,10 @@ export function pickerSections(categories, kind, query = '') {
     if (children.length) {
       loose = null
       const options = match(category) ? children : children.filter(match)
-      if (options.length) sections.push({ key: category.id, header: category.name, options })
+      if (options.length) sections.push({ key: category.id, header: category.name, parent: category, options })
     } else if (match(category)) {
       if (!loose) {
-        loose = { key: `loose-${category.id}`, header: null, options: [] }
+        loose = { key: `loose-${category.id}`, header: null, parent: null, options: [] }
         sections.push(loose)
       }
       loose.options.push(category)
