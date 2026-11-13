@@ -99,7 +99,7 @@ const isFixed = (c) => (c.name === OTHER && !c.parent_id) || c.isOtherSub
 /** 「所屬分類」選項：無＋同收支的大分類（不含「其他」與自己） */
 function parentOptions(kind, selfId) {
   return [
-    { value: '', label: '無（大分類）' },
+    { value: '', label: '無' },
     ...categoryTree(refs.categories, kind)
       .map((n) => n.category)
       .filter((c) => c.name !== OTHER && c.id !== selfId)
