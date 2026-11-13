@@ -54,7 +54,7 @@ function seed() {
   const tx = (o) => ({
     id: uid(), to_account_id: null, category_id: null, amount: null, to_amount: null, estimated_amount: null,
     original_amount: null, original_currency: null, fee: null, note: '', settled_at: null, tags: [],
-    recurring_rule_id: null, occurrence_date: null, ...o,
+    recurring_rule_id: null, occurrence_date: null, split_id: null, ...o,
   })
   const transactions = [
     tx({ date: d(0), type: 'expense', account_id: 'a-cash', category_id: c('expense', '午餐'), amount: 120, note: '便當', tags: ['t-lunch'], created_at: at(10) }),
@@ -74,6 +74,9 @@ function seed() {
     // 代墊：幫別人付記支出「代墊」，對方還錢記收入「代墊」（小姿還了一部分）
     tx({ date: d(3), type: 'expense', account_id: 'a-cube', category_id: c('expense', '代墊'), amount: 860, note: '幫小姿代購', created_at: at(4400) }),
     tx({ date: d(0), type: 'income', account_id: 'a-linepay', category_id: c('income', '代墊'), amount: 500, note: '小姿還款', created_at: at(30) }),
+    // 拆帳：合付三人份，自己的午餐＋幫朋友墊的
+    tx({ date: d(2), type: 'expense', account_id: 'a-cube', category_id: c('expense', '午餐'), amount: 528, note: '大戶屋 x3', split_id: 's-otoya', created_at: at(2900) }),
+    tx({ date: d(2), type: 'expense', account_id: 'a-cube', category_id: c('expense', '代墊'), amount: 770, note: '大戶屋 x3', split_id: 's-otoya', created_at: at(2899) }),
     tx({ date: d(40), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-cube', amount: 3200, to_amount: 3200, note: '繳 Cube 卡費', created_at: at(60000) }),
   ]
 
@@ -175,7 +178,10 @@ export function createDemoApi() {
     transactions: {
       async list(f = {}, page = 0) {
         const all = filtered(f)
+        const lines = (sid) => db.transactions.filter((t) => t.split_id === sid).map(derive)
+          .sort((a, b) => a.created_at.localeCompare(b.created_at))
         const rows = all.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+          .map((t) => (t.split_id ? { ...t, split_lines: lines(t.split_id) } : t))
         return delay({ rows, total: all.length, page, pageCount: Math.max(1, Math.ceil(all.length / PAGE_SIZE)) })
       },
       async summary(f = {}) {
@@ -247,6 +253,36 @@ export function createDemoApi() {
         const removedTags = db.transactions.find((x) => x.id === id)?.tags ?? []
         db.transactions = db.transactions.filter((x) => x.id !== id)
         dropUnusedTags(removedTags)
+        return delay(null)
+      },
+      // 拆帳：比照資料庫 save_split（≥ 2 行：寫入各行、刪除拿掉的行；1 行：變回一般交易）
+      async saveSplit({ split, tagNames = [] }) {
+        const acct = acc(split.account_id)
+        if (split.lines.length > 1 && acct?.currency !== 'TWD') throw new ApiError('invalid', '拆帳目前只支援台幣帳戶')
+        const keep = split.lines.map((l) => l.id)
+        const removed = db.transactions.filter((t) => t.split_id === split.id && !keep.includes(t.id))
+        db.transactions = db.transactions.filter((t) => !removed.includes(t))
+        dropUnusedTags(removed.flatMap((t) => t.tags))
+        const base = Date.now()
+        for (const [i, l] of split.lines.entries()) {
+          const exists = db.transactions.find((t) => t.id === l.id)
+          await this.save({
+            txn: {
+              id: l.id, date: split.date, type: 'expense', account_id: split.account_id, to_account_id: null,
+              category_id: l.category_id, amount: l.amount, to_amount: null, original_amount: null,
+              original_currency: null, fee: null, note: split.note ?? '',
+              ...(exists ? {} : { created_at: new Date(base + i).toISOString() }),
+            },
+            tagNames,
+          })
+          db.transactions.find((t) => t.id === l.id).split_id = split.lines.length > 1 ? split.id : null
+        }
+        return delay(split.lines.length > 1 ? split.id : null)
+      },
+      async removeSplit(splitId) {
+        const removed = db.transactions.filter((t) => t.split_id === splitId)
+        db.transactions = db.transactions.filter((t) => t.split_id !== splitId)
+        dropUnusedTags(removed.flatMap((t) => t.tags))
         return delay(null)
       },
       async estimate(currency, original) {

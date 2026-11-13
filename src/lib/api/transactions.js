@@ -50,6 +50,24 @@ export function createTransactionsApi(db) {
     return rows.map((r) => ({ ...r, tags: byTxn.get(r.id) ?? [] }))
   }
 
+  /**
+   * 拆帳：清單只拿到符合篩選的行（也可能被分頁切開），補上同一筆拆帳的全部行（split_lines，依 created_at）。
+   * 畫面用來算總額、列明細、開啟編輯。
+   */
+  async function withSplitLines(rows) {
+    const ids = [...new Set(rows.filter((r) => r.split_id).map((r) => r.split_id))]
+    if (!ids.length) return rows
+    const { data } = await run(
+      db.from('transactions').select('*').in('split_id', ids).order('created_at', { ascending: true }),
+    )
+    const by = new Map()
+    for (const t of data ?? []) {
+      if (!by.has(t.split_id)) by.set(t.split_id, [])
+      by.get(t.split_id).push(t)
+    }
+    return rows.map((r) => (r.split_id ? { ...r, split_lines: by.get(r.split_id) ?? [r] } : r))
+  }
+
   return {
     /**
      * 清單（電腦版分頁）。page 從 0 開始，每頁 50 筆，日期新到舊、同日依建立時間新到舊。
@@ -66,7 +84,7 @@ export function createTransactionsApi(db) {
           .range(start, start + PAGE_SIZE - 1),
       )
       const total = count ?? 0
-      return { rows: await attachTags(data), total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
+      return { rows: await withSplitLines(await attachTags(data)), total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
     },
 
     /**
@@ -142,10 +160,27 @@ export function createTransactionsApi(db) {
       return data
     },
 
+    /**
+     * 拆帳：新增或修改（資料庫 save_split，各行同一個資料庫交易）。
+     * payload：{ split: { id, date, account_id, note, lines: [{ id, category_id, amount }] }, tagNames }
+     * 只剩一行時資料庫會把它變回一般交易。回傳 split_id（取消拆帳時 null）
+     */
+    async saveSplit({ split, tagNames = [] }) {
+      assertOnline()
+      const { data } = await run(db.rpc('save_split', { p_split: split, p_tag_names: tagNames }))
+      return data
+    },
+
     /** 硬刪除（畫面要先確認） */
     async remove(id) {
       assertOnline()
       await run(db.from('transactions').delete().eq('id', id))
+    },
+
+    /** 刪除整筆拆帳（所有行） */
+    async removeSplit(splitId) {
+      assertOnline()
+      await run(db.from('transactions').delete().eq('split_id', splitId))
     },
 
     /** 外幣刷卡的預估台幣（表單即時顯示「約 $630（預估）」），沒有預估來源回傳 null */

@@ -10,6 +10,8 @@ import { openAccountDrawer } from '../lib/accountDrawer.js'
 // 只有收入／支出、非外幣、連線中可以設定。由規則產生的交易顯示「來自固定收支 ›」，點擊跳到管理頁的該規則。
 // 「儲存後再記一筆」（需求 3.8）：新增時勾選，儲存成功（或暫存）後不關閉，換成新的一筆並帶入帳戶、日期、幣別、分類。
 // 每次開啟對話框都是未勾選；設定了重複時不顯示。
+// 拆帳（專案文件 claude/advance-and-split.md）：只有台幣支出、連線中、沒設重複時可以拆；存檔走 api.transactions.saveSplit。
+// 編輯拆帳時表單載入整筆的所有行；刪除＝刪除整筆。
 import { ref, reactive, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import Icon from './Icon.vue'
@@ -25,6 +27,8 @@ import { createEmptyForm, continueForm, txnToForm, validateForm, formToPayload }
 import { focusFirstInvalid, isSubmitEnter } from '../lib/focusInvalid.js'
 import { createRepeat, canRepeat, validateRepeat, formToRulePayload, ruleLabel, savedRuleToast } from '../lib/logic/recurring.js'
 import { openRule, manageTab } from '../lib/ruleDialog.js'
+import { canSplit, validateSplit, splitToPayload, linesToSplit } from '../lib/logic/split.js'
+import { toInputString, minorUnitOf } from '../lib/logic/money.js'
 
 const router = useRouter()
 
@@ -67,6 +71,16 @@ const repeatAllowed = computed(() => !!form.value && !editing.value && canRepeat
 watch(repeatAllowed, (ok) => {
   if (!ok) repeat.mode = 'none'
 })
+// 拆帳
+const splitDisabled = computed(() => {
+  const f = form.value
+  if (!f) return true
+  const acc = refs.accounts.find((a) => a.id === f.accountId)
+  return !canSplit(f, { online: isOnline.value, accountCurrency: acc?.currency, baseCurrency: baseCurrency.value, repeating: repeat.mode !== 'none' })
+})
+/** 編輯的是（或原本是）拆帳：存檔與刪除要處理整筆 */
+const splitId = computed(() => form.value?.split?.id ?? form.value?.splitWas ?? null)
+
 // 由固定收支產生的交易：連到規則（規則已刪除時 recurring_rule_id 為 null，不顯示）
 const sourceRule = computed(() => refs.rules.find((r) => r.id === txnDialog.txn?.recurring_rule_id) ?? null)
 function openSourceRule() {
@@ -89,7 +103,18 @@ watch(
     keepAdding.value = false
     continued.value = false
     if (txnDialog.txn) {
-      form.value = txnToForm(txnDialog.txn, txnDialog.txn.tags ?? [], ctx())
+      const t = txnDialog.txn
+      const f = txnToForm(t, t.tags ?? [], ctx())
+      const lines = t.split_lines ?? []
+      if (t.split_id && lines.length > 1) {
+        // 拆帳：表單 id＝第一行，金額＝總額
+        const c = ctx()
+        f.split = linesToSplit(t.split_id, lines, c)
+        f.id = lines[0].id
+        f.categoryId = lines[0].category_id
+        f.amount = toInputString(lines.reduce((sum, l) => sum + (l.amount ?? 0), 0), minorUnitOf(baseCurrency.value, c.currencies))
+      }
+      form.value = f
       return
     }
     form.value = createEmptyForm()
@@ -114,11 +139,13 @@ watch(
 async function save() {
   formRef.value?.flushTag()
   const { ok, errors: errs } = validateForm(form.value, ctx())
-  errors.value = errs
+  const sp = form.value.split ? validateSplit(form.value, ctx()) : { ok: true, errors: {} }
+  errors.value = { ...errs, ...sp.errors }
   const rp = validateRepeat(repeat, form.value.date)
   repeatErrors.value = rp.errors
-  if (!ok || !rp.ok) return nextTick(() => focusFirstInvalid(dialogEl.value))
+  if (!ok || !sp.ok || !rp.ok) return nextTick(() => focusFirstInvalid(dialogEl.value))
   if (repeat.mode !== 'none') return saveRule()
+  if (splitId.value) return saveSplit()
   const payload = formToPayload(form.value, ctx())
   const updated = editing.value
   const keepLocal = () => {
@@ -135,6 +162,31 @@ async function save() {
     done(updated ? '已更新' : '已儲存')
   } catch (e) {
     if (canQueue.value && (e.kind === 'offline' || e.kind === 'network')) return keepLocal()
+    failMessage.value = e.kind === 'offline' ? OFFLINE_MESSAGE : e.kind === 'invalid' ? e.message : '儲存失敗，請重試'
+  } finally {
+    saving.value = false
+  }
+}
+
+// 拆帳（或把原本的拆帳改回一般交易）：整筆一起存；不能離線暫存
+async function saveSplit() {
+  const f = form.value
+  const c = ctx()
+  const { txn, tagNames } = formToPayload({ ...f, split: null }, c)
+  const payload = f.split
+    ? splitToPayload(f, tagNames, c)
+    : { split: { id: f.splitWas, date: f.date, account_id: f.accountId, note: txn.note, lines: [{ id: f.id, category_id: f.categoryId, amount: txn.amount }] }, tagNames }
+  if (!isOnline.value) {
+    failMessage.value = OFFLINE_MESSAGE
+    return
+  }
+  saving.value = true
+  failMessage.value = ''
+  try {
+    await api.transactions.saveSplit(payload)
+    afterTransactionChange()
+    done(editing.value ? '已更新' : '已儲存')
+  } catch (e) {
     failMessage.value = e.kind === 'offline' ? OFFLINE_MESSAGE : e.kind === 'invalid' ? e.message : '儲存失敗，請重試'
   } finally {
     saving.value = false
@@ -158,7 +210,9 @@ async function saveRule() {
 }
 
 async function remove() {
-  if (!(await confirmDialog({ title: '刪除這筆交易？', message: '刪除後無法復原。', confirmText: '刪除' }))) return
+  const sid = splitId.value
+  const message = sid ? '拆帳的各行會一起刪除。刪除後無法復原。' : '刪除後無法復原。'
+  if (!(await confirmDialog({ title: '刪除這筆交易？', message, confirmText: '刪除' }))) return
   // 還沒同步的：只要從這台裝置的佇列移除
   if (queued.value) {
     dequeue(form.value.id)
@@ -169,7 +223,8 @@ async function remove() {
   saving.value = true
   failMessage.value = ''
   try {
-    await api.transactions.remove(form.value.id)
+    if (sid) await api.transactions.removeSplit(sid)
+    else await api.transactions.remove(form.value.id)
     closeTransaction()
     showToast('已刪除')
     afterTransactionChange()
@@ -272,6 +327,7 @@ function addFirstAccount() {
           :repeat-disabled="!repeatAllowed"
           :rule-link="sourceRule ? ruleLabel(sourceRule) : ''"
           :focus-amount="continued"
+          :split-disabled="splitDisabled"
           @open-rule="openSourceRule"
         >
           <template #actions>

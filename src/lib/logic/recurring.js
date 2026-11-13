@@ -73,7 +73,7 @@ export function repeatOptions(date, { allowNone = true } = {}) {
 
 /** 只有收入與支出可以設定重複；轉帳與外幣刷卡不行 */
 export function canRepeat(form) {
-  return (form.type === 'income' || form.type === 'expense') && !form.isForeign
+  return (form.type === 'income' || form.type === 'expense') && !form.isForeign && !form.split
 }
 
 /** 目前設定實際的週期單位（決定要不要顯示「遇週末」） */

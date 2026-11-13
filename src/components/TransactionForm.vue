@@ -7,6 +7,8 @@
 //   點了才在下一列（手機為日期下方）展開「重複」「結束」「遇週末」與自訂的間隔、星期幾，再點一次或選「不重複」收起。
 //   傳入 repeat（reactive）才有重複功能；ruleMode＝編輯規則（沒有圖示鈕、重複設定一直展開，日期改稱開始日、不能選轉帳與外幣）。
 //   ruleLink：這筆交易由固定收支產生時，圖示鈕為主色，點擊跳到該規則。
+// 拆帳（專案文件 claude/advance-and-split.md）：分類右邊一顆拆帳圖示鈕；點了「分類」變成多行「分類＋金額」
+//   （電腦版在下一列，手機排在分類的位置），「金額」改稱「總額」，最後一行自動補差額。只剩一行時變回一般交易。
 import { computed, ref, watch, onMounted } from 'vue'
 import Icon from './Icon.vue'
 import CategoryPicker from './CategoryPicker.vue'
@@ -17,6 +19,8 @@ import { isForeignForm, needsToAmount, normalizeTags, applyCategory, setCurrency
 import { formatEstimated, exchangeRate } from '../lib/logic/money.js'
 import { repeatOptions, showsWeekendAdjust, isoDow, WEEKDAY_CHIPS, UNIT_OPTIONS, END_OPTIONS, WEEKEND_OPTIONS } from '../lib/logic/recurring.js'
 import { parseAmount, minorUnitOf } from '../lib/logic/money.js'
+import { startSplit, endSplit, addLine, removeLine, editLineAmount, fillAuto, splitSums } from '../lib/logic/split.js'
+import { formatAmount } from '../lib/logic/display.js'
 
 const props = defineProps({
   form: { type: Object, required: true },
@@ -35,6 +39,8 @@ const props = defineProps({
   ruleLink: { type: String, default: '' },
   /** 新增時金額自動聚焦（手機一律；電腦版只在「再記一筆」開的新一筆） */
   focusAmount: Boolean,
+  /** 拆帳鈕停用（收入、轉帳、外幣刷卡、外幣帳戶、離線、設定了重複）；null＝不顯示拆帳鈕 */
+  splitDisabled: { type: Boolean, default: null },
 })
 defineEmits(['open-rule'])
 
@@ -87,6 +93,26 @@ function toggleRepeat() {
 function toggleWeekday(iso) {
   rp.weekdays = rp.weekdays.includes(iso) ? rp.weekdays.filter((x) => x !== iso) : [...rp.weekdays, iso]
 }
+
+// 拆帳
+const splitOn = computed(() => !!f.split)
+function toggleSplit() {
+  if (f.split) endSplit(f)
+  else startSplit(f, ctx.value)
+}
+// 總額改了 → 重算自動補差額的那一行
+watch(() => f.amount, () => splitOn.value && fillAuto(f, ctx.value))
+const lineError = (i) => props.errors.lines?.[i] ?? {}
+const splitHint = computed(() => {
+  if (!f.split) return ''
+  if (props.errors.splitSum) return props.errors.splitSum
+  const first = (props.errors.lines ?? []).map((e) => e.categoryId || e.amount).find(Boolean)
+  if (first) return first
+  const { total, diff } = splitSums(f, ctx.value)
+  if (total === null || Number.isNaN(total) || diff === null || diff === 0) return ''
+  return `${diff > 0 ? '還差' : '多了'} ${formatAmount(Math.abs(diff), accCur.value, refs.currencies)}`
+})
+const splitHintError = computed(() => !!(props.errors.splitSum || props.errors.lines))
 
 // 「金額」欄位：外幣刷卡時為原幣金額
 const amountModel = computed({
@@ -182,15 +208,33 @@ defineExpose({ flushTag })
       </FormField>
 
       <FormField label="分類" as="div" class="f-cat" :error="errors.categoryId || errors.type">
-        <CategoryPicker
-          :type="f.type"
-          :category-id="f.categoryId"
-          :categories="refs.categories"
-          :invalid="!!(errors.categoryId || errors.type)"
-          :no-transfer="ruleMode"
-          @pick="applyCategory(f, $event)"
-        />
+        <div class="cat-row">
+          <CategoryPicker
+            v-if="!splitOn"
+            :type="f.type"
+            :category-id="f.categoryId"
+            :categories="refs.categories"
+            :invalid="!!(errors.categoryId || errors.type)"
+            :no-transfer="ruleMode"
+            @pick="applyCategory(f, $event)"
+          />
+          <!-- 拆帳圖示鈕：大部分交易不拆，平常灰色；拆帳中為主色，再點一次取消（保留第一行的分類） -->
+          <button
+            v-if="splitDisabled !== null"
+            type="button"
+            class="repeat-btn split-btn"
+            :class="{ on: splitOn }"
+            :disabled="splitDisabled && !splitOn"
+            :aria-pressed="splitOn"
+            aria-label="拆帳"
+            :title="splitOn ? '取消拆帳' : splitDisabled ? '只有台幣支出可以拆帳（離線、外幣、重複時不行）' : '拆帳：一筆消費分成多個分類'"
+            @click="toggleSplit"
+          >
+            <Icon name="call_split" :size="20" :color="splitOn ? 'var(--color-primary)' : 'var(--color-text)'" />
+          </button>
+        </div>
       </FormField>
+
 
       <FormField :label="ruleMode ? '開始日' : '日期'" as="div" class="f-date" :error="errors.date" :hint="lockDate ? '已產生過交易，不能改' : ''">
         <div class="date-row">
@@ -246,7 +290,7 @@ defineExpose({ flushTag })
         </div>
       </FormField>
 
-      <FormField :label="showToAmount ? '轉出金額' : '金額'" class="w-amount f-amount" :error="amountError">
+      <FormField :label="showToAmount ? '轉出金額' : splitOn ? '總額' : '金額'" class="w-amount f-amount" :error="amountError">
         <TextInput ref="amountEl" v-model="amountModel" inputmode="decimal" :invalid="!!amountError" placeholder="0" />
         <span v-if="foreign && !f.amount && estimate !== undefined" class="caption" :class="estimate === null ? 'c-expense' : 'c-supply'">
           {{ estimate === null ? '無法預估：請到「設定」填寫預設匯率' : formatEstimated(estimate, accCur, refs.currencies) }}
@@ -258,8 +302,43 @@ defineExpose({ flushTag })
       </FormField>
 
       <FormField label="幣別" as="div" class="w-currency f-currency" :error="errors.originalCurrency">
-        <SelectMenu v-model="currency" :options="currencyItems" :disabled="f.type !== 'expense' || ruleMode" :invalid="!!errors.originalCurrency" />
+        <SelectMenu v-model="currency" :options="currencyItems" :disabled="f.type !== 'expense' || ruleMode || splitOn" :invalid="!!errors.originalCurrency" />
       </FormField>
+
+      <!-- 拆帳的各行：電腦版換到下一列，手機排在分類下方 -->
+      <div v-if="splitOn" class="split-row f-split">
+        <div v-for="(l, i) in f.split.lines" :key="l.id" class="split-line">
+          <CategoryPicker
+            class="sl-cat"
+            type="expense"
+            :category-id="l.categoryId"
+            :categories="refs.categories"
+            :invalid="!!lineError(i).categoryId"
+            only-expense
+            show-label
+            @pick="l.categoryId = $event.categoryId"
+          />
+          <TextInput
+            class="sl-amount"
+            :class="{ auto: l.auto }"
+            :model-value="l.amount"
+            inputmode="decimal"
+            placeholder="0"
+            :aria-label="`第 ${i + 1} 行金額`"
+            :invalid="!!lineError(i).amount"
+            @update:model-value="editLineAmount(f, i, $event, ctx)"
+          />
+          <button type="button" class="line-del" :aria-label="`刪除第 ${i + 1} 行`" title="刪除這一行" @click="removeLine(f, i, ctx)">
+            <Icon name="close" :size="16" color="var(--color-text)" />
+          </button>
+        </div>
+        <div class="split-foot">
+          <button type="button" class="add-line body2" @click="addLine(f, ctx)">
+            <Icon name="add" :size="16" color="var(--color-primary)" />新增一行
+          </button>
+          <span v-if="splitHint" class="caption" :class="splitHintError ? 'c-expense' : 'c-supply'">{{ splitHint }}</span>
+        </div>
+      </div>
 
       <!-- 重複的附帶設定：選了週期才出現；電腦版換到下一列，手機排在「重複」下方 -->
       <div v-if="repeating" class="repeat-row">
@@ -334,6 +413,17 @@ defineExpose({ flushTag })
 .repeat-btn:not(:disabled):hover { border-color: var(--color-line-hover); }
 .repeat-btn.on { border-color: var(--color-primary); }
 .w-note { width: 200px; }
+.cat-row { display: flex; gap: var(--sp-8); align-items: center; }
+/* 拆帳的各行換到下一列；width: 0 讓它不撐寬對話框 */
+.split-row { display: flex; flex-direction: column; gap: var(--sp-8); width: 0; min-width: 100%; }
+.split-line { display: flex; gap: var(--sp-8); align-items: center; }
+.sl-cat { width: 200px; }
+.sl-amount { width: 120px; }
+.sl-amount.auto { color: var(--color-text); }
+.line-del { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--r-8); }
+.line-del:hover { background: var(--color-tag); }
+.split-foot { display: flex; align-items: center; gap: var(--sp-16); }
+.add-line { display: inline-flex; align-items: center; gap: var(--sp-4); height: 32px; color: var(--color-primary); }
 .w-tags { min-width: 150px; max-width: 320px; flex: 0 0 auto; }
 .w-amount { width: 100px; }
 .w-currency { width: 100px; }
@@ -385,6 +475,11 @@ defineExpose({ flushTag })
   .f-currency { order: 2; grid-column: 2; }
   .f-toamount { order: 3; }
   .f-cat { order: 4; }
+  .f-split { order: 4; width: auto; min-width: 0; }
+  .sl-cat { flex: 1; width: auto; min-width: 0; }
+  .sl-amount { width: 104px; }
+  .line-del { width: 44px; height: 44px; }
+  .add-line { height: 44px; }
   .f-account { order: 5; }
   .f-to { order: 6; }
   .f-date { order: 7; }
