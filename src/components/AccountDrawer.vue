@@ -5,7 +5,7 @@
 // 外幣帳戶（例如日幣現金）照類型放在該組，餘額以自身幣別顯示（不另加標示），不算進淨資產與小計。
 // 只有負債類型（信用卡）的組標題右側顯示小計。
 // 滑過（或鍵盤聚焦）列時：左側出現拖曳把手（位置預設留好，不擠動名稱）、右側出現編輯；沒有交易使用的帳戶多一個垃圾桶。觸控裝置一律顯示。帳戶不能停用。
-// 拖曳排序：按住把手只能在同一類型裡上下移動，放開就儲存（失敗跳錯誤 toast 並還原）；把手聚焦時 ↑↓ 也能移動。
+// 拖曳排序：電腦按住把手、觸控長按整列任何地方；只能在同一類型裡上下移動，放開就儲存（失敗跳錯誤 toast 並還原）；把手聚焦時 ↑↓ 也能移動。
 // 編輯框開著時不能拖曳。這個版面沒有 Figma 稿，直接實作後截圖確認。
 // 編輯框同時只開一個：編輯就地取代該列；新增出現在清單最下方「新增帳戶」按鈕上方。
 // 離開編輯框（Esc、取消、關閉側選單、點帳戶、改編輯別的帳戶）時，改過內容先問「放棄編輯？」。
@@ -93,36 +93,83 @@ const canDrag = (g) => g.accounts.length > 1 && !editingId.value && !busy.value
 const drag = reactive({ id: null, ids: [], tops: [], heights: [], from: 0, to: 0, startY: 0, dy: 0 })
 const settling = ref(false) // 放開後的那一格畫面不要動畫，避免列從位移處滑回來
 
-function startDrag(e, a) {
-  if (e.button !== 0 || drag.id) return
-  const groupEl = e.currentTarget.closest('.group')
-  const rows = [...groupEl.querySelectorAll('.row.item')]
+/** 開始拖曳：記下組內各列（原順序）的位置 */
+function beginDrag(rowEl, id, clientY) {
+  const rows = [...rowEl.closest('.group').querySelectorAll('.row.item')]
   const rects = rows.map((r) => r.getBoundingClientRect())
   Object.assign(drag, {
-    id: a.id,
+    id,
     ids: rows.map((r) => r.dataset.id),
     tops: rects.map((r) => r.top),
     heights: rects.map((r) => r.height),
-    startY: e.clientY,
+    startY: clientY,
     dy: 0,
   })
-  drag.from = drag.to = drag.ids.indexOf(a.id)
-  e.preventDefault()
-  e.currentTarget.setPointerCapture?.(e.pointerId)
+  drag.from = drag.to = drag.ids.indexOf(id)
 }
-function moveDrag(e) {
+function dragTo(clientY) {
   if (!drag.id) return
   const { tops, heights, from } = drag
   const last = tops.length - 1
   // 只能在組內移動
   const min = tops[0] - tops[from]
   const max = tops[last] + heights[last] - (tops[from] + heights[from])
-  drag.dy = Math.max(min, Math.min(max, e.clientY - drag.startY))
+  drag.dy = Math.max(min, Math.min(max, clientY - drag.startY))
   // 被拖的列上緣越過上面一列的中線就換位；往下則看下緣
   const top = tops[from] + drag.dy
   const bottom = top + heights[from]
   drag.to = tops.filter((t, i) => i !== from && t + heights[i] / 2 < (i < from ? top : bottom)).length
 }
+
+// 滑鼠：按住把手拖（觸控改用下方的長按）
+function startDrag(e, a) {
+  if (e.pointerType === 'touch' || e.button !== 0 || drag.id) return
+  e.preventDefault()
+  beginDrag(e.currentTarget, a.id, e.clientY)
+  e.currentTarget.setPointerCapture?.(e.pointerId)
+}
+function moveDrag(e) {
+  if (e.pointerType !== 'touch') dragTo(e.clientY)
+}
+
+// 觸控：長按整列任何地方開始拖；長按前手指移動＝捲動，取消長按
+const LONG_PRESS_MS = 350
+const MOVE_TOLERANCE = 8
+let press = null // { timer, x, y }
+function onTouchStart(e, g, a) {
+  if (!canDrag(g) || drag.id || e.touches.length !== 1) return
+  const t = e.touches[0]
+  const rowEl = e.currentTarget
+  press = {
+    x: t.clientX,
+    y: t.clientY,
+    timer: setTimeout(() => {
+      press = null
+      beginDrag(rowEl, a.id, t.clientY)
+      navigator.vibrate?.(10)
+    }, LONG_PRESS_MS),
+  }
+}
+function onTouchMove(e) {
+  const t = e.touches[0]
+  if (drag.id) {
+    e.preventDefault() // 拖曳中不捲動
+    dragTo(t.clientY)
+  } else if (press && Math.hypot(t.clientX - press.x, t.clientY - press.y) > MOVE_TOLERANCE) {
+    cancelPress()
+  }
+}
+function onTouchEnd(e) {
+  cancelPress()
+  if (!drag.id) return
+  e.preventDefault() // 放開時不要觸發點選（篩選帳戶）
+  endDrag()
+}
+function cancelPress() {
+  if (press) clearTimeout(press.timer)
+  press = null
+}
+onBeforeUnmount(cancelPress)
 async function endDrag() {
   if (!drag.id) return
   const { id, to } = drag
@@ -232,7 +279,18 @@ watch(
         </p>
         <template v-for="a in g.accounts" :key="a.id">
           <AccountEditor v-if="editingId === a.id" :ref="setEditor" :account="a" @done="editingId = null" @cancel="editingId = null" />
-          <div v-else class="row item" :class="{ on: filters.accountId === a.id, lifted: drag.id === a.id }" :data-id="a.id" :style="rowStyle(a.id)">
+          <div
+            v-else
+            class="row item"
+            :class="{ on: filters.accountId === a.id, lifted: drag.id === a.id }"
+            :data-id="a.id"
+            :style="rowStyle(a.id)"
+            @touchstart="onTouchStart($event, g, a)"
+            @touchmove="onTouchMove"
+            @touchend="onTouchEnd"
+            @touchcancel="onTouchEnd"
+            @contextmenu="canDrag(g) && $event.preventDefault()"
+          >
             <!-- 整列可點（選帳戶）；把手與操作圖示疊在其上 -->
             <button class="pick" type="button" :aria-label="`只看「${a.name}」`" @click="select(a.id)" />
             <button
@@ -331,8 +389,9 @@ watch(
 @media (hover: none), (pointer: coarse) {
   .actions { display: flex; gap: 0; padding: 0; margin: -10px -10px -10px 0; }
   .actions :deep(.icon-button) { width: 44px; height: 44px; }
-  /* 把手常駐，點擊範圍加寬（視覺位置不變） */
-  .handle { visibility: visible; }
+  /* 把手常駐當提示；觸控是長按整列拖曳，把手本身不攔捲動 */
+  .handle { visibility: visible; touch-action: auto; cursor: default; }
+  .row.item { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
   .handle, .handle-spacer { width: 32px; margin-left: -12px; margin-right: -16px; }
 }
 
