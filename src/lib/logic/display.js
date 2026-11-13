@@ -54,9 +54,23 @@ const CATEGORY_ICONS = {
 }
 const FALLBACK_ICON = { expense: 'otherExpense', income: 'otherIncome' }
 
+/**
+ * 補上 parent_icon：小分類沒選圖示時沿用大分類的圖示（兩層分類，需求 3.3）。
+ * 回傳新陣列，不改原本的物件。
+ */
+export function withParentIcons(categories) {
+  const byId = new Map(categories.map((c) => [c.id, c]))
+  return categories.map((c) => {
+    const p = c.parent_id ? byId.get(c.parent_id) : null
+    return p ? { ...c, parent_icon: categoryIcon(p) } : c
+  })
+}
+
 export function categoryIcon(category) {
   if (!category) return 'category'
   if (category.icon && CATEGORY_ICON_KEYS.has(category.icon)) return category.icon
+  // 小分類沒選圖示：沿用大分類（api.categories.list 會帶上 parent_icon）
+  if (category.parent_icon) return category.parent_icon
   return CATEGORY_ICONS[category.kind]?.[category.name] ?? FALLBACK_ICON[category.kind] ?? 'category'
 }
 

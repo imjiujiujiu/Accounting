@@ -43,16 +43,40 @@ describe('demo：沒有交易使用的標籤自動刪除', () => {
 })
 
 // 示範模式比照資料庫 delete_category
+describe('demo：兩層分類', () => {
+  it('小分類沒選圖示時沿用大分類；有小分類的大分類不能記帳', async () => {
+    const api = createDemoApi()
+    const cats = await api.categories.list()
+    const other = cats.find((c) => c.name === '其他餐飲')
+    const food = cats.find((c) => c.name === '餐飲' && c.kind === 'expense')
+    expect(other.parent_id).toBe(food.id)
+    expect(other.parent_icon).toBeTruthy()
+    const acc = (await api.accounts.list())[0]
+    await expect(
+      api.transactions.save({ txn: { id: crypto.randomUUID(), date: '2026-11-01', type: 'expense', account_id: acc.id, category_id: food.id, amount: 10 } }),
+    ).rejects.toMatchObject({ message: '「餐飲」已有小分類，請選擇小分類' })
+  })
+
+  it('最近使用：依建立時間、不重複、不含固定收支產生的', async () => {
+    const api = createDemoApi()
+    const ids = await api.categories.recent('expense')
+    expect(ids[0]).toBe('c-expense-午餐')
+    expect(new Set(ids).size).toBe(ids.length)
+    expect(ids.length).toBeLessThanOrEqual(5)
+    expect(await api.categories.recent('income')).toEqual([])
+  })
+})
+
 describe('demo：刪除分類', () => {
   it('交易改為「其他」並加上同名標籤', async () => {
     const api = createDemoApi()
     const cats = await api.categories.list()
-    const food = cats.find((c) => c.kind === 'expense' && c.name === '餐飲')
+    const food = cats.find((c) => c.kind === 'expense' && c.name === '交通')
     const other = cats.find((c) => c.kind === 'expense' && c.name === '其他')
     const before = (await api.transactions.list({ types: ['expense'], categoryIds: [food.id] })).rows.filter((t) => t.category_id === food.id).length
     expect(before).toBeGreaterThan(0)
-    expect(await api.categories.remove(food.id)).toEqual({ movedTxns: before, movedRules: 1 })
-    const tag = (await api.tags.list()).find((t) => t.name === '餐飲')
+    expect(await api.categories.remove(food.id)).toEqual({ movedTxns: before, movedRules: 0 })
+    const tag = (await api.tags.list()).find((t) => t.name === '交通')
     const { rows } = await api.transactions.list({ tagIds: [tag.id] })
     expect(rows).toHaveLength(before)
     expect(rows.every((t) => t.category_id === other.id)).toBe(true)

@@ -7,6 +7,7 @@ import { today, addDays } from '../logic/period.js'
 import { DEFAULT_CURRENCIES, minorUnitOf } from '../logic/money.js'
 import { computeTripParts } from '../logic/trip.js'
 import { nextOccurrence, adjustWeekend, isRuleFinished } from '../logic/recurring.js'
+import { withParentIcons } from '../logic/display.js'
 
 const uid = () => crypto.randomUUID()
 const clone = (x) => JSON.parse(JSON.stringify(x))
@@ -33,7 +34,18 @@ function seed() {
     ['投資', 'expense', 9], ['送禮', 'expense', 10], ['寵物', 'expense', 11, 'pets'], ['其他', 'expense', 99],
     ['薪水', 'income', 1], ['回饋', 'income', 2], ['投資', 'income', 3], ['其他', 'income', 99],
   ]
-  const categories = cats.map(([name, kind, sort_order, icon = null]) => ({ id: `c-${kind}-${name}`, name, kind, sort_order, is_active: true, icon }))
+  // 兩層分類：[小分類, 大分類, 排序, 圖示]（只示範支出；「其他X」比照資料庫自動建立的名稱）
+  const subs = [
+    ['早餐', '餐飲', 1, 'bakery_dining'], ['午餐', '餐飲', 2, 'bento'], ['晚餐', '餐飲', 3, 'ramen_dining'],
+    ['飲料', '餐飲', 4, 'local_cafe'], ['食材', '餐飲', 5, 'grocery'], ['其他餐飲', '餐飲', 99],
+    ['服飾', '購物', 1, 'checkroom'], ['美妝保養', '購物', 2, 'spa'], ['3C', '購物', 3, 'devices'], ['其他購物', '購物', 99],
+  ]
+  const categories = [
+    ...cats.map(([name, kind, sort_order, icon = null]) => ({ id: `c-${kind}-${name}`, name, kind, sort_order, is_active: true, icon, parent_id: null })),
+    ...subs.map(([name, parent, sort_order, icon = null]) => ({
+      id: `c-expense-${name}`, name, kind: 'expense', sort_order, is_active: true, icon, parent_id: `c-expense-${parent}`,
+    })),
+  ]
   const c = (kind, name) => `c-${kind}-${name}`
 
   const tags = [{ id: 't-lunch', name: '午餐' }, { id: 't-jeju', name: '濟州生日慶' }]
@@ -44,19 +56,19 @@ function seed() {
     recurring_rule_id: null, occurrence_date: null, ...o,
   })
   const transactions = [
-    tx({ date: d(0), type: 'expense', account_id: 'a-cash', category_id: c('expense', '餐飲'), amount: 120, note: '便當', tags: ['t-lunch'], created_at: at(10) }),
-    tx({ date: d(0), type: 'expense', account_id: 'a-cube', category_id: c('expense', '餐飲'), amount: 55, note: '清心', created_at: at(20) }),
-    tx({ date: d(1), type: 'income', account_id: 'a-esun', category_id: c('income', '薪水'), amount: 49738, note: '薪水', recurring_rule_id: 'r-salary', created_at: at(1500) }),
+    tx({ date: d(0), type: 'expense', account_id: 'a-cash', category_id: c('expense', '午餐'), amount: 120, note: '便當', tags: ['t-lunch'], created_at: at(10) }),
+    tx({ date: d(0), type: 'expense', account_id: 'a-cube', category_id: c('expense', '飲料'), amount: 55, note: '清心', created_at: at(20) }),
+    tx({ date: d(1), type: 'income', account_id: 'a-esun', category_id: c('income', '薪水'), amount: 49738, note: '薪水', recurring_rule_id: 'r-salary', occurrence_date: d(1), created_at: at(1500) }),
     tx({ date: d(1), type: 'expense', account_id: 'a-cube', category_id: c('expense', '交通'), estimated_amount: 455,
       original_amount: 19100, original_currency: 'KRW', note: 'KakaoT：飯店 -> 機場', tags: ['t-jeju'], created_at: at(1510) }),
     tx({ date: d(1), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-krw', amount: 12375, to_amount: 520000, note: '2025 特休換錢', tags: ['t-jeju'], created_at: at(1520) }),
-    tx({ date: d(1), type: 'expense', account_id: 'a-richart', category_id: c('expense', '購物'), estimated_amount: 326,
+    tx({ date: d(1), type: 'expense', account_id: 'a-richart', category_id: c('expense', '美妝保養'), estimated_amount: 326,
       original_amount: 13690, original_currency: 'KRW', note: '機場免稅店', tags: ['t-jeju'], created_at: at(1530) }),
-    tx({ date: d(1), type: 'expense', account_id: 'a-richart', category_id: c('expense', '購物'), estimated_amount: 281,
+    tx({ date: d(1), type: 'expense', account_id: 'a-richart', category_id: c('expense', '其他購物'), estimated_amount: 281,
       original_amount: 11800, original_currency: 'KRW', note: '機場免稅店', tags: ['t-jeju'], created_at: at(1540) }),
     tx({ date: d(2), type: 'expense', account_id: 'a-richart', category_id: c('expense', '交通'), amount: 240, fee: 6,
       original_amount: 10320, original_currency: 'KRW', note: '儲值 Tmoney', tags: ['t-jeju'], settled_at: at(100), created_at: at(3000) }),
-    tx({ date: d(2), type: 'expense', account_id: 'a-krw', category_id: c('expense', '餐飲'), amount: 26300, note: '清沙浦小吃', tags: ['t-jeju'], created_at: at(3010) }),
+    tx({ date: d(2), type: 'expense', account_id: 'a-krw', category_id: c('expense', '晚餐'), amount: 26300, note: '清沙浦小吃', tags: ['t-jeju'], created_at: at(3010) }),
     tx({ date: d(2), type: 'expense', account_id: 'a-linepay', category_id: c('expense', '娛樂'), amount: 280, note: '電影', created_at: at(3020) }),
     tx({ date: d(40), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-cube', amount: 3200, to_amount: 3200, note: '繳 Cube 卡費', created_at: at(60000) }),
   ]
@@ -76,9 +88,9 @@ function seed() {
       freq: 'monthly', month_day: 1, start_date: monthStart(3) }),
     rule({ id: 'r-salary', type: 'income', account_id: 'a-esun', category_id: c('income', '薪水'), amount: 49738, note: '薪水',
       freq: 'monthly', month_day: 5, weekend_adjust: 'before', start_date: monthStart(3).slice(0, 8) + '05' }),
-    rule({ id: 'r-lunch', type: 'expense', account_id: 'a-cash', category_id: c('expense', '餐飲'), amount: 450, note: '訂便當',
+    rule({ id: 'r-lunch', type: 'expense', account_id: 'a-cash', category_id: c('expense', '午餐'), amount: 450, note: '訂便當',
       freq: 'weekly', weekdays: [1], start_date: d(60) }),
-    rule({ id: 'r-laptop', type: 'expense', account_id: 'a-cube', category_id: c('expense', '購物'), amount: 3500, note: '筆電分期',
+    rule({ id: 'r-laptop', type: 'expense', account_id: 'a-cube', category_id: c('expense', '3C'), amount: 3500, note: '筆電分期',
       freq: 'monthly', month_day: 15, start_date: monthStart(13).slice(0, 8) + '15', max_count: 12, generated_count: 12 }),
   ]
   return { accounts, categories, tags, transactions, rules, defaultRates: [{ currency: 'JPY', rate: 0.21 }] }
@@ -89,6 +101,13 @@ export function createDemoApi() {
   // 網址加 ?delay=毫秒（例：?delay=3000#/）可放慢回應，用來檢查骨架屏等讀取中畫面
   const ms = (typeof location !== 'undefined' && Number(new URLSearchParams(location.search).get('delay'))) || 80
   const delay = (v) => new Promise((r) => setTimeout(() => r(clone(v)), ms))
+  // 比照資料庫 require_leaf_category：交易與固定收支只能用最底層的分類
+  const assertLeaf = (categoryId) => {
+    if (categoryId && db.categories.some((x) => x.parent_id === categoryId)) {
+      const name = db.categories.find((x) => x.id === categoryId)?.name
+      throw new ApiError('invalid', `「${name}」已有小分類，請選擇小分類`)
+    }
+  }
 
   const derive = (t) => {
     const is_pending = t.original_amount != null && t.amount == null
@@ -185,6 +204,7 @@ export function createDemoApi() {
       async save({ txn, tagNames = [] }) {
         const prev = db.transactions.find((x) => x.id === txn.id)
         const row = { ...(prev ?? { created_at: new Date().toISOString() }), ...txn }
+        assertLeaf(row.category_id)
         if (row.type === 'transfer' && row.to_amount == null) row.to_amount = row.amount
         if (row.original_amount != null && row.amount != null) {
           if (!prev || prev.amount == null) row.settled_at = new Date().toISOString()
@@ -279,11 +299,23 @@ export function createDemoApi() {
             const txn_count = db.transactions.filter((t) => t.category_id === c.id).length
             return { ...c, txn_count, rule_count: db.rules.filter((r) => r.category_id === c.id).length, canDelete: c.name !== '其他' }
           }),
-        )
+        ).then(withParentIcons)
+      },
+      // 比照資料庫 recent_categories：依建立時間、不含固定收支產生的交易
+      async recent(kind, limit = 5) {
+        const seen = []
+        const rows = [...db.transactions]
+          .filter((t) => t.type === kind && t.category_id && !t.occurrence_date)
+          .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)))
+        for (const t of rows) {
+          if (!seen.includes(t.category_id)) seen.push(t.category_id)
+          if (seen.length >= limit) break
+        }
+        return delay(seen)
       },
       async create({ name, kind, sort_order = 50, icon = null }) {
         if (db.categories.some((c) => c.kind === kind && c.name === name.trim())) throw new ApiError('duplicate', '已有同名分類')
-        const row = { id: uid(), name: name.trim(), kind, sort_order, is_active: true, icon }
+        const row = { id: uid(), name: name.trim(), kind, sort_order, is_active: true, icon, parent_id: null }
         db.categories.push(row)
         return delay(row)
       },
