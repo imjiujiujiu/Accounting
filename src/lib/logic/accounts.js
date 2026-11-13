@@ -3,10 +3,6 @@
 //   外幣帳戶（例如日幣現金錢包）以自身幣別另列一區，不計入合計。
 //   餘額沿用帳戶清單的 balance（預估中的外幣刷卡以預估值計入）。
 
-// 代墊帳戶（需求 3.2）：以名稱辨認。選代墊帳戶時，清單金額不論是否為轉帳，一律依正負上色（正數綠、負數粉紅）。
-export const ADVANCE_ACCOUNT_NAME = '代墊'
-export const isAdvanceAccount = (account) => account?.name?.trim() === ADVANCE_ACCOUNT_NAME
-
 const byOrder = (a, b) => a.sort_order - b.sort_order
 
 /**
