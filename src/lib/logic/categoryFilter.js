@@ -6,10 +6,18 @@
 //   - 'transfer' 在 types 裡 → 轉帳
 //   - 都沒勾 → 不篩選
 // 「全部」不存分類清單，送出查詢時才展開，所以之後新增的分類也會自動包含。
+// 兩層分類（需求 3.3）：categoryIds 只放最底層（小分類、沒拆的大分類）；有小分類的大分類在選單上＝勾整組，
+// 狀態由底下的小分類推算（全勾／部分＝減號／沒勾）。
 
 const KINDS = ['expense', 'income']
 
-const idsOfKind = (categories, kind) => categories.filter((c) => c.kind === kind).map((c) => c.id)
+const hasChildren = (categories) => new Set(categories.map((c) => c.parent_id).filter(Boolean))
+/** 某收支所有「最底層」分類的 id */
+const idsOfKind = (categories, kind) => {
+  const parents = hasChildren(categories)
+  return categories.filter((c) => c.kind === kind && !parents.has(c.id)).map((c) => c.id)
+}
+const childIds = (parent, categories) => categories.filter((c) => c.parent_id === parent.id).map((c) => c.id)
 
 /** 某收支群組的狀態：'all' | 'some' | 'none' */
 export function groupState(kind, f, categories) {
@@ -48,6 +56,25 @@ export function toggleCategory(category, f, categories) {
   const all = idsOfKind(categories, kind)
   const current = all.filter((x) => isCategoryChecked({ kind, id: x }, f, categories))
   const picked = current.includes(id) ? current.filter((x) => x !== id) : [...current, id]
+  return setKind(kind, picked, f, categories)
+}
+
+/** 有小分類的大分類：'all' | 'some' | 'none'（依底下小分類的勾選） */
+export function parentState(parent, f, categories) {
+  const ids = childIds(parent, categories)
+  const on = ids.filter((id) => isCategoryChecked({ kind: parent.kind, id }, f, categories)).length
+  return on === 0 ? 'none' : on === ids.length ? 'all' : 'some'
+}
+
+/** 點有小分類的大分類：整組全勾 → 整組取消；否則整組勾起來 */
+export function toggleParent(parent, f, categories) {
+  const { kind } = parent
+  const ids = new Set(childIds(parent, categories))
+  const current = idsOfKind(categories, kind).filter((x) => isCategoryChecked({ kind, id: x }, f, categories))
+  const picked =
+    parentState(parent, f, categories) === 'all'
+      ? current.filter((x) => !ids.has(x))
+      : [...new Set([...current, ...ids])]
   return setKind(kind, picked, f, categories)
 }
 

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   groupState, isCategoryChecked, toggleGroup, toggleCategory, toggleTransfer, selectionCount, toQueryFilters,
+  parentState, toggleParent,
 } from './categoryFilter.js'
 
 const cats = [
@@ -72,5 +73,44 @@ describe('分類篩選（合併類型）', () => {
     expect(f.types).toEqual(['transfer'])
     expect(selectionCount(f, cats)).toBe(1)
     expect(toggleTransfer(f).types).toEqual([])
+  })
+})
+
+describe('分類篩選：兩層分類', () => {
+  const tree = [
+    { id: 'meal', kind: 'expense' },
+    { id: 'lunch', kind: 'expense', parent_id: 'meal' },
+    { id: 'dinner', kind: 'expense', parent_id: 'meal' },
+    { id: 'bus', kind: 'expense' },
+    { id: 'salary', kind: 'income' },
+  ]
+  const meal = tree[0]
+
+  it('勾大分類＝勾整組小分類；全勾時再點＝整組取消', () => {
+    let f = apply(empty, toggleParent(meal, empty, tree))
+    expect(groupState('expense', f, tree)).toBe('some')
+    expect(f.categoryIds.sort()).toEqual(['dinner', 'lunch'])
+    expect(parentState(meal, f, tree)).toBe('all')
+    expect(selectionCount(f, tree)).toBe(2)
+    f = apply(f, toggleParent(meal, f, tree))
+    expect(f).toEqual(empty)
+  })
+
+  it('只勾一個小分類＝大分類顯示減號；再點大分類補齊整組', () => {
+    let f = apply(empty, toggleCategory(tree[1], empty, tree))
+    expect(parentState(meal, f, tree)).toBe('some')
+    f = apply(f, toggleParent(meal, f, tree))
+    expect(parentState(meal, f, tree)).toBe('all')
+  })
+
+  it('最底層全部勾滿 → 變成「全部」；查詢不含大分類本身', () => {
+    let f = apply(empty, toggleParent(meal, empty, tree))
+    f = apply(f, toggleCategory(tree[3], f, tree))
+    expect(f).toEqual({ types: ['expense'], categoryIds: [] })
+    expect(groupState('expense', f, tree)).toBe('all')
+    expect(parentState(meal, f, tree)).toBe('all')
+    let g = apply(empty, toggleParent(meal, empty, tree))
+    g = apply(g, toggleGroup('income', g, tree))
+    expect(toQueryFilters(g, tree).categoryIds.sort()).toEqual(['dinner', 'lunch', 'salary'])
   })
 })

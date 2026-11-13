@@ -9,7 +9,9 @@ import { BaseButton } from './ui/index.js'
 import { filters, refs } from '../lib/store.js'
 import {
   groupState, isCategoryChecked, toggleGroup, toggleCategory, toggleTransfer, selectionCount,
+  parentState, toggleParent,
 } from '../lib/logic/categoryFilter.js'
+import { categoryTree, leafCategories } from '../lib/logic/categoryTree.js'
 
 // 標籤 10 個以上才顯示搜尋框（需求 3.4）
 const TAG_SEARCH_MIN = 10
@@ -23,23 +25,26 @@ watch(keyword, (v) => {
 watch(() => filters.keyword, (v) => v !== keyword.value && (keyword.value = v))
 
 // ---- 分類：支出／收入各有「全部」，轉帳一個選項 ----
+// 兩層分類：樹狀列出（小分類縮排、全部展開）；有小分類的大分類＝勾整組（部分選取顯示減號）
 const GROUP_STATE = { all: 'on', some: 'mixed', none: 'off' }
-const sortedCats = (kind) =>
-  refs.categories
-    .filter((c) => c.kind === kind)
-    .sort((a, b) => a.sort_order - b.sort_order)
+/** 最底層分類達到這個數量才顯示搜尋框 */
+const CATEGORY_SEARCH_MIN = 10
 
 const categoryGroups = computed(() => {
   const f = { types: filters.types, categoryIds: filters.categoryIds }
+  const cats = refs.categories
   const kindGroup = (kind, name) => ({
     name,
     items: [
-      { key: `all:${kind}`, label: '全部', state: GROUP_STATE[groupState(kind, f, refs.categories)] },
-      ...sortedCats(kind).map((c) => ({
-        key: c.id,
-        label: c.name,
-        state: isCategoryChecked(c, f, refs.categories) ? 'on' : 'off',
-      })),
+      { key: `all:${kind}`, label: '全部', state: GROUP_STATE[groupState(kind, f, cats)] },
+      ...categoryTree(cats, kind).flatMap(({ category, children }) =>
+        children.length
+          ? [
+              { key: `parent:${category.id}`, label: category.name, state: GROUP_STATE[parentState(category, f, cats)], head: true },
+              ...children.map((c) => ({ key: c.id, label: c.name, state: isCategoryChecked(c, f, cats) ? 'on' : 'off', indent: true })),
+            ]
+          : [{ key: category.id, label: category.name, state: isCategoryChecked(category, f, cats) ? 'on' : 'off' }],
+      ),
     ],
   })
   return [
@@ -49,12 +54,33 @@ const categoryGroups = computed(() => {
   ]
 })
 const categoryCount = computed(() => selectionCount(filters, refs.categories))
+const categorySearchable = computed(
+  () => leafCategories(refs.categories, 'expense').length + leafCategories(refs.categories, 'income').length >= CATEGORY_SEARCH_MIN,
+)
+/**
+ * 手機面板的分類：同一收支內，沒拆的大分類放同一排圓角鈕；有小分類的大分類自成一段
+ * （大分類一顆鈕在上，小分類縮排排在下一行）
+ */
+function pillBlocks(items) {
+  const blocks = []
+  let cur = null
+  for (const o of items) {
+    if (o.head) blocks.push((cur = { key: o.key, head: o, items: [] }))
+    else if (o.indent && cur?.head) cur.items.push(o)
+    else {
+      if (!cur || cur.head) blocks.push((cur = { key: `b-${o.key}`, head: null, items: [] }))
+      cur.items.push(o)
+    }
+  }
+  return blocks
+}
 
 function onCategoryToggle(key) {
   const f = { types: filters.types, categoryIds: filters.categoryIds }
   let next
   if (key === 'transfer') next = toggleTransfer(f)
   else if (key.startsWith('all:')) next = toggleGroup(key.slice(4), f, refs.categories)
+  else if (key.startsWith('parent:')) next = toggleParent(refs.categories.find((c) => c.id === key.slice(7)), f, refs.categories)
   else next = toggleCategory(refs.categories.find((c) => c.id === key), f, refs.categories)
   filters.types = next.types
   filters.categoryIds = next.categoryIds
@@ -102,6 +128,7 @@ function clearAll() {
         label="分類"
         :count="categoryCount"
         :groups="categoryGroups"
+        :searchable="categorySearchable"
         @toggle="onCategoryToggle"
         @clear="clearCategories"
       />
@@ -133,19 +160,33 @@ function clearAll() {
             <p class="body2-bold">分類</p>
             <div v-for="g in categoryGroups" :key="g.name" class="sub">
               <p v-if="g.name !== '轉帳'" class="caption c-text">{{ g.name }}</p>
-              <div class="pills">
-                <button
-                  v-for="o in g.items"
-                  :key="o.key"
-                  type="button"
-                  class="pill"
-                  :class="[o.state, { dim: o.dim }]"
-                  :aria-pressed="o.state === 'mixed' ? 'mixed' : o.state === 'on'"
-                  @click="onCategoryToggle(o.key)"
-                >
-                  <Icon v-if="o.state === 'mixed'" name="minus" :size="14" color="var(--color-primary)" />
-                  {{ o.label }}
-                </button>
+              <div v-for="b in pillBlocks(g.items)" :key="b.key" class="pill-block">
+                <div v-if="b.head" class="pills">
+                  <button
+                    type="button"
+                    class="pill"
+                    :class="b.head.state"
+                    :aria-pressed="b.head.state === 'mixed' ? 'mixed' : b.head.state === 'on'"
+                    @click="onCategoryToggle(b.head.key)"
+                  >
+                    <Icon v-if="b.head.state === 'mixed'" name="minus" :size="14" color="var(--color-primary)" />
+                    {{ b.head.label }}
+                  </button>
+                </div>
+                <div class="pills" :class="{ nested: b.head }">
+                  <button
+                    v-for="o in b.items"
+                    :key="o.key"
+                    type="button"
+                    class="pill"
+                    :class="[o.state, { dim: o.dim }]"
+                    :aria-pressed="o.state === 'mixed' ? 'mixed' : o.state === 'on'"
+                    @click="onCategoryToggle(o.key)"
+                  >
+                    <Icon v-if="o.state === 'mixed'" name="minus" :size="14" color="var(--color-primary)" />
+                    {{ o.label }}
+                  </button>
+                </div>
               </div>
             </div>
           </section>
@@ -223,6 +264,8 @@ function clearAll() {
   .sec { display: flex; flex-direction: column; gap: var(--sp-8); }
   .sub { display: flex; flex-direction: column; gap: var(--sp-4); }
   .pills { display: flex; flex-wrap: wrap; gap: var(--sp-8); }
+  .pill-block { display: flex; flex-direction: column; gap: var(--sp-8); }
+  .pills.nested { padding-left: var(--sp-16); }
   .pill {
     display: inline-flex; align-items: center; gap: var(--sp-4); height: 36px; padding: 0 var(--sp-12);
     border: 1px solid var(--color-line); border-radius: var(--r-pill); font-size: 14px; color: var(--color-title);
