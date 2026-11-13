@@ -8,6 +8,8 @@ html, body {
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* 手機點擊時不要瀏覽器預設的藍色反白（全站） */
+  -webkit-tap-highlight-color: transparent;
 }
 
 p, h1, h2, h3 { margin: 0; }
