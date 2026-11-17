@@ -227,7 +227,7 @@ defineExpose({ flushTag })
             v-if="splitDisabled !== null"
             type="button"
             class="repeat-btn split-btn"
-            :class="{ on: splitOn, labeled: splitOn }"
+            :class="{ on: splitOn }"
             :disabled="splitDisabled && !splitOn"
             :aria-pressed="splitOn"
             aria-label="拆帳"
@@ -235,7 +235,7 @@ defineExpose({ flushTag })
             @click="toggleSplit"
           >
             <Icon name="call_split" :size="20" :color="splitOn ? 'var(--color-primary)' : 'var(--color-text)'" />
-            <span v-if="splitOn" class="body2-bold split-label">拆帳</span>
+            <span class="body2-bold split-label" :class="{ on: splitOn }">拆帳</span>
           </button>
         </div>
       </FormField>
@@ -420,9 +420,11 @@ defineExpose({ flushTag })
 .repeat-btn.on { border-color: var(--color-primary); }
 .w-note { width: 200px; }
 .cat-row { display: flex; gap: var(--sp-8); align-items: center; }
-/* 拆帳中：圖示＋「拆帳」一顆鈕，主色框（再點一次取消） */
-.split-btn.labeled { width: auto; display: inline-flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-12); }
-.split-label { color: var(--color-primary); white-space: nowrap; }
+/* 拆帳鈕：圖示＋「拆帳」。平常灰色（同日期旁的重複鈕），拆帳中主色框＋主色字；點一下切換 */
+.split-btn { width: auto; display: inline-flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-12); }
+.split-label { color: var(--color-text); white-space: nowrap; }
+.split-label.on { color: var(--color-primary); }
+.split-btn:disabled .split-label { opacity: .4; }
 /* 回壓欄位：電腦版換到下一列、靠右對齊在金額底下 */
 .f-settle { width: 0; min-width: 100%; justify-content: flex-end; }
 /* 拆帳的各行換到下一列；width: 0 讓它不撐寬對話框 */
