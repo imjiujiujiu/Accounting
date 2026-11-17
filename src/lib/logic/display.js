@@ -45,7 +45,7 @@ export function rangeLabel(range) {
 }
 
 // 分類圖示：有自選（categories.icon，且在可選清單裡）用自選的；
-// 沒選時依名稱對應預設分類，對不到的（自訂分類）用該收支的「其他」圖示。
+// 沒選時依名稱對應預設分類，對不到的（自訂分類）用通用的分類圖示 category（2026-11-17）。
 const CATEGORY_ICONS = {
   expense: {
     餐飲: 'food', 交通: 'bus', 購物: 'shopping', 居住: 'home', 娛樂: 'entertainment', 醫療: 'medical',
@@ -54,7 +54,7 @@ const CATEGORY_ICONS = {
   // 獎金、投資收益為舊版預設，保留對應
   income: { 薪水: 'salary', 回饋: 'redeem', 投資: 'stock', 代墊: 'handshake', 其他: 'otherIncome', 獎金: 'gift', 投資收益: 'stock' },
 }
-const FALLBACK_ICON = { expense: 'otherExpense', income: 'otherIncome' }
+const FALLBACK_ICON = { expense: 'category', income: 'category' }
 
 /**
  * 補上 parent_icon：小分類沒選圖示時沿用大分類的圖示（兩層分類，需求 3.3）。
@@ -80,7 +80,7 @@ export function categoryIcon(category) {
  * 清單一列要顯示的內容。
  * ctx：{ accountsById: Map, categoriesById: Map, currencies, accountId（左上角選的帳戶，null＝全部）,
  *        advanceCounted（代墊是否計入收支，見 advance.js；未給＝計入）}
- * 回傳：{ title, icon, tone, accountName, toAccountName, isPending, foreignText, amountText, amountTone }
+ * 回傳：{ title, icon, categoryId, tone, accountName, toAccountName, isPending, foreignText, amountText, amountTone }
  *   tone：'income' | 'expense' | 'transfer'（圖示顏色）
  */
 export function rowView(txn, ctx) {
@@ -120,6 +120,7 @@ export function rowView(txn, ctx) {
   return {
     title: txn.note || cat?.name || (txn.type === 'income' ? '收入' : '支出'),
     icon: categoryIcon(cat),
+    categoryId: cat?.id ?? null,
     tone: txn.type,
     accountName: acc?.name ?? '—',
     toAccountName: '',
@@ -159,6 +160,7 @@ export function splitView(split, ctx) {
   return {
     title: first.note || catOf(first)?.name || '支出',
     icon: categoryIcon(catOf(first)),
+    categoryId: first.category_id ?? null,
     tone: 'expense',
     accountName: acc?.name ?? '—',
     toAccountName: '',

@@ -1,6 +1,9 @@
-// 分類可選的圖示（Material Symbols Rounded 精選 80 個），依群組排列；key 對應 src/lib/icons.js。
+// 分類可選的圖示（Material Symbols Rounded 精選 81 個），依群組排列；key 對應 src/lib/icons.js。
 // 存在 categories.icon；沒選（null）或不在清單裡時，依名稱對應（display.js 的 categoryIcon）。
 export const CATEGORY_ICON_GROUPS = [
+  { title: '通用', icons: [
+    { key: 'category', label: '分類' }, // category（新增分類的預設圖示）
+  ] },
   { title: '飲食', icons: [
     { key: 'food', label: '餐廳' }, // restaurant
     { key: 'local_cafe', label: '咖啡' }, // local_cafe

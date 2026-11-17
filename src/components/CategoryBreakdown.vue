@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 import Icon from './Icon.vue'
 import { Skeleton } from './ui/index.js'
-import { refs, categoriesById } from '../lib/store.js'
+import { refs, categoriesById, categoryColor } from '../lib/store.js'
 import { categoryIcon, formatSigned } from '../lib/logic/display.js'
 
 const props = defineProps({
@@ -31,6 +31,7 @@ const groups = computed(() =>
           ...r,
           name: cat?.name ?? '—',
           icon: categoryIcon(cat),
+          iconColor: categoryColor(cat),
           text: formatSigned(g.sign * r.total, props.currency, refs.currencies),
           width: (r.total / max) * 100,
           pct: sum ? Math.round((r.total / sum) * 100) : 0,
@@ -53,7 +54,7 @@ const groups = computed(() =>
       </template>
       <div v-for="r in loading ? [] : g.items" :key="r.categoryId" class="cat-row">
         <div class="cat-row-head body2">
-          <Icon :name="r.icon" :size="18" :color="g.color" />
+          <Icon :name="r.icon" :size="18" :color="r.iconColor" />
           <span class="name">{{ r.name }}</span>
           <span v-if="showCount" class="caption c-text">{{ r.count }} 筆 · {{ r.pct }}%</span>
           <span class="val">{{ r.text }}</span>

@@ -1,5 +1,5 @@
 // 分類顏色（2026-11-17，統計批次）：只有大分類有顏色，小分類沿用大分類。
-// 色票 30 色，白色圖示放在上面都看得清楚（對比 3:1 以上），也避開主色、收入色、支出色、補充色。
+// 色票 30 色，也避開主色、收入色、支出色。圖示一般為白色；淺色（例如金黃）白色看不清楚，改用深色圖示（iconOn）。
 // 存在 categories.color；null 時依名稱對應（NAME_COLORS），對不到再從色票依序取同收支還沒用過的顏色。
 
 /** 管理頁顏色面板的色票，依色相排列 */
@@ -15,7 +15,7 @@ export const CATEGORY_COLORS = [
   { hex: '#9A5A30', label: '咖啡' },
   { hex: '#C58703', label: '土黃' },
   { hex: '#666018', label: '橄欖' },
-  { hex: '#858441', label: '卡其' },
+  { hex: '#FFCC00', label: '金黃' },
   { hex: '#719C27', label: '草綠' },
   { hex: '#357518', label: '深綠' },
   { hex: '#298C01', label: '葉綠' },
@@ -52,7 +52,7 @@ export const NAME_COLORS = {
 
 // 自動配色時的取色順序：色相錯開，避免相鄰取到相近的顏色
 const AUTO_ORDER = [
-  '#C55F1D', '#127A6B', '#BB61CF', '#719C27', '#156EA8', '#B72855', '#858441', '#7457A3',
+  '#C55F1D', '#127A6B', '#BB61CF', '#719C27', '#156EA8', '#B72855', '#FFCC00', '#7457A3',
   '#298C01', '#AF6972', '#6D7DB6', '#B83D8E', '#666018', '#9260DA', '#8F5272', '#BA2E17',
   '#A067AC', '#4F5562',
   ...CATEGORY_COLORS.map((c) => c.hex),
@@ -88,4 +88,18 @@ export function resolveCategoryColors(categories) {
     if (c.parent_id) out.set(c.id, out.get(c.parent_id) ?? OTHER_COLOR)
   }
   return out
+}
+
+// 色塊上的圖示顏色：白色對比不到 3:1 時改用深色（頁面底色）
+const DARK = '#0D1117'
+function luminance(hex) {
+  const c = [1, 3, 5].map((i) => {
+    const v = parseInt(hex.slice(i, i + 2), 16) / 255
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+}
+export function iconOn(hex) {
+  if (!HEX.test(hex ?? '')) return '#fff'
+  return 1.05 / (luminance(hex) + 0.05) >= 3 ? '#fff' : DARK
 }

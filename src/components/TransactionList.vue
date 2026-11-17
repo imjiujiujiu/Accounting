@@ -3,7 +3,7 @@
 import { computed } from 'vue'
 import Icon from './Icon.vue'
 import { Skeleton, BaseButton } from './ui/index.js'
-import { filters, refs, accountsById, categoriesById, scopeCurrency } from '../lib/store.js'
+import { filters, refs, accountsById, categoriesById, scopeCurrency, categoryColor } from '../lib/store.js'
 import { rowView, groupByDay, splitView } from '../lib/logic/display.js'
 import { mergeSplits } from '../lib/logic/split.js'
 import { advanceCounted } from '../lib/logic/advance.js'
@@ -70,7 +70,7 @@ const days = computed(() => {
     <div v-for="d in days" :key="d.date" class="day">
       <div class="day-head"><span>{{ d.label }}</span><span>{{ d.totalText }}</span></div>
       <button v-for="{ key, txn, v } in d.rows" :key="key" class="item" type="button" @click="$emit('open', txn)">
-        <span class="cat-icon"><Icon :name="v.icon" :color="TONE_COLOR[v.tone]" /></span>
+        <span class="cat-icon"><Icon :name="v.icon" :color="v.tone === 'transfer' ? TONE_COLOR.transfer : categoryColor(categoriesById.get(v.categoryId))" /></span>
         <span class="desc">
           <span class="desc-title">
             {{ v.title }}

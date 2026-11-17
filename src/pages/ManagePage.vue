@@ -15,7 +15,7 @@ import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
 import IconPicker from '../components/IconPicker.vue'
 import ColorPicker from '../components/ColorPicker.vue'
-import { resolveCategoryColors } from '../lib/logic/categoryColors.js'
+import { resolveCategoryColors, iconOn } from '../lib/logic/categoryColors.js'
 import { BaseButton, IconButton, TextInput, FormField, SelectMenu, Skeleton } from '../components/ui/index.js'
 import { refs, loadRefs, afterTransactionChange, showToast } from '../lib/store.js'
 import { api } from '../lib/api/index.js'
@@ -37,7 +37,6 @@ const TABS = [
 ]
 
 /* ===== 固定收支 ===== */
-const TONE = { income: 'var(--color-income)', expense: 'var(--color-expense)' }
 const ruleRows = computed(() =>
   sortRules(refs.rules).map((r) => {
     const cat = categoriesById.value.get(r.category_id)
@@ -47,6 +46,7 @@ const ruleRows = computed(() =>
       ended: !!r.is_finished,
       title: r.note || cat?.name || (r.type === 'income' ? '收入' : '支出'),
       icon: categoryIcon(cat),
+      iconColor: categoryColor(cat),
       meta: ruleMeta(r),
       accountName: acc?.name ?? '—',
       amountText: formatSigned(r.type === 'income' ? r.amount : -r.amount, acc?.currency ?? 'TWD', refs.currencies),
@@ -126,7 +126,7 @@ function parentOptions(kind, selfId) {
     ...categoryTree(refs.categories, kind)
       .map((n) => n.category)
       .filter((c) => c.name !== OTHER && c.id !== selfId)
-      .map((c) => ({ value: c.id, label: c.name, icon: categoryIcon(c), iconColor: kind === 'income' ? 'var(--color-income)' : 'var(--color-expense)' })),
+      .map((c) => ({ value: c.id, label: c.name, icon: categoryIcon(c), iconColor: categoryColor(c) })),
   ]
 }
 // 還沒執行 20261022_manage_categories.sql：讀不到使用次數，分類暫時都不能刪除
@@ -142,18 +142,14 @@ function topColor(kind, c) {
 }
 async function editCategory(kind, c) {
   if (!(await leaveEditor())) return
-  const icon = categoryIcon(c ?? { kind, name: OTHER })
+  // 新增分類一律預設通用的分類圖示（2026-11-17）
+  const icon = c ? categoryIcon(c) : 'category'
   const color = topColor(kind, c)
   Object.assign(cat, { name: c ? c.name : '', icon, initialIcon: icon, color, initialColor: color, parentId: c?.parent_id ?? '', hasChildren: !!c?.hasChildren })
   openEditor(kind, c ? c.id : 'new')
 }
 function changeParent(kind, parentId) {
-  const untouched = cat.icon === cat.initialIcon
   cat.parentId = parentId
-  if (editing.id === 'new' && untouched) {
-    const parent = refs.categories.find((x) => x.id === parentId)
-    cat.icon = cat.initialIcon = categoryIcon(parent ?? { kind, name: OTHER })
-  }
   // 小分類改成大分類：顏色預覽改為它當大分類時的顏色（沒改過才換）
   if (!parentId && cat.color === cat.initialColor) {
     const self = refs.categories.find((x) => x.id === editing.id)
@@ -166,7 +162,8 @@ async function saveCategory(kind, e) {
   if (editing.error) return focusFirstInvalid(e?.target)
   const isNew = editing.id === 'new'
   const id = editing.id
-  const icon = cat.icon !== cat.initialIcon ? cat.icon : undefined
+  // 新增時一律寫入圖示（小分類也不沿用大分類的圖示）；編輯時只有改過才寫入
+  const icon = isNew || cat.icon !== cat.initialIcon ? cat.icon : undefined
   const color = !cat.parentId && cat.color !== cat.initialColor ? cat.color : undefined
   let result = null
   const ok = await act(async () => {
@@ -277,7 +274,7 @@ async function removeTag(t) {
       <template v-for="(group, gi) in [activeRules, endedRules]" :key="gi">
         <hr v-if="gi === 1 && activeRules.length && endedRules.length" class="divider" />
         <button v-for="r in group" :key="r.rule.id" class="rule" :class="{ ended: r.ended }" type="button" @click="openRule(r.rule)">
-          <span class="cat-icon"><Icon :name="r.icon" :color="TONE[r.rule.type]" /></span>
+          <span class="cat-icon"><Icon :name="r.icon" :color="r.iconColor" /></span>
           <span class="desc">
             <span class="desc-title">{{ r.title }}</span>
             <span class="desc-meta"><Icon name="repeat" :size="14" color="var(--color-text)" />{{ r.meta }}</span>
@@ -333,7 +330,7 @@ async function removeTag(t) {
         </form>
         <div v-else-if="c.id !== 'new'" class="item" :class="{ sub: c.depth === 1, parent: c.hasChildren }">
           <span class="label-row">
-            <span v-if="c.depth === 0" class="cat-badge" :style="{ background: categoryColor(c) }"><Icon :name="categoryIcon(c)" :size="16" color="#fff" /></span>
+            <span v-if="c.depth === 0" class="cat-badge" :style="{ background: categoryColor(c) }"><Icon :name="categoryIcon(c)" :size="16" :color="iconOn(categoryColor(c))" /></span>
             <Icon v-else :name="categoryIcon(c)" :size="16" :color="categoryColor(c)" />
             <span class="body1">{{ c.name }}</span>
           </span>

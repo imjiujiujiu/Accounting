@@ -52,8 +52,8 @@ describe('分類圖示', () => {
     expect(categoryIcon({ name: '投資', kind: 'expense' })).toBe('invest')
     expect(categoryIcon({ name: '投資', kind: 'income' })).toBe('stock')
     expect(categoryIcon({ name: '其他', kind: 'income' })).toBe('otherIncome')
-    expect(categoryIcon({ name: '寵物', kind: 'expense' })).toBe('otherExpense')
-    expect(categoryIcon({ name: '股利', kind: 'income' })).toBe('otherIncome')
+    expect(categoryIcon({ name: '寵物', kind: 'expense' })).toBe('category')
+    expect(categoryIcon({ name: '股利', kind: 'income' })).toBe('category')
     expect(categoryIcon(null)).toBe('category')
     // 自選圖示優先；不在清單裡的代號忽略，改回依名稱
     expect(categoryIcon({ name: '寵物', kind: 'expense', icon: 'pets' })).toBe('pets')

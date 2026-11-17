@@ -6,7 +6,7 @@
 import { ref, nextTick } from 'vue'
 import Icon from './Icon.vue'
 import { useClickOutside } from '../lib/useClickOutside.js'
-import { CATEGORY_COLORS, colorLabel } from '../lib/logic/categoryColors.js'
+import { CATEGORY_COLORS, colorLabel, iconOn } from '../lib/logic/categoryColors.js'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -92,7 +92,7 @@ function onPanelKey(e) {
       @click="open ? close() : show()"
       @keydown="onTriggerKey"
     >
-      <span class="swatch" :style="{ background: modelValue }"><Icon :name="icon" :size="16" color="#fff" /></span>
+      <span class="swatch" :style="{ background: modelValue }"><Icon :name="icon" :size="16" :color="iconOn(modelValue)" /></span>
       <Icon name="down" :size="20" color="var(--color-text)" class="arrow" />
     </button>
 
@@ -120,7 +120,7 @@ function onPanelKey(e) {
               @focus="active = i"
             >
               <span class="dot" :style="{ background: c.hex }">
-                <Icon v-if="same(c.hex, modelValue)" name="check" :size="18" color="#fff" />
+                <Icon v-if="same(c.hex, modelValue)" name="check" :size="18" :color="iconOn(c.hex)" />
               </span>
             </button>
           </div>
