@@ -221,6 +221,7 @@ defineExpose({ flushTag })
             :no-transfer="ruleMode"
             @pick="applyCategory(f, $event)"
           />
+
           <!-- 拆帳圖示鈕：大部分交易不拆，平常灰色；拆帳中為主色，再點一次取消（保留第一行的分類） -->
           <button
             v-if="splitDisabled !== null"
@@ -234,6 +235,7 @@ defineExpose({ flushTag })
             @click="toggleSplit"
           >
             <Icon name="call_split" :size="20" :color="splitOn ? 'var(--color-primary)' : 'var(--color-text)'" />
+            <span class="body2-bold split-label" :class="{ on: splitOn }">拆帳</span>
           </button>
         </div>
       </FormField>
@@ -307,6 +309,17 @@ defineExpose({ flushTag })
       <FormField label="幣別" as="div" class="w-currency f-currency" :error="errors.originalCurrency">
         <SelectMenu v-model="currency" :options="currencyItems" :disabled="f.type !== 'expense' || ruleMode || splitOn" :invalid="!!errors.originalCurrency" />
       </FormField>
+
+      <!-- 回壓（提案：移到金額正下方）：只在編輯外幣刷卡時出現 -->
+      <div v-if="foreign && editingForeign" class="settle f-settle">
+        <FormField :label="`實際金額（${accCur}）`" class="w-amount fit" :error="errors.amount">
+          <TextInput v-model="f.amount" inputmode="decimal" :invalid="!!errors.amount" placeholder="空白＝預估" />
+        </FormField>
+        <FormField label="手續費" class="w-amount" :error="errors.fee">
+          <TextInput v-model="f.fee" inputmode="decimal" :invalid="!!errors.fee" placeholder="可空白" />
+        </FormField>
+        <p v-if="rate" class="caption c-text rate">實際匯率：1 {{ original.original_currency }} ＝ {{ rate }} {{ accCur }}</p>
+      </div>
 
       <!-- 拆帳的各行：電腦版換到下一列，手機排在分類下方 -->
       <div v-if="splitOn" class="split-row f-split">
@@ -387,16 +400,6 @@ defineExpose({ flushTag })
     </div>
 
     <div class="bottom">
-      <!-- 回壓：只在編輯外幣刷卡時出現 -->
-      <div v-if="foreign && editingForeign" class="settle">
-        <FormField :label="`實際金額（${accCur}）`" class="w-amount fit" :error="errors.amount">
-          <TextInput v-model="f.amount" inputmode="decimal" :invalid="!!errors.amount" placeholder="空白＝預估" />
-        </FormField>
-        <FormField label="手續費" class="w-amount" :error="errors.fee">
-          <TextInput v-model="f.fee" inputmode="decimal" :invalid="!!errors.fee" placeholder="可空白" />
-        </FormField>
-        <p v-if="rate" class="caption c-text rate">實際匯率：1 {{ original.original_currency }} ＝ {{ rate }} {{ accCur }}</p>
-      </div>
       <slot name="actions" />
     </div>
   </div>
@@ -417,6 +420,13 @@ defineExpose({ flushTag })
 .repeat-btn.on { border-color: var(--color-primary); }
 .w-note { width: 200px; }
 .cat-row { display: flex; gap: var(--sp-8); align-items: center; }
+/* 拆帳鈕：圖示＋「拆帳」。平常灰色（同日期旁的重複鈕），拆帳中主色框＋主色字；點一下切換 */
+.split-btn { width: auto; display: inline-flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-12); }
+.split-label { color: var(--color-text); white-space: nowrap; }
+.split-label.on { color: var(--color-primary); }
+.split-btn:disabled .split-label { opacity: .4; }
+/* 回壓欄位：電腦版換到下一列、靠右對齊在金額底下 */
+.f-settle { width: 0; min-width: 100%; justify-content: flex-end; }
 /* 拆帳的各行換到下一列；width: 0 讓它不撐寬對話框 */
 .split-row { display: flex; flex-direction: column; gap: var(--sp-8); width: 0; min-width: 100%; }
 .split-line { display: flex; gap: var(--sp-8); align-items: center; }
@@ -477,6 +487,9 @@ defineExpose({ flushTag })
   .f-amount { order: 1; grid-column: 1; }
   .f-currency { order: 2; grid-column: 2; }
   .f-toamount { order: 3; }
+  .f-settle { order: 3; width: auto; min-width: 0; }
+  .f-settle.settle { gap: var(--sp-12); }
+  .f-settle > .w-amount { width: auto; }
   .f-cat { order: 4; }
   .f-split { order: 4; width: auto; min-width: 0; }
   .sl-cat { flex: 1; width: auto; min-width: 0; }

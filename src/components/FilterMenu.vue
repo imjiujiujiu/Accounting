@@ -54,6 +54,7 @@ const shown = computed(() => {
               <Icon v-if="o.state === 'on'" name="check" :size="14" color="var(--color-card)" />
               <Icon v-else-if="o.state === 'mixed'" name="minus" :size="14" color="var(--color-card)" />
             </span>
+            <Icon v-if="o.icon" :name="o.icon" :size="16" :color="o.iconColor" />
             <span class="text">{{ o.label }}</span>
           </button>
         </div>
@@ -70,7 +71,7 @@ const shown = computed(() => {
 .menu { position: relative; }
 .dropdown {
   position: absolute; z-index: 30; left: 0; top: calc(100% + 8px);
-  min-width: 200px; max-height: 400px; display: flex; flex-direction: column; gap: var(--sp-8);
+  min-width: 200px; max-height: min(720px, calc(100dvh - 220px)); display: flex; flex-direction: column; gap: var(--sp-8);
   background: var(--color-card); border: 1px solid var(--color-line); border-radius: var(--r-8); padding: var(--sp-12);
 }
 .search { height: 36px; flex-shrink: 0; }

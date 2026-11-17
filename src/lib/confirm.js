@@ -2,12 +2,12 @@
 // 畫面在 AppShell 放一個 <ConfirmDialog />。同時只會有一個；開新的會把舊的當成取消。
 import { reactive } from 'vue'
 
-export const confirmState = reactive({ open: false, title: '', message: '', confirmText: '確定', cancelText: '取消', danger: true })
+export const confirmState = reactive({ open: false, title: '', message: '', detail: null, confirmText: '確定', cancelText: '取消', danger: true })
 let resolver = null
 
-export function confirmDialog({ title, message = '', confirmText = '確定', cancelText = '取消', danger = true }) {
+export function confirmDialog({ title, message = '', detail = null, confirmText = '確定', cancelText = '取消', danger = true }) {
   resolver?.(false)
-  Object.assign(confirmState, { open: true, title, message, confirmText, cancelText, danger })
+  Object.assign(confirmState, { open: true, title, message, detail, confirmText, cancelText, danger })
   return new Promise((resolve) => {
     resolver = resolve
   })
@@ -26,5 +26,5 @@ export function answerConfirm(ok) {
  */
 export async function confirmDiscard(dirty) {
   if (!dirty) return true
-  return confirmDialog({ title: '放棄編輯？', message: '剛才的修改不會儲存。', confirmText: '放棄', cancelText: '繼續編輯' })
+  return confirmDialog({ title: '放棄編輯？', message: '剛才的修改不會儲存。', confirmText: '放棄', cancelText: '繼續編輯', danger: false })
 }
