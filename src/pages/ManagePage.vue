@@ -142,14 +142,19 @@ function topColor(kind, c) {
 }
 async function editCategory(kind, c) {
   if (!(await leaveEditor())) return
-  // 新增分類一律預設通用的分類圖示（2026-11-17）
-  const icon = c ? categoryIcon(c) : 'category'
+  // 新增時：大分類預設通用的分類圖示 category；小分類預覽大分類的圖示（不寫入，之後沿用大分類）
+  const icon = categoryIcon(c ?? { kind, name: '' })
   const color = topColor(kind, c)
   Object.assign(cat, { name: c ? c.name : '', icon, initialIcon: icon, color, initialColor: color, parentId: c?.parent_id ?? '', hasChildren: !!c?.hasChildren })
   openEditor(kind, c ? c.id : 'new')
 }
 function changeParent(kind, parentId) {
+  const untouched = cat.icon === cat.initialIcon
   cat.parentId = parentId
+  if (editing.id === 'new' && untouched) {
+    const parent = refs.categories.find((x) => x.id === parentId)
+    cat.icon = cat.initialIcon = parent ? categoryIcon(parent) : categoryIcon({ kind, name: '' })
+  }
   // 小分類改成大分類：顏色預覽改為它當大分類時的顏色（沒改過才換）
   if (!parentId && cat.color === cat.initialColor) {
     const self = refs.categories.find((x) => x.id === editing.id)
@@ -162,8 +167,7 @@ async function saveCategory(kind, e) {
   if (editing.error) return focusFirstInvalid(e?.target)
   const isNew = editing.id === 'new'
   const id = editing.id
-  // 新增時一律寫入圖示（小分類也不沿用大分類的圖示）；編輯時只有改過才寫入
-  const icon = isNew || cat.icon !== cat.initialIcon ? cat.icon : undefined
+  const icon = cat.icon !== cat.initialIcon ? cat.icon : undefined
   const color = !cat.parentId && cat.color !== cat.initialColor ? cat.color : undefined
   let result = null
   const ok = await act(async () => {

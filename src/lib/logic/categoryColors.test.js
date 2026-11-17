@@ -23,8 +23,8 @@ describe('resolveCategoryColors', () => {
     expect(CATEGORY_COLORS.map((c) => c.hex)).toContain(m.get('a'))
   })
   it('已被自選佔用的顏色不會再自動配給別的分類', () => {
-    const m = resolveCategoryColors([cat('a', '寵物', 'expense', { sort_order: 1 }), cat('b', '餐飲', 'expense', { color: '#C55F1D' })])
-    expect(m.get('a')).not.toBe('#C55F1D')
+    const m = resolveCategoryColors([cat('a', '寵物', 'expense', { sort_order: 1 }), cat('b', '餐飲', 'expense', { color: '#B72855' })])
+    expect(m.get('a')).not.toBe('#B72855')
   })
   it('小分類沿用大分類的顏色', () => {
     const m = resolveCategoryColors([cat('p', '餐飲', 'expense', { color: '#B72855' }), cat('s', '午餐', 'expense', { parent_id: 'p', color: '#156EA8' })])
