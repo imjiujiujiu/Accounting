@@ -122,6 +122,26 @@ export function createTransactionsApi(db) {
     },
 
     /**
+     * 趨勢圖：依日／月／年加總（bucket：'day' | 'month' | 'year'），日期由舊到新；沒有交易的期間不回傳。
+     * 回傳 [{ bucket: 'YYYY-MM-DD'（該期間第一天）, total, count }]
+     */
+    async byPeriod(filters = {}, kind = 'expense', bucket = 'day') {
+      const { p_types, ...rest } = toFilterArgs(filters)
+      const { data } = await run(db.rpc('summarize_by_period', { ...rest, p_kind: kind, p_bucket: bucket }))
+      return (data ?? []).map((r) => ({ bucket: r.bucket, total: Number(r.total), count: r.txn_count }))
+    },
+
+    /**
+     * 依標籤加總，由大到小（一筆交易可有多個標籤，各列相加可能超過總額）。
+     * 回傳 [{ tagId, total, count }]
+     */
+    async byTag(filters = {}, kind = 'expense') {
+      const { p_types, ...rest } = toFilterArgs(filters)
+      const { data } = await run(db.rpc('summarize_by_tag', { ...rest, p_kind: kind }))
+      return (data ?? []).map((r) => ({ tagId: r.tag_id, total: Number(r.total), count: r.txn_count }))
+    },
+
+    /**
      * 旅程總覽（篩選單一標籤時）：這個標籤的支出，依幣別各一列，外幣已換算成主幣別。
      * 規則見 supabase/migrations/20261028_trip_summary.sql；畫面用 logic/trip.js 的 tripView 整理。
      * 回傳 [{ currency, expense, converted, rate, rate_source, estimated_count, excluded_count }]

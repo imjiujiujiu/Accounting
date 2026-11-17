@@ -6,6 +6,7 @@ import { tripTagId, tripView } from './logic/trip.js'
 import { toQueryFilters } from './logic/categoryFilter.js'
 import { matchesFilters, mergeQueued } from './logic/outbox.js'
 import { queuedRows } from './outbox.js'
+import { trendBucket } from './logic/stats.js'
 
 /** 目前篩選條件 → 查詢條件（分類的「全部」在這裡展開） */
 const query = () => toQueryFilters({ ...filters }, refs.categories)
@@ -113,4 +114,34 @@ export function useTrip() {
 
   watch([queryKey, dataVersion], load, { immediate: true })
   return { trip }
+}
+
+/** 統計頁趨勢圖：依目前期間自動分日／月／年加總。kind：ref('expense' | 'income') */
+export function useTrend(kind) {
+  const data = ref([])
+  const bucket = ref('day')
+  const loading = ref(false)
+  const error = ref('')
+  let seq = 0
+
+  async function load() {
+    const my = ++seq
+    const f = query()
+    const b = trendBucket(filters.range)
+    loading.value = true
+    error.value = ''
+    try {
+      const rows = !f.types.length || f.types.includes(kind.value) ? await api.transactions.byPeriod(f, kind.value, b) : []
+      if (my !== seq) return
+      data.value = rows
+      bucket.value = b
+    } catch (err) {
+      if (my === seq) error.value = err.message
+    } finally {
+      if (my === seq) loading.value = false
+    }
+  }
+
+  watch([queryKey, dataVersion, kind], load, { immediate: true })
+  return { data, bucket, loading, error }
 }

@@ -23,6 +23,13 @@ export function formatAmount(minor, code = 'TWD', currencies) {
   return `${numberFormat(mu).format(Math.abs(minor) / 10 ** mu)} ${code}`
 }
 
+/** 最小單位整數 → 「1,234」（不帶幣別與正負號）。null 回傳 '—' */
+export function formatNumber(minor, code = 'TWD', currencies) {
+  if (minor === null || minor === undefined) return '—'
+  const mu = minorUnitOf(code, currencies)
+  return numberFormat(mu).format(Math.abs(minor) / 10 ** mu)
+}
+
 /** 帶正負號：「+49,738 TWD」「-120 TWD」「0 TWD」 */
 export function formatSigned(minor, code = 'TWD', currencies) {
   if (minor === null || minor === undefined) return '—'
