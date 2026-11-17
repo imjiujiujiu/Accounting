@@ -113,7 +113,7 @@ async function logout() {
     <section class="card block">
       <p class="h5">帳號</p>
       <p class="body1">{{ isDemo ? '示範模式' : session?.user?.email }}</p>
-      <BaseButton class="start" :disabled="isDemo" @click="logout">登出</BaseButton>
+      <BaseButton class="start" danger :disabled="isDemo" @click="logout">登出</BaseButton>
     </section>
   </div>
 </template>

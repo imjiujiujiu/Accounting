@@ -26,5 +26,5 @@ export function answerConfirm(ok) {
  */
 export async function confirmDiscard(dirty) {
   if (!dirty) return true
-  return confirmDialog({ title: '放棄編輯？', message: '剛才的修改不會儲存。', confirmText: '放棄', cancelText: '繼續編輯', danger: false })
+  return confirmDialog({ title: '放棄編輯？', message: '剛才的修改不會儲存。', confirmText: '放棄', cancelText: '繼續編輯' })
 }
