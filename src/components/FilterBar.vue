@@ -12,6 +12,7 @@ import {
   parentState, toggleParent,
 } from '../lib/logic/categoryFilter.js'
 import { categoryTree, leafCategories } from '../lib/logic/categoryTree.js'
+import { categoryIcon } from '../lib/logic/display.js'
 
 // 標籤 10 個以上才顯示搜尋框（需求 3.4）
 const TAG_SEARCH_MIN = 10
@@ -33,6 +34,8 @@ const CATEGORY_SEARCH_MIN = 10
 const categoryGroups = computed(() => {
   const f = { types: filters.types, categoryIds: filters.categoryIds }
   const cats = refs.categories
+  // 提案：選項前加分類圖示（顏色同清單：支出紅、收入綠）
+  const ic = (c) => ({ icon: categoryIcon(c), iconColor: c.kind === 'income' ? 'var(--color-income)' : 'var(--color-expense)' })
   const kindGroup = (kind, name) => ({
     name,
     items: [
@@ -40,17 +43,17 @@ const categoryGroups = computed(() => {
       ...categoryTree(cats, kind).flatMap(({ category, children }) =>
         children.length
           ? [
-              { key: `parent:${category.id}`, label: category.name, state: GROUP_STATE[parentState(category, f, cats)], head: true },
-              ...children.map((c) => ({ key: c.id, label: c.name, state: isCategoryChecked(c, f, cats) ? 'on' : 'off', indent: true })),
+              { key: `parent:${category.id}`, label: category.name, state: GROUP_STATE[parentState(category, f, cats)], head: true, ...ic(category) },
+              ...children.map((c) => ({ key: c.id, label: c.name, state: isCategoryChecked(c, f, cats) ? 'on' : 'off', indent: true, ...ic(c) })),
             ]
-          : [{ key: category.id, label: category.name, state: isCategoryChecked(category, f, cats) ? 'on' : 'off' }],
+          : [{ key: category.id, label: category.name, state: isCategoryChecked(category, f, cats) ? 'on' : 'off', ...ic(category) }],
       ),
     ],
   })
   return [
     kindGroup('expense', '支出'),
     kindGroup('income', '收入'),
-    { name: '轉帳', items: [{ key: 'transfer', label: '轉帳', state: filters.types.includes('transfer') ? 'on' : 'off' }] },
+    { name: '轉帳', items: [{ key: 'transfer', label: '轉帳', state: filters.types.includes('transfer') ? 'on' : 'off', icon: 'transfer', iconColor: 'var(--color-text)' }] },
   ]
 })
 const categoryCount = computed(() => selectionCount(filters, refs.categories))

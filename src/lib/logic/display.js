@@ -109,6 +109,7 @@ export function rowView(txn, ctx) {
       isPending: false,
       // 跨幣別換錢：另外標出轉入的外幣金額
       foreignText: toCur !== cur ? `→ ${formatAmount(txn.to_amount, toCur, cs)}` : '',
+      originalText: toCur !== cur ? `→ ${formatAmount(txn.to_amount, toCur, cs)}` : '',
       amountText,
       amountTone: 'transfer',
     }
@@ -128,6 +129,14 @@ export function rowView(txn, ctx) {
     amountText: counted === null ? '—' : formatSigned(sign * counted, cur, cs),
     // 代墊在「全部帳戶」不計入收支：金額改灰色（同轉帳）
     amountTone: isUncountedAdvance(txn, ctx.categoriesById, ctx.advanceCounted ?? true) ? 'transfer' : txn.type,
+    // 金額下方的小字：不計入時說明（提案）
+    note: isUncountedAdvance(txn, ctx.categoriesById, ctx.advanceCounted ?? true)
+      ? '不計入'
+      : ctx.scopeCurrency && cur !== ctx.scopeCurrency ? '不計入' : '',
+    noteTitle: isUncountedAdvance(txn, ctx.categoriesById, ctx.advanceCounted ?? true)
+      ? '代墊：選「全部帳戶」時不計入收支'
+      : '外幣錢包：不計入台幣合計',
+    originalText: txn.original_amount != null ? `${sign < 0 ? '-' : '+'}${formatAmount(txn.original_amount, txn.original_currency, cs)}` : '',
   }
 }
 
@@ -158,6 +167,15 @@ export function splitView(split, ctx) {
     detailText,
     amountText: formatSigned(-main, cur, cs),
     amountTone: allUncounted ? 'transfer' : 'expense',
+    // 部分行不計入（代墊）時，標出實際計入的金額（提案）
+    note: allUncounted
+      ? '不計入'
+      : (() => {
+          const c = shown.filter((l) => !isUncountedAdvance(l, ctx.categoriesById, ctx.advanceCounted ?? true))
+          if (c.length === shown.length) return ''
+          return `計入 ${formatSigned(-c.reduce((a, l) => a + (l.counted_amount ?? 0), 0), cur, cs).replace(/ [A-Z]+$/, '')}`
+        })(),
+    noteTitle: '代墊：選「全部帳戶」時不計入收支',
   }
 }
 

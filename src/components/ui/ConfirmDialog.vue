@@ -30,10 +30,15 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey, true))
     <div v-if="confirmState.open" class="overlay" @mousedown.self="answerConfirm(false)">
       <div class="dialog card" role="alertdialog" aria-modal="true" :aria-label="confirmState.title">
         <p class="h5">{{ confirmState.title }}</p>
+        <div v-if="confirmState.detail" class="detail">
+          <span class="body1-bold">{{ confirmState.detail.name }}</span>
+          <span class="body1-bold amt">{{ confirmState.detail.amount }}</span>
+          <span class="caption c-text">{{ confirmState.detail.date }}</span>
+        </div>
         <p v-if="confirmState.message" class="body2 c-text">{{ confirmState.message }}</p>
         <div class="foot">
           <BaseButton @click="answerConfirm(false)">{{ confirmState.cancelText }}</BaseButton>
-          <BaseButton ref="okBtn" variant="primary" @click="answerConfirm(true)">{{ confirmState.confirmText }}</BaseButton>
+          <BaseButton ref="okBtn" variant="primary" :class="{ 'danger-fill': confirmState.danger }" @click="answerConfirm(true)">{{ confirmState.confirmText }}</BaseButton>
         </div>
       </div>
     </div>
@@ -44,6 +49,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey, true))
 .overlay { position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, .55); display: grid; place-items: center; padding: var(--sp-24); }
 .dialog { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: var(--sp-12); box-shadow: var(--shadow-pop); }
 .foot { display: flex; justify-content: flex-end; gap: var(--sp-12); margin-top: var(--sp-12); }
+.detail { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-2) var(--sp-12); background: var(--color-page); border-radius: var(--r-8); padding: var(--sp-12); }
+.detail .amt { text-align: right; }
+.foot :deep(.danger-fill) { background: var(--color-expense); color: var(--color-card); }
 .pop-enter-active, .pop-leave-active { transition: opacity .15s; }
 .pop-enter-from, .pop-leave-to { opacity: 0; }
 </style>

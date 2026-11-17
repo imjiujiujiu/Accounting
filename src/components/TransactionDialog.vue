@@ -31,6 +31,7 @@ import { createRepeat, canRepeat, validateRepeat, formToRulePayload, ruleLabel, 
 import { openRule, manageTab } from '../lib/ruleDialog.js'
 import { canSplit, validateSplit, splitToPayload, linesToSplit } from '../lib/logic/split.js'
 import { toInputString, minorUnitOf } from '../lib/logic/money.js'
+import { formatSigned } from '../lib/logic/display.js'
 
 const router = useRouter()
 
@@ -223,7 +224,14 @@ async function saveRule() {
 async function remove() {
   const sid = splitId.value
   const message = sid ? '拆帳的各行會一起刪除。刪除後無法復原。' : '刪除後無法復原。'
-  if (!(await confirmDialog({ title: '刪除這筆交易？', message, confirmText: '刪除' }))) return
+  // 提案：對話框帶上這筆的名稱、金額、日期，確認是刪對的那一筆
+  const t = txnDialog.txn
+  const acc = refs.accounts.find((a) => a.id === t?.account_id)
+  const cat = refs.categories.find((c) => c.id === t?.category_id)
+  const total = sid ? (t.split_lines ?? [t]).reduce((a, l) => a + (l.counted_amount ?? l.amount ?? 0), 0) : t?.amount
+  const sign = t?.type === 'income' ? 1 : t?.type === 'expense' ? -1 : 0
+  const detail = t ? { name: t.note || cat?.name || '轉帳', amount: formatSigned(sign * total, acc?.currency ?? 'TWD', refs.currencies), date: t.date.replaceAll('-', '/') } : null
+  if (!(await confirmDialog({ title: '刪除這筆交易？', message, detail, confirmText: '刪除' }))) return
   // 還沒同步的：只要從這台裝置的佇列移除
   if (queued.value) {
     dequeue(form.value.id)
