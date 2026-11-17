@@ -42,9 +42,9 @@ function seed() {
     ['服飾', '購物', 1, 'checkroom'], ['美妝保養', '購物', 2, 'spa'], ['3C', '購物', 3, 'devices'], ['其他購物', '購物', 99],
   ]
   const categories = [
-    ...cats.map(([name, kind, sort_order, icon = null]) => ({ id: `c-${kind}-${name}`, name, kind, sort_order, is_active: true, icon, parent_id: null })),
+    ...cats.map(([name, kind, sort_order, icon = null]) => ({ id: `c-${kind}-${name}`, name, kind, sort_order, is_active: true, icon, color: null, parent_id: null })),
     ...subs.map(([name, parent, sort_order, icon = null]) => ({
-      id: `c-expense-${name}`, name, kind: 'expense', sort_order, is_active: true, icon, parent_id: `c-expense-${parent}`,
+      id: `c-expense-${name}`, name, kind: 'expense', sort_order, is_active: true, icon, color: null, parent_id: `c-expense-${parent}`,
     })),
   ]
   const c = (kind, name) => `c-${kind}-${name}`
@@ -420,7 +420,7 @@ export function createDemoApi() {
         }
         let row = cur
         if (!row) {
-          row = { id: p.id ?? uid(), name, kind, sort_order: p.sort_order ?? 50, is_active: true, icon: p.icon || null, parent_id: parentId }
+          row = { id: p.id ?? uid(), name, kind, sort_order: p.sort_order ?? 50, is_active: true, icon: p.icon || null, color: p.color || null, parent_id: parentId }
           db.categories.push(row)
         } else {
           // 大分類改名：「其他X」跟著改
@@ -430,6 +430,7 @@ export function createDemoApi() {
           row.name = name
           row.parent_id = parentId
           if ('icon' in p) row.icon = p.icon || null
+          if ('color' in p) row.color = p.color || null
           if (p.sort_order != null) row.sort_order = p.sort_order
         }
         const collapsed = oldParent && oldParent !== parentId && collapse(oldParent) ? { parentId: oldParent } : null
