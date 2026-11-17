@@ -1,5 +1,6 @@
 // 畫面共用狀態：目前的篩選條件、帳戶／分類／標籤等參考資料、短提示。
 // 手機與電腦共用；資料一律經由 api 讀寫。
+import { resolveCategoryColors, OTHER_COLOR } from './logic/categoryColors.js'
 import { reactive, computed, ref } from 'vue'
 import { api } from './api/index.js'
 import { presetRange, DEFAULT_PRESET } from './logic/period.js'
@@ -38,6 +39,9 @@ export const refs = reactive({
 
 export const accountsById = computed(() => new Map(refs.accounts.map((a) => [a.id, a])))
 export const categoriesById = computed(() => new Map(refs.categories.map((c) => [c.id, c])))
+/** 每個分類實際顯示的顏色（大分類自選或自動配色；小分類沿用大分類） */
+export const categoryColors = computed(() => resolveCategoryColors(refs.categories))
+export const categoryColor = (c) => (c && categoryColors.value.get(c.id)) || OTHER_COLOR
 export const baseCurrency = computed(() => refs.settings.base_currency ?? 'TWD')
 export const selectedAccount = computed(() => (filters.accountId ? accountsById.value.get(filters.accountId) : null))
 /** 合計與每日合計的幣別：選單一帳戶＝該帳戶幣別；全部帳戶＝主幣別 */

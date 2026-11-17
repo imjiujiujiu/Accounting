@@ -14,6 +14,8 @@
 import { ref, computed, reactive } from 'vue'
 import Icon from '../components/Icon.vue'
 import IconPicker from '../components/IconPicker.vue'
+import ColorPicker from '../components/ColorPicker.vue'
+import { resolveCategoryColors } from '../lib/logic/categoryColors.js'
 import { BaseButton, IconButton, TextInput, FormField, SelectMenu, Skeleton } from '../components/ui/index.js'
 import { refs, loadRefs, afterTransactionChange, showToast } from '../lib/store.js'
 import { api } from '../lib/api/index.js'
@@ -24,7 +26,7 @@ import { confirmDialog, confirmDiscard } from '../lib/confirm.js'
 import { createDirty } from '../lib/dirty.js'
 import { onBeforeRouteLeave } from 'vue-router'
 import { focusFirstInvalid } from '../lib/focusInvalid.js'
-import { accountsById, categoriesById } from '../lib/store.js'
+import { accountsById, categoriesById, categoryColor } from '../lib/store.js'
 import { formatSigned } from '../lib/logic/display.js'
 import { ruleMeta, sortRules } from '../lib/logic/recurring.js'
 import { manageTab, openRule } from '../lib/ruleDialog.js'
@@ -84,7 +86,7 @@ function closeEditor() {
 }
 // 改過沒有：分類看名稱、圖示、所屬分類；標籤看名稱
 const dirty = createDirty(() =>
-  editing.section === 'tag' ? tagName.value : { name: cat.name, icon: cat.icon, parentId: cat.parentId },
+  editing.section === 'tag' ? tagName.value : { name: cat.name, icon: cat.icon, color: cat.color, parentId: cat.parentId },
 )
 /** 要離開目前的編輯框：沒開或沒改過直接關；改過先問。回傳是否已關閉 */
 async function leaveEditor() {
@@ -131,11 +133,18 @@ function parentOptions(kind, selfId) {
 const usageUnavailable = computed(() => refs.categories.some((c) => c.txn_count === null))
 // 圖示：預設為目前顯示的圖示（新增時為該收支的「其他」）；只有改過才寫入 categories.icon
 // 新增小分類時，沒動過圖示就預覽大分類的圖示（不寫入，之後沿用大分類）
-const cat = reactive({ name: '', icon: '', initialIcon: '', parentId: '', hasChildren: false })
+const cat = reactive({ name: '', icon: '', initialIcon: '', color: '', initialColor: '', parentId: '', hasChildren: false })
+// 顏色（只有大分類）：預設為目前顯示的顏色（新增時為自動配色會給的顏色）；只有改過才寫入 categories.color
+function topColor(kind, c) {
+  if (c && !c.parent_id) return categoryColor(c)
+  const probe = { id: '__probe', kind, name: c?.name ?? '', parent_id: null, sort_order: c?.sort_order ?? 50, color: null }
+  return resolveCategoryColors([...refs.categories.filter((x) => x.id !== c?.id), probe]).get('__probe')
+}
 async function editCategory(kind, c) {
   if (!(await leaveEditor())) return
   const icon = categoryIcon(c ?? { kind, name: OTHER })
-  Object.assign(cat, { name: c ? c.name : '', icon, initialIcon: icon, parentId: c?.parent_id ?? '', hasChildren: !!c?.hasChildren })
+  const color = topColor(kind, c)
+  Object.assign(cat, { name: c ? c.name : '', icon, initialIcon: icon, color, initialColor: color, parentId: c?.parent_id ?? '', hasChildren: !!c?.hasChildren })
   openEditor(kind, c ? c.id : 'new')
 }
 function changeParent(kind, parentId) {
@@ -145,6 +154,11 @@ function changeParent(kind, parentId) {
     const parent = refs.categories.find((x) => x.id === parentId)
     cat.icon = cat.initialIcon = categoryIcon(parent ?? { kind, name: OTHER })
   }
+  // 小分類改成大分類：顏色預覽改為它當大分類時的顏色（沒改過才換）
+  if (!parentId && cat.color === cat.initialColor) {
+    const self = refs.categories.find((x) => x.id === editing.id)
+    cat.color = cat.initialColor = topColor(kind, self ? { ...self, parent_id: null } : null)
+  }
 }
 // 按 Enter（或「儲存」）送出；名稱沒填 → 欄位下顯示錯誤並把焦點移過去
 async function saveCategory(kind, e) {
@@ -153,6 +167,7 @@ async function saveCategory(kind, e) {
   const isNew = editing.id === 'new'
   const id = editing.id
   const icon = cat.icon !== cat.initialIcon ? cat.icon : undefined
+  const color = !cat.parentId && cat.color !== cat.initialColor ? cat.color : undefined
   let result = null
   const ok = await act(async () => {
     result = await api.categories.save({
@@ -160,6 +175,7 @@ async function saveCategory(kind, e) {
       name: cat.name,
       parent_id: cat.parentId || null,
       ...(icon !== undefined ? { icon } : {}),
+      ...(color !== undefined ? { color } : {}),
     })
   }, null)
   if (!ok) return
@@ -294,7 +310,10 @@ async function removeTag(t) {
         <form v-if="isEditing(g.kind, c.id)" class="editor" @submit.prevent="saveCategory(g.kind, $event)" @keydown.esc.stop="leaveEditor">
           <div class="cat-fields">
             <FormField label="圖示" as="div">
-              <IconPicker v-model="cat.icon" :color="g.color" />
+              <IconPicker v-model="cat.icon" :color="cat.parentId ? categoryColor(categoriesById.get(cat.parentId)) : cat.color" />
+            </FormField>
+            <FormField v-if="!cat.parentId" label="顏色" as="div">
+              <ColorPicker v-model="cat.color" :icon="cat.icon" />
             </FormField>
             <FormField label="名稱" class="grow-field" :error="editing.error"><TextInput v-model="cat.name" maxlength="20" :invalid="!!editing.error" @input="editing.error = ''" /></FormField>
           </div>
@@ -314,7 +333,8 @@ async function removeTag(t) {
         </form>
         <div v-else-if="c.id !== 'new'" class="item" :class="{ sub: c.depth === 1, parent: c.hasChildren }">
           <span class="label-row">
-            <Icon :name="categoryIcon(c)" :size="16" :color="g.color" />
+            <span v-if="c.depth === 0" class="cat-badge" :style="{ background: categoryColor(c) }"><Icon :name="categoryIcon(c)" :size="16" color="#fff" /></span>
+            <Icon v-else :name="categoryIcon(c)" :size="16" :color="categoryColor(c)" />
             <span class="body1">{{ c.name }}</span>
           </span>
           <!-- 「其他」與「其他X」是收容分類：不能改名、不能刪除；有小分類的大分類只能編輯 -->
@@ -401,7 +421,8 @@ button.rule:hover { background: rgba(32, 42, 58, .5); }
 /* 清單列 */
 .item { display: flex; align-items: center; gap: var(--sp-16); min-height: 32px; }
 /* 小分類：縮排在大分類下方 */
-.item.sub { padding-left: var(--sp-24); }
+.item.sub { padding-left: 34px; }
+.cat-badge { width: 26px; height: 26px; border-radius: var(--r-8); display: grid; place-items: center; flex-shrink: 0; }
 .item.parent .body1 { font-weight: 700; }
 .label-row { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--sp-8); }
 .label-row > .body1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

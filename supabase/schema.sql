@@ -77,6 +77,7 @@ create table public.categories (
   is_active  boolean not null default true,
   sort_order int not null default 0,
   icon       text check (icon is null or icon ~ '^[A-Za-z0-9_]{1,40}$'),  -- 圖示代號（前端 icons.js 的 key）；null＝依名稱對應
+  color      text constraint categories_color_format check (color is null or color ~ '^#[0-9A-Fa-f]{6}$'),  -- 大分類顏色；null＝依名稱／順序自動配色（20261117）
   unique (user_id, kind, name),
   unique (id, user_id, kind)      -- 讓交易的分類必須與交易類型同為收入或支出
 );
@@ -1931,9 +1932,10 @@ begin
   end if;
 
   if v_is_new then
-    insert into public.categories (id, name, kind, parent_id, icon, sort_order)
+    insert into public.categories (id, name, kind, parent_id, icon, color, sort_order)
     values (coalesce(v_id, gen_random_uuid()), v_name, v_kind, v_parent_id,
             nullif(p_category ->> 'icon', ''),
+            nullif(p_category ->> 'color', ''),
             coalesce((p_category ->> 'sort_order')::int, 50))
     returning id into v_id;
   else
@@ -1941,6 +1943,7 @@ begin
        set name       = v_name,
            parent_id  = v_parent_id,
            icon       = case when p_category ? 'icon' then nullif(p_category ->> 'icon', '') else c.icon end,
+           color      = case when p_category ? 'color' then nullif(p_category ->> 'color', '') else c.color end,
            sort_order = coalesce((p_category ->> 'sort_order')::int, c.sort_order)
      where c.id = v_id;
   end if;
@@ -2080,7 +2083,8 @@ select c.id,
        coalesce(u.txn_count, 0) as txn_count,
        (select count(*)::int from public.recurring_rules rr where rr.category_id = c.id) as rule_count,
        c.icon,
-       c.parent_id
+       c.parent_id,
+       c.color
   from public.categories c
   left join lateral (
     select count(*)::int as txn_count

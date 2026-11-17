@@ -45,7 +45,7 @@ export function createCategoriesApi(db) {
 
     /**
      * 新增或編輯分類（兩層分類，資料庫函式 save_category）。
-     * payload：{ id?, name?, kind?（新增時必填）, parent_id?（有給才改；null＝大分類）, icon?, sort_order? }
+     * payload：{ id?, name?, kind?（新增時必填）, parent_id?（有給才改；null＝大分類）, icon?, color?（#RRGGBB；null＝自動配色）, sort_order? }
      * 回傳 { id, split, collapsed }：
      *   split     { otherName, movedTxns, movedRules }：第一次拆開有交易的大分類，原有交易移到「其他X」（否則 null）
      *   collapsed { parentId }：原大分類只剩「其他X」而收回單層（否則 null）
@@ -55,6 +55,7 @@ export function createCategoriesApi(db) {
       const body = { ...payload }
       if (typeof body.name === 'string') body.name = body.name.trim()
       if (body.icon === undefined) delete body.icon
+      if (body.color === undefined) delete body.color
       let data
       try {
         ;({ data } = await run(db.rpc('save_category', { p_category: body }), { duplicate: '已有同名分類' }))
