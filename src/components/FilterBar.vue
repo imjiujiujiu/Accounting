@@ -6,7 +6,7 @@ import Icon from './Icon.vue'
 import FilterMenu from './FilterMenu.vue'
 import PeriodPicker from './PeriodPicker.vue'
 import { BaseButton } from './ui/index.js'
-import { filters, refs } from '../lib/store.js'
+import { filters, refs, categoryColor } from '../lib/store.js'
 import {
   groupState, isCategoryChecked, toggleGroup, toggleCategory, toggleTransfer, selectionCount,
   parentState, toggleParent,
@@ -35,7 +35,7 @@ const categoryGroups = computed(() => {
   const f = { types: filters.types, categoryIds: filters.categoryIds }
   const cats = refs.categories
   // 提案：選項前加分類圖示（顏色同清單：支出紅、收入綠）
-  const ic = (c) => ({ icon: categoryIcon(c), iconColor: c.kind === 'income' ? 'var(--color-income)' : 'var(--color-expense)' })
+  const ic = (c) => ({ icon: categoryIcon(c), iconColor: categoryColor(c) })
   const kindGroup = (kind, name) => ({
     name,
     items: [

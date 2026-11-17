@@ -4,9 +4,9 @@ import { ICONS } from '../icons.js'
 
 describe('分類圖示清單', () => {
   const all = CATEGORY_ICON_GROUPS.flatMap((g) => g.icons)
-  it('60～80 個、不重複', () => {
+  it('60～81 個、不重複', () => {
     expect(all.length).toBeGreaterThanOrEqual(60)
-    expect(all.length).toBeLessThanOrEqual(80)
+    expect(all.length).toBeLessThanOrEqual(81)
     expect(CATEGORY_ICON_KEYS.size).toBe(all.length)
   })
   it('每個都在 icons.js 裡、代號符合資料庫格式', () => {

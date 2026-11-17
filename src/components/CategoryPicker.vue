@@ -7,6 +7,7 @@
 // 鍵盤：Enter／空白／↓ 開啟，↑↓ 移動，←→ 切換分頁，Enter 選取，Esc 關閉；有搜尋框時開啟後直接打字搜尋（電腦版）。
 import { ref, computed, nextTick, watch } from 'vue'
 import Icon from './Icon.vue'
+import { categoryColor } from '../lib/store.js'
 import { useClickOutside } from '../lib/useClickOutside.js'
 import { categoryIcon } from '../lib/logic/display.js'
 import { pickerSections, leafCategories, recentCategories } from '../lib/logic/categoryTree.js'
@@ -40,8 +41,8 @@ const ALL_TABS = [
 const TABS = computed(() =>
   props.onlyExpense ? ALL_TABS.filter((t) => t.type === 'expense') : props.noTransfer ? ALL_TABS.filter((t) => t.type !== 'transfer') : ALL_TABS,
 )
-const TRANSFER = { key: 'transfer', type: 'transfer', categoryId: null, label: '轉帳', icon: 'transfer' }
-const toOption = (c) => ({ key: c.id, type: c.kind, categoryId: c.id, label: c.name, icon: categoryIcon(c) })
+const TRANSFER = { key: 'transfer', type: 'transfer', categoryId: null, label: '轉帳', icon: 'transfer', color: TONE.transfer }
+const toOption = (c) => ({ key: c.id, type: c.kind, categoryId: c.id, label: c.name, icon: categoryIcon(c), color: categoryColor(c) })
 const isOn = (o) => (o.type === 'transfer' ? props.type === 'transfer' : o.categoryId === props.categoryId)
 const selected = computed(() => {
   if (props.type === 'transfer') return TRANSFER
@@ -175,7 +176,7 @@ function onKey(e) {
       @click="open ? close() : show()"
       @keydown="onKey"
     >
-      <Icon v-if="selected" :name="selected.icon" :size="20" :color="TONE[selected.type]" />
+      <Icon v-if="selected" :name="selected.icon" :size="20" :color="selected.color" />
       <span v-else class="add-dot"><Icon name="plus" :size="12" color="var(--color-card)" /></span>
       <span class="m-label body1" :class="{ empty: !selected }">{{ selected?.label ?? '選擇分類' }}</span>
       <Icon name="down" :size="20" color="var(--color-text)" />
@@ -227,7 +228,7 @@ function onKey(e) {
               @mousedown.prevent
               @click="pick(o)"
             >
-              <Icon :name="o.icon" :size="12" :color="TONE[o.type]" />
+              <Icon :name="o.icon" :size="12" :color="o.color" />
               <span>{{ o.label }}</span>
             </button>
           </div>
@@ -235,7 +236,7 @@ function onKey(e) {
 
         <section v-for="s in sections" :key="s.key" class="group" :class="{ nested: s.header }" :aria-label="s.header ?? undefined">
           <div v-if="s.header" class="group-label caption">
-            <Icon v-if="s.parent" :name="categoryIcon(s.parent)" :size="14" :color="TONE[tab]" />
+            <Icon v-if="s.parent" :name="categoryIcon(s.parent)" :size="14" :color="categoryColor(s.parent)" />
             <span>{{ s.header }}</span>
           </div>
           <button
@@ -252,7 +253,7 @@ function onKey(e) {
             @mouseenter="active = indexOf(o)"
             @click="pick(o)"
           >
-            <Icon :name="o.icon" :size="16" :color="TONE[o.type]" />
+            <Icon :name="o.icon" :size="16" :color="o.color" />
             <span class="text">{{ o.label }}</span>
             <Icon v-if="isOn(o)" name="check" :size="16" color="var(--color-primary)" />
           </button>

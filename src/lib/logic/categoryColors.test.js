@@ -42,3 +42,12 @@ describe('resolveCategoryColors', () => {
     }
   })
 })
+
+describe('iconOn', () => {
+  it('深色底用白色圖示、淺色底（金黃）用深色圖示', async () => {
+    const { iconOn } = await import('./categoryColors.js')
+    expect(iconOn('#357518')).toBe('#fff')
+    expect(iconOn('#C58703')).toBe('#fff')
+    expect(iconOn('#FFCC00')).not.toBe('#fff')
+  })
+})
