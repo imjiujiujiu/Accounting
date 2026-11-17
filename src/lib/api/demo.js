@@ -207,6 +207,33 @@ export function createDemoApi() {
         }
         return delay([...m.values()].sort((a, b) => b.total - a.total))
       },
+      async byPeriod(f = {}, kind = 'expense', bucket = 'day') {
+        const rows = filtered({ ...f, types: [kind] }).filter(inScope(f)).filter(counts(f))
+        const key = (d) => (bucket === 'year' ? `${d.slice(0, 4)}-01-01` : bucket === 'month' ? `${d.slice(0, 7)}-01` : d)
+        const m = new Map()
+        for (const t of rows) {
+          const k = key(t.date)
+          const g = m.get(k) ?? { bucket: k, total: 0, ids: new Set() }
+          g.total += t.counted_amount ?? 0
+          g.ids.add(t.split_id ?? t.id)
+          m.set(k, g)
+        }
+        return delay([...m.values()].map((g) => ({ bucket: g.bucket, total: g.total, count: g.ids.size })).sort((a, b) => a.bucket.localeCompare(b.bucket)))
+      },
+      async byTag(f = {}, kind = 'expense') {
+        const rows = filtered({ ...f, types: [kind] }).filter(inScope(f)).filter(counts(f))
+        const m = new Map()
+        for (const t of rows) {
+          for (const tag of t.tags) {
+            const id = tag.id ?? tag
+            const g = m.get(id) ?? { tagId: id, total: 0, ids: new Set() }
+            g.total += t.counted_amount ?? 0
+            g.ids.add(t.split_id ?? t.id)
+            m.set(id, g)
+          }
+        }
+        return delay([...m.values()].map((g) => ({ tagId: g.tagId, total: g.total, count: g.ids.size })).sort((a, b) => b.total - a.total))
+      },
       async trip(f = {}, tagId) {
         const expenses = filtered({ ...f, types: ['expense'], tagIds: [tagId] }).filter(counts(f)).map((t) => ({
           ...t, currency: acc(t.account_id)?.currency,
