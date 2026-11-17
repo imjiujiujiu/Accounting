@@ -11,11 +11,11 @@ export const CATEGORY_COLORS = [
   { hex: '#AF6972', label: '豆沙' },
   { hex: '#E5484D', label: '正紅' },
   { hex: '#BA2E17', label: '磚紅' },
-  { hex: '#C55F1D', label: '焦橘' },
   { hex: '#9A5A30', label: '咖啡' },
   { hex: '#C58703', label: '土黃' },
-  { hex: '#666018', label: '橄欖' },
   { hex: '#FFCC00', label: '金黃' },
+  { hex: '#666018', label: '橄欖' },
+  { hex: '#858441', label: '卡其' },
   { hex: '#719C27', label: '草綠' },
   { hex: '#357518', label: '深綠' },
   { hex: '#298C01', label: '葉綠' },
@@ -52,7 +52,7 @@ export const NAME_COLORS = {
 
 // 自動配色時的取色順序：色相錯開，避免相鄰取到相近的顏色
 const AUTO_ORDER = [
-  '#C55F1D', '#127A6B', '#BB61CF', '#719C27', '#156EA8', '#B72855', '#FFCC00', '#7457A3',
+  '#127A6B', '#BB61CF', '#719C27', '#156EA8', '#B72855', '#FFCC00', '#7457A3', '#858441',
   '#298C01', '#AF6972', '#6D7DB6', '#B83D8E', '#666018', '#9260DA', '#8F5272', '#BA2E17',
   '#A067AC', '#4F5562',
   ...CATEGORY_COLORS.map((c) => c.hex),
