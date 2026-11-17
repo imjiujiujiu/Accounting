@@ -221,14 +221,13 @@ defineExpose({ flushTag })
             :no-transfer="ruleMode"
             @pick="applyCategory(f, $event)"
           />
-          <!-- 提案：拆帳中原位置留一個佔位框，拆帳鈕不移動 -->
-          <div v-else class="cat-hold body2">已拆帳</div>
+
           <!-- 拆帳圖示鈕：大部分交易不拆，平常灰色；拆帳中為主色，再點一次取消（保留第一行的分類） -->
           <button
             v-if="splitDisabled !== null"
             type="button"
             class="repeat-btn split-btn"
-            :class="{ on: splitOn }"
+            :class="{ on: splitOn, labeled: splitOn }"
             :disabled="splitDisabled && !splitOn"
             :aria-pressed="splitOn"
             aria-label="拆帳"
@@ -236,6 +235,7 @@ defineExpose({ flushTag })
             @click="toggleSplit"
           >
             <Icon name="call_split" :size="20" :color="splitOn ? 'var(--color-primary)' : 'var(--color-text)'" />
+            <span v-if="splitOn" class="body2-bold split-label">拆帳</span>
           </button>
         </div>
       </FormField>
@@ -420,10 +420,9 @@ defineExpose({ flushTag })
 .repeat-btn.on { border-color: var(--color-primary); }
 .w-note { width: 200px; }
 .cat-row { display: flex; gap: var(--sp-8); align-items: center; }
-.cat-hold {
-  height: 40px; min-width: 72px; padding: 0 var(--sp-12); display: grid; place-items: center;
-  border: 1px dashed var(--color-line); border-radius: var(--r-8); color: var(--color-text); white-space: nowrap;
-}
+/* 拆帳中：圖示＋「拆帳」一顆鈕，主色框（再點一次取消） */
+.split-btn.labeled { width: auto; display: inline-flex; align-items: center; gap: var(--sp-4); padding: 0 var(--sp-12); }
+.split-label { color: var(--color-primary); white-space: nowrap; }
 /* 回壓欄位：電腦版換到下一列、靠右對齊在金額底下 */
 .f-settle { width: 0; min-width: 100%; justify-content: flex-end; }
 /* 拆帳的各行換到下一列；width: 0 讓它不撐寬對話框 */
@@ -487,7 +486,8 @@ defineExpose({ flushTag })
   .f-currency { order: 2; grid-column: 2; }
   .f-toamount { order: 3; }
   .f-settle { order: 3; width: auto; min-width: 0; }
-  .cat-hold { flex: 1; justify-items: start; }
+  .f-settle.settle { gap: var(--sp-12); }
+  .f-settle > .w-amount { width: auto; }
   .f-cat { order: 4; }
   .f-split { order: 4; width: auto; min-width: 0; }
   .sl-cat { flex: 1; width: auto; min-width: 0; }
