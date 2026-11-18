@@ -103,12 +103,49 @@ export async function afterTransactionChange() {
   }
 }
 
-/** 短提示（右下角） */
-export const toast = reactive({ text: '', tone: 'ok', id: 0 })
-export function showToast(text, tone = 'ok') {
+/** 短提示（畫面上方）。可帶一個動作鈕（例：刪除後的「復原」） */
+export const toast = reactive({ text: '', tone: 'ok', id: 0, action: null })
+export const TOAST_MS = 2500
+export const UNDO_TOAST_MS = 6000
+let toastTimer = null
+let toastLeft = 0
+let toastStarted = 0
+
+function hideToast() {
+  clearTimeout(toastTimer)
+  toast.text = ''
+  toast.action = null
+}
+function countDown(id, ms) {
+  clearTimeout(toastTimer)
+  toastLeft = ms
+  toastStarted = Date.now()
+  toastTimer = setTimeout(() => {
+    if (toast.id === id) hideToast()
+  }, ms)
+}
+
+/**
+ * showToast('已儲存')；showToast('已刪除', 'ok', { action: { label: '復原', run }, duration: UNDO_TOAST_MS })
+ * 新的 toast 一律取代舊的（舊的「復原」也跟著失效）
+ */
+export function showToast(text, tone = 'ok', { action = null, duration = TOAST_MS } = {}) {
   const id = ++toast.id
-  Object.assign(toast, { text, tone })
-  setTimeout(() => {
-    if (toast.id === id) toast.text = ''
-  }, 2500)
+  Object.assign(toast, { text, tone, action })
+  countDown(id, duration)
+}
+/** 滑鼠移到 toast 上時暫停倒數，移開再繼續 */
+export function pauseToast() {
+  if (!toast.text) return
+  clearTimeout(toastTimer)
+  toastLeft -= Date.now() - toastStarted
+}
+export function resumeToast() {
+  if (toast.text) countDown(toast.id, Math.max(toastLeft, 1000))
+}
+/** 按下 toast 的動作鈕：先收起（避免連按兩次），再執行 */
+export async function runToastAction() {
+  const action = toast.action
+  hideToast()
+  await action?.run()
 }
