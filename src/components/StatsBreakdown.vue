@@ -44,8 +44,10 @@ function onRow(g) {
   else showInList(g.id)
 }
 function showInList(categoryId) {
-  if (!categoryId || !refs.categories.some((c) => c.id === categoryId)) return
-  filters.types = []
+  const cat = refs.categories.find((c) => c.id === categoryId)
+  if (!cat) return
+  // 分類篩選要「該收支在 types 裡＋categoryIds 有該分類」才算只選它；types 空＝不篩選
+  filters.types = [cat.kind]
   filters.categoryIds = [categoryId]
   router.push('/')
   window.scrollTo({ top: 0 })
