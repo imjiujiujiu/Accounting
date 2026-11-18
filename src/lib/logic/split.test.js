@@ -144,7 +144,7 @@ describe('拆帳清單', () => {
     const [it0] = mergeSplits([l1, l2])
     const v = splitView(it0.split, vctx({}))
     expect(v.amountText).toBe('-1,298 TWD')
-    expect(v.detailText).toBe('午餐 528・代墊 770')
+    expect(v.detailText).toBe('午餐 $528・代墊 $770')
     expect(v.title).toBe('大戶屋')
   })
 
@@ -159,7 +159,7 @@ describe('拆帳清單', () => {
   it('有行備註就顯示行備註，沒有時顯示分類名稱', () => {
     const n1 = { ...l1, line_note: '自己' }
     const [it0] = mergeSplits([n1, l2])
-    expect(splitView(it0.split, vctx({})).detailText).toBe('自己 528・代墊 770')
+    expect(splitView(it0.split, vctx({})).detailText).toBe('自己 $528・代墊 $770')
     const [it1] = mergeSplits([n1], new Map([['s', [n1, l2]]]))
     expect(splitView(it1.split, vctx({ categoryFiltered: true })).detailText).toBe('自己（共 1,298 TWD）')
   })
