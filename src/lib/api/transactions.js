@@ -3,6 +3,9 @@ import { run, assertOnline } from './errors.js'
 
 export const PAGE_SIZE = 50
 
+/** 資料庫自動算的欄位（generated column），寫入時不能帶 */
+const GENERATED = ['category_kind', 'is_pending', 'counted_amount']
+
 /**
  * 畫面上的篩選狀態 → 資料庫函式參數。所有條件同時生效；空值＝不篩選。
  * filters：{
@@ -212,6 +215,37 @@ export function createTransactionsApi(db) {
     async removeSplit(splitId) {
       assertOnline()
       await run(db.from('transactions').delete().eq('split_id', splitId))
+    },
+
+    /**
+     * 刪除前先記下整筆（拆帳為所有行），給 toast 的「復原」用。
+     * 回傳 [{ row, tagNames }]：row 為資料表原始欄位（不含推導欄位），標籤以名稱記（刪除後沒人用的標籤會被自動刪掉）
+     */
+    async snapshot({ id, splitId }) {
+      const q = db.from('transactions').select('*')
+      const { data } = await run(splitId ? q.eq('split_id', splitId) : q.eq('id', id))
+      return (await attachTags(data)).map(({ tags, ...r }) => {
+        for (const k of GENERATED) delete r[k]
+        return { row: r, tagNames: tags.map((t) => t.name) }
+      })
+    },
+
+    /**
+     * 復原剛刪除的交易：用同樣的 id、建立時間、固定收支關聯寫回，再補上標籤。
+     * 資料庫觸發器會重設 updated_at（預估中的外幣刷卡也會重算預估值），其餘與刪除前相同。
+     */
+    async restore(snapshot) {
+      assertOnline()
+      await run(db.from('transactions').insert(snapshot.map((s) => s.row)))
+      const names = [...new Set(snapshot.flatMap((s) => s.tagNames))]
+      if (!names.length) return
+      const ids = new Map()
+      for (const name of names) {
+        const { data } = await run(db.rpc('get_or_create_tag', { p_name: name }))
+        ids.set(name, data)
+      }
+      const links = snapshot.flatMap((s) => s.tagNames.map((n) => ({ transaction_id: s.row.id, tag_id: ids.get(n) })))
+      await run(db.from('transaction_tags').insert(links))
     },
 
     /** 外幣刷卡的預估台幣（表單即時顯示「約 $630（預估）」），沒有預估來源回傳 null */

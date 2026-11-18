@@ -317,6 +317,22 @@ export function createDemoApi() {
         dropUnusedTags(removed.flatMap((t) => t.tags))
         return delay(null)
       },
+      async snapshot({ id, splitId }) {
+        const rows = db.transactions.filter((t) => (splitId ? t.split_id === splitId : t.id === id))
+        return delay(rows.map(({ tags, ...row }) => ({ row, tagNames: tags.map((x) => db.tags.find((g) => g.id === x)?.name).filter(Boolean) })))
+      },
+      async restore(snapshot) {
+        for (const { row, tagNames } of clone(snapshot)) {
+          if (db.transactions.some((t) => t.id === row.id)) throw new ApiError('duplicate', '這筆交易已經存在')
+          const tags = tagNames.map((name) => {
+            let tag = db.tags.find((x) => x.name.toLowerCase() === name.toLowerCase())
+            if (!tag) db.tags.push((tag = { id: uid(), name }))
+            return tag.id
+          })
+          db.transactions.push({ ...row, tags })
+        }
+        return delay(null)
+      },
       async estimate(currency, original) {
         return delay(currency && original ? estimate(currency, original) : null)
       },
