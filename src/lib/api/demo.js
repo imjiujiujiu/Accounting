@@ -53,7 +53,7 @@ function seed() {
 
   const tx = (o) => ({
     id: uid(), to_account_id: null, category_id: null, amount: null, to_amount: null, estimated_amount: null,
-    original_amount: null, original_currency: null, fee: null, note: '', settled_at: null, tags: [],
+    original_amount: null, original_currency: null, fee: null, note: '', line_note: '', settled_at: null, tags: [],
     recurring_rule_id: null, occurrence_date: null, split_id: null, ...o,
   })
   const transactions = [
@@ -75,8 +75,8 @@ function seed() {
     tx({ date: d(3), type: 'expense', account_id: 'a-cube', category_id: c('expense', '代墊'), amount: 860, note: '幫小姿代購', created_at: at(4400) }),
     tx({ date: d(0), type: 'income', account_id: 'a-linepay', category_id: c('income', '代墊'), amount: 500, note: '小姿還款', created_at: at(30) }),
     // 拆帳：合付三人份，自己的午餐＋幫朋友墊的
-    tx({ date: d(2), type: 'expense', account_id: 'a-cube', category_id: c('expense', '午餐'), amount: 528, note: '大戶屋 x3', split_id: 's-otoya', created_at: at(2900) }),
-    tx({ date: d(2), type: 'expense', account_id: 'a-cube', category_id: c('expense', '代墊'), amount: 770, note: '大戶屋 x3', split_id: 's-otoya', created_at: at(2899) }),
+    tx({ date: d(2), type: 'expense', account_id: 'a-cube', category_id: c('expense', '午餐'), amount: 528, note: '大戶屋 x3', line_note: '自己', split_id: 's-otoya', created_at: at(2900) }),
+    tx({ date: d(2), type: 'expense', account_id: 'a-cube', category_id: c('expense', '代墊'), amount: 770, note: '大戶屋 x3', line_note: '小姿、阿凱', split_id: 's-otoya', created_at: at(2899) }),
     tx({ date: d(40), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-cube', amount: 3200, to_amount: 3200, note: '繳 Cube 卡費', created_at: at(60000) }),
   ]
 
@@ -163,7 +163,7 @@ export function createDemoApi() {
         (!f.categoryIds?.length || t.type === 'transfer' || f.categoryIds.includes(t.category_id)) &&
         (!f.tagIds?.length || t.tags.some((x) => f.tagIds.includes(x.id))) &&
         (!f.pendingOnly || t.is_pending) &&
-        (!kw || t.note.toLowerCase().includes(kw)),
+        (!kw || t.note.toLowerCase().includes(kw) || (t.line_note ?? '').toLowerCase().includes(kw)),
       )
       .sort((a, b) => b.date.localeCompare(a.date) || b.created_at.localeCompare(a.created_at))
   }
@@ -302,7 +302,9 @@ export function createDemoApi() {
             },
             tagNames,
           })
-          db.transactions.find((t) => t.id === l.id).split_id = split.lines.length > 1 ? split.id : null
+          const row = db.transactions.find((t) => t.id === l.id)
+          row.split_id = split.lines.length > 1 ? split.id : null
+          row.line_note = split.lines.length > 1 ? (l.note ?? '').trim() : ''
         }
         return delay(split.lines.length > 1 ? split.id : null)
       },

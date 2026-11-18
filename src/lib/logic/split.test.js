@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createEmptyForm, validateForm } from './transactionForm.js'
-import { startSplit, addLine, removeLine, editLineAmount, fillAuto, validateSplit, splitToPayload, mergeSplits, splitAmounts, canSplit, endSplit } from './split.js'
+import { startSplit, addLine, removeLine, editLineAmount, fillAuto, validateSplit, splitToPayload, linesToSplit, mergeSplits, splitAmounts, canSplit, endSplit } from './split.js'
 import { splitView } from './display.js'
 
 const ctx = { baseCurrency: 'TWD', currencies: [{ code: 'TWD', minor_unit: 0 }], accounts: [{ id: 'cube', name: 'Cube', currency: 'TWD' }] }
@@ -88,6 +88,28 @@ describe('拆帳表單', () => {
     expect(p.tagNames).toEqual(['朋友'])
   })
 
+  it('每一行有自己的備註（可空白、去頭尾空白），整筆備註照舊共用', () => {
+    const f = form()
+    startSplit(f, ctx)
+    expect(f.split.lines.map((l) => l.note)).toEqual(['', ''])
+    addLine(f, ctx)
+    expect(f.split.lines[2].note).toBe('')
+    f.note = '7-11'
+    f.split.lines[0].note = ' 隔天早餐 '
+    f.split.lines[1].note = '宵夜'
+    const p = splitToPayload(f, [], ctx)
+    expect(p.split.note).toBe('7-11')
+    expect(p.split.lines.map((l) => l.note)).toEqual(['隔天早餐', '宵夜', ''])
+  })
+
+  it('既有拆帳載入表單：行備註來自 line_note', () => {
+    const s = linesToSplit('s', [
+      { id: 'a', category_id: 'lunch', amount: 51, line_note: '隔天早餐' },
+      { id: 'b', category_id: 'adv', amount: 38 },
+    ], ctx)
+    expect(s.lines.map((l) => l.note)).toEqual(['隔天早餐', ''])
+  })
+
   it('能不能拆', () => {
     expect(canSplit({ type: 'expense' }, { accountCurrency: 'TWD' })).toBe(true)
     expect(canSplit({ type: 'income' }, {})).toBe(false)
@@ -132,5 +154,13 @@ describe('拆帳清單', () => {
     expect(v.amountText).toBe('-528 TWD')
     expect(v.detailText).toBe('午餐（共 1,298 TWD）')
     expect(splitAmounts(it0.split, true)).toMatchObject({ total: 1298, main: 528, partial: true })
+  })
+
+  it('有行備註就顯示行備註，沒有時顯示分類名稱', () => {
+    const n1 = { ...l1, line_note: '自己' }
+    const [it0] = mergeSplits([n1, l2])
+    expect(splitView(it0.split, vctx({})).detailText).toBe('自己 528・代墊 770')
+    const [it1] = mergeSplits([n1], new Map([['s', [n1, l2]]]))
+    expect(splitView(it1.split, vctx({ categoryFiltered: true })).detailText).toBe('自己（共 1,298 TWD）')
   })
 })

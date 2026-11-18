@@ -9,6 +9,7 @@
 //   ruleLink：這筆交易由固定收支產生時，圖示鈕為主色，點擊跳到該規則。
 // 拆帳（專案文件 claude/advance-and-split.md）：分類右邊一顆拆帳圖示鈕；點了「分類」變成多行「分類＋金額」
 //   （電腦版在下一列，手機排在分類的位置），「金額」改稱「總額」，最後一行自動補差額。只剩一行時變回一般交易。
+//   每一行：分類｜這一行的備註（存 line_note，可空白）｜金額；上方「備註」仍是整筆共用。手機的行備註在分類下方。
 import { computed, ref, watch, onMounted } from 'vue'
 import Icon from './Icon.vue'
 import CategoryPicker from './CategoryPicker.vue'
@@ -335,6 +336,13 @@ defineExpose({ flushTag })
             @pick="l.categoryId = $event.categoryId"
           />
           <TextInput
+            v-model="l.note"
+            class="sl-note"
+            placeholder="這一行的備註"
+            maxlength="200"
+            :aria-label="`第 ${i + 1} 行備註`"
+          />
+          <TextInput
             class="sl-amount"
             :class="{ auto: l.auto }"
             :model-value="l.amount"
@@ -431,6 +439,7 @@ defineExpose({ flushTag })
 .split-row { display: flex; flex-direction: column; gap: var(--sp-8); width: 0; min-width: 100%; }
 .split-line { display: flex; gap: var(--sp-8); align-items: center; }
 .sl-cat { width: 200px; }
+.sl-note { width: 200px; }
 .sl-amount { width: 120px; }
 .sl-amount.auto { color: var(--color-text); }
 .line-del { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--r-8); }
@@ -492,8 +501,13 @@ defineExpose({ flushTag })
   .f-settle > .w-amount { width: auto; }
   .f-cat { order: 4; }
   .f-split { order: 4; width: auto; min-width: 0; }
-  .sl-cat { flex: 1; width: auto; min-width: 0; }
-  .sl-amount { width: 104px; }
+  /* 每一行兩列：分類＋金額＋刪除；備註在下一列（寬度同分類＋金額） */
+  .split-line { display: grid; grid-template-columns: minmax(0, 1fr) 104px 44px; }
+  .sl-cat { width: auto; min-width: 0; grid-column: 1; grid-row: 1; }
+  .sl-amount { width: auto; grid-column: 2; grid-row: 1; }
+  .line-del { grid-column: 3; grid-row: 1; }
+  .sl-note { width: auto; grid-column: 1 / 3; grid-row: 2; }
+  .split-line + .split-line { margin-top: var(--sp-8); }
   .line-del { width: 44px; height: 44px; }
   .add-line { height: 44px; }
   .f-account { order: 5; }

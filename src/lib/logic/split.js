@@ -1,6 +1,7 @@
 // 拆帳（專案文件 claude/advance-and-split.md）：一筆消費分多行，各有分類與金額。純邏輯，手機與電腦共用。
 //   資料：每一行是一筆一般交易，以 split_id 綁在一起（資料庫 save_split）。
-//   表單：form.split = { id, lines: [{ id, categoryId, amount, auto }] }；form.amount＝總額（帳單上的數字）。
+//   表單：form.split = { id, lines: [{ id, categoryId, amount, note, auto }] }；form.amount＝總額（帳單上的數字）。
+//     form.note＝整筆共用的備註（例：「7-11」）；line.note＝這一行自己的備註（例：「宵夜」，存在 line_note，可空白）。
 //     最後一行 auto＝true 時自動補差額（總額 − 其他行），使用者改了那一行就變成手動。
 //   第一版只有台幣支出可以拆：外幣刷卡、離線、固定收支時拆帳鈕停用。
 import { parseAmount, minorUnitOf, toInputString } from './money.js'
@@ -31,8 +32,8 @@ export function startSplit(form, ctx) {
   form.split = {
     id: newId(),
     lines: [
-      { id: form.id, categoryId: form.categoryId, amount: '', auto: false },
-      { id: newId(), categoryId: null, amount: '', auto: true },
+      { id: form.id, categoryId: form.categoryId, amount: '', note: '', auto: false },
+      { id: newId(), categoryId: null, amount: '', note: '', auto: true },
     ],
   }
   fillAuto(form, ctx)
@@ -46,7 +47,7 @@ export function addLine(form, ctx) {
     last.auto = false
     last.amount = ''
   }
-  lines.push({ id: newId(), categoryId: null, amount: '', auto: true })
+  lines.push({ id: newId(), categoryId: null, amount: '', note: '', auto: true })
   fillAuto(form, ctx)
 }
 
@@ -129,7 +130,7 @@ export function splitToPayload(form, tagNames, ctx) {
       date: form.date,
       account_id: form.accountId,
       note: (form.note ?? '').trim(),
-      lines: form.split.lines.map((l) => ({ id: l.id, category_id: l.categoryId, amount: num(l.amount, ctx) })),
+      lines: form.split.lines.map((l) => ({ id: l.id, category_id: l.categoryId, amount: num(l.amount, ctx), note: (l.note ?? '').trim() })),
     },
     tagNames,
   }
@@ -139,7 +140,7 @@ export function splitToPayload(form, tagNames, ctx) {
 export function linesToSplit(splitId, lines, ctx) {
   return {
     id: splitId,
-    lines: lines.map((t) => ({ id: t.id, categoryId: t.category_id, amount: toInputString(t.amount, mu(ctx)), auto: false })),
+    lines: lines.map((t) => ({ id: t.id, categoryId: t.category_id, amount: toInputString(t.amount, mu(ctx)), note: t.line_note ?? '', auto: false })),
   }
 }
 
