@@ -3,7 +3,7 @@
 import { toInputString, minorUnitOf } from './money.js'
 import { createZip } from './zip.js'
 
-export const FORMAT_VERSION = 2 // 2：交易加 split_id（拆帳，同一筆消費的各行相同）
+export const FORMAT_VERSION = 3 // 2：交易加 split_id（拆帳，同一筆消費的各行相同）；3：交易加 line_note（拆帳各行的備註）
 
 // 欄位定義：[欄位名, 取值函式, 是否為文字（文字欄位會防 Excel 公式注入）]
 const TRANSACTION_COLUMNS = [
@@ -31,6 +31,7 @@ const TRANSACTION_COLUMNS = [
   ['created_at', (t) => t.created_at],
   ['updated_at', (t) => t.updated_at],
   ['split_id', (t) => t.split_id],
+  ['line_note', (t) => t.line_note ?? '', true],
 ]
 
 const ACCOUNT_COLUMNS = [

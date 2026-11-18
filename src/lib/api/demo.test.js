@@ -163,3 +163,19 @@ describe('demo：固定收支', () => {
     expect(rows.some((t) => t.note === '薪水' && t.recurring_rule_id === null)).toBe(true)
   })
 })
+
+describe('demo：拆帳行備註', () => {
+  it('saveSplit 寫入 line_note、搜尋比對得到；取消拆帳時清空', async () => {
+    const api = createDemoApi()
+    const { rows } = await api.transactions.list({})
+    const t = rows.find((r) => r.type === 'expense' && r.account_id === 'a-cube' && !r.split_id)
+    const split = { id: 's-new', date: t.date, account_id: 'a-cube', note: '7-11',
+      lines: [{ id: t.id, category_id: t.category_id, amount: 51, note: ' 隔天早餐 ' }, { id: 'n2', category_id: t.category_id, amount: 38, note: '宵夜' }] }
+    await api.transactions.saveSplit({ split, tagNames: [] })
+    const hit = await api.transactions.list({ keyword: '宵夜' })
+    expect(hit.rows.map((r) => r.id)).toEqual(['n2'])
+    expect(hit.rows[0].split_lines.map((l) => l.line_note)).toEqual(['隔天早餐', '宵夜'])
+    await api.transactions.saveSplit({ split: { ...split, lines: [split.lines[0]] }, tagNames: [] })
+    expect((await api.transactions.list({ keyword: '隔天' })).rows).toHaveLength(0)
+  })
+})
