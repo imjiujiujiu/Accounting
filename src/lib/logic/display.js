@@ -150,8 +150,8 @@ export function rowView(txn, ctx) {
 
 /**
  * 清單一列（拆帳，見 split.js 的 mergeSplits）。ctx 同 rowView，另需 categoryFiltered（有沒有篩分類）。
- * 沒篩分類：主金額＝總額，明細「午餐 528・代墊 770」；有篩分類：主金額＝符合的行加總，明細「午餐（共 1,298 TWD）」。
- * 明細的每一行：有行備註（line_note）就顯示行備註，否則顯示分類名稱（例：「隔天早餐 51・宵夜 38・其他餐飲 45」）。
+ * 沒篩分類：主金額＝總額，明細「午餐 $528・代墊 $770」；有篩分類：主金額＝符合的行加總，明細「午餐（共 1,298 TWD）」。
+ * 明細的每一行：有行備註（line_note）就顯示行備註，否則顯示分類名稱（例：「隔天早餐 $51・宵夜 $38・其他餐飲 $45」）。
  */
 export function splitView(split, ctx) {
   const first = split.all[0]
@@ -164,7 +164,7 @@ export function splitView(split, ctx) {
   const num = (n) => formatAmount(n, cur, cs).replace(/ [A-Z]+$/, '')
   const detailText = partial
     ? `${shown.map(labelOf).join('・')}（共 ${formatAmount(total, cur, cs)}）`
-    : split.all.map((l) => `${labelOf(l)} ${num(l.counted_amount ?? 0)}`).join('・')
+    : split.all.map((l) => `${labelOf(l)} $${num(l.counted_amount ?? 0)}`).join('・')
   const allUncounted = shown.every((l) => isUncountedAdvance(l, ctx.categoriesById, ctx.advanceCounted ?? true))
   return {
     title: first.note || catOf(first)?.name || '支出',
