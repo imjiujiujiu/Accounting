@@ -51,7 +51,7 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey, true))
 .foot { display: flex; justify-content: flex-end; gap: var(--sp-12); margin-top: var(--sp-12); }
 .detail { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-2) var(--sp-12); background: var(--color-page); border-radius: var(--r-8); padding: var(--sp-12); }
 .detail .amt { text-align: right; }
-.foot :deep(.danger-fill) { background: var(--red-600); color: var(--color-card); }
+.foot :deep(.danger-fill) { background: var(--color-expense); color: var(--color-card); }
 .pop-enter-active, .pop-leave-active { transition: opacity .15s; }
 .pop-enter-from, .pop-leave-to { opacity: 0; }
 </style>
