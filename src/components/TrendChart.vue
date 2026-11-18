@@ -1,13 +1,12 @@
 <script setup>
 // 統計頁趨勢圖：依目前期間自動分日／月／年的長條圖，永遠是整體（不跟分類清單的展開變）。
-// 點長條（電腦版滑過）→ 上方出現「11/7（六）2,340 ›」，再點標籤＝期間切換到那一天（月、年）。
+// 長條不能點（要看單日請從上方期間選擇器調整）；電腦版滑過只顯示「11/7（六）2,340」。
 import { computed, ref, watch } from 'vue'
-import Icon from './Icon.vue'
 import { Skeleton } from './ui/index.js'
 import { filters, refs } from '../lib/store.js'
 import { useTrend } from '../lib/useFiltered.js'
 import { formatNumber, rangeLabel } from '../lib/logic/display.js'
-import { trendSeries, bucketLabel, bucketRange, niceScale, tickIndexes, shortAmount } from '../lib/logic/stats.js'
+import { trendSeries, bucketLabel, niceScale, tickIndexes, shortAmount } from '../lib/logic/stats.js'
 import { today } from '../lib/logic/period.js'
 
 const props = defineProps({
@@ -54,11 +53,6 @@ const tipAlign = computed(() => {
 const pctX = (x) => `${(x / CW) * 100}%`
 const pctY = (y) => `${(y / CH) * 100}%`
 const num = (v) => formatNumber(v, props.currency, refs.currencies)
-
-function goTo(key) {
-  filters.range = bucketRange(key, bucket.value, filters.range)
-  tip.value = null
-}
 </script>
 
 <template>
@@ -72,13 +66,12 @@ function goTo(key) {
     <div v-else class="chart" :class="{ dim: loading }" @mouseleave="tip = null">
       <svg :viewBox="`0 0 ${CW} ${CH}`" preserveAspectRatio="none" class="svg" role="img" :aria-label="title">
         <line v-for="t in scale.ticks" :key="t" :x1="PL" :x2="CW" :y1="yOf(t)" :y2="yOf(t)" class="grid" />
-        <!-- 點擊範圍比長條大：整格高度 -->
+        <!-- 滑過範圍比長條大：整格高度（只在電腦版滑鼠滑過時顯示金額，不能點） -->
         <rect
           v-for="b in bars" :key="'hit' + b.key"
           :x="PL + b.i * slot" :y="PT" :width="slot" :height="plotH"
           fill="transparent" class="hit"
-          @mouseenter="b.value && (tip = b.key)"
-          @click="tip = b.value ? b.key : null"
+          @pointerenter="(e) => e.pointerType === 'mouse' && b.value && (tip = b.key)"
         />
         <rect
           v-for="b in bars" :key="b.key"
@@ -93,21 +86,16 @@ function goTo(key) {
         class="x caption c-text" :style="{ left: pctX(b.x + b.w / 2) }"
       >{{ bucketLabel(b.key, bucket) }}</span>
       <p v-if="empty" class="none caption c-text">這段期間沒有{{ kind === 'expense' ? '支出' : '收入' }}</p>
-      <button
+      <div
         v-if="tipBar"
-        type="button"
         class="tip caption"
         :class="tipAlign"
         :style="{ left: pctX(tipBar.x + tipBar.w / 2), top: pctY(tipBar.y) }"
-        :aria-label="`切換到 ${bucketLabel(tipBar.key, bucket, true)}`"
-        @click="goTo(tipBar.key)"
       >
         <span class="c-text">{{ bucketLabel(tipBar.key, bucket, true) }}</span>
         <span class="body2-bold">{{ num(tipBar.value) }}</span>
-        <Icon name="right" :size="16" color="var(--color-primary)" />
-      </button>
+      </div>
     </div>
-    <p class="caption c-text">點長條看金額，再點一次標籤切換到那一段期間。</p>
   </div>
 </template>
 
@@ -118,19 +106,17 @@ function goTo(key) {
 .chart.dim { opacity: .6; }
 .svg { width: 100%; height: 100%; display: block; overflow: visible; }
 .grid { stroke: var(--color-tag); stroke-width: 1; vector-effect: non-scaling-stroke; }
-.hit { cursor: pointer; }
 .bar { pointer-events: none; transition: opacity .15s; }
 .y { position: absolute; left: 0; transform: translateY(-50%); }
 .x { position: absolute; bottom: 0; transform: translateX(-50%); white-space: nowrap; }
 .none { position: absolute; inset: 0 0 24px 40px; display: grid; place-items: center; pointer-events: none; }
 .tip {
   position: absolute; transform: translate(-50%, calc(-100% - 8px)); display: flex; align-items: center; gap: var(--sp-8);
-  padding: var(--sp-8) var(--sp-8) var(--sp-8) var(--sp-12); white-space: nowrap; z-index: 2;
+  padding: var(--sp-8) var(--sp-12); white-space: nowrap; z-index: 2; pointer-events: none;
   background: var(--color-tag); border: 1px solid var(--color-line); border-radius: var(--r-10); box-shadow: var(--shadow-pop);
 }
 .tip.from-left { transform: translate(-16px, calc(-100% - 8px)); }
 .tip.from-right { transform: translate(calc(-100% + 16px), calc(-100% - 8px)); }
-.tip:hover { border-color: var(--color-line-hover); }
 @media (max-width: 760px) {
   .chart { height: 180px; }
 }
