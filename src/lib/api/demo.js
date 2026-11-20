@@ -184,6 +184,9 @@ export function createDemoApi() {
           .map((t) => (t.split_id ? { ...t, split_lines: lines(t.split_id) } : t))
         return delay({ rows, total: all.length, page, pageCount: Math.max(1, Math.ceil(all.length / PAGE_SIZE)) })
       },
+      async count(f = {}) {
+        return delay(filtered(f).length)
+      },
       async summary(f = {}) {
         const rows = filtered(f).filter(inScope(f)).filter(counts(f))
         const sum = (type) => rows.filter((t) => t.type === type).reduce((s, t) => s + (t.counted_amount ?? 0), 0)
