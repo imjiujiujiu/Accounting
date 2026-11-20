@@ -70,6 +70,17 @@ export function createTransactionsApi(db) {
 
   return {
     /**
+     * 符合條件的筆數（清單空狀態放寬條件後用）。只取 1 筆的 id；
+     * 不用 head: true——那會把參數放進網址，null 會變成字串 'null'
+     */
+    async count(filters = {}) {
+      const { count } = await run(
+        db.rpc('filter_transactions', toFilterArgs(filters), { count: 'exact' }).select('id').range(0, 0),
+      )
+      return count ?? 0
+    },
+
+    /**
      * 清單（電腦版分頁）。page 從 0 開始，每頁 50 筆，日期新到舊、同日依建立時間新到舊。
      * 回傳 { rows, total, page, pageCount }
      */

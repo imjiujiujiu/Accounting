@@ -1,25 +1,49 @@
 <script setup>
 // 依日分組的交易清單。點一列 → emit('open', txn) 開啟編輯對話框
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import Icon from './Icon.vue'
 import { Skeleton, BaseButton } from './ui/index.js'
-import { filters, refs, accountsById, categoriesById, scopeCurrency, categoryColor } from '../lib/store.js'
+import { filters, refs, accountsById, categoriesById, scopeCurrency, categoryColor, dataVersion } from '../lib/store.js'
+import { api } from '../lib/api/index.js'
+import { queuedRows } from '../lib/outbox.js'
+import { matchesFilters } from '../lib/logic/outbox.js'
 import { rowView, groupByDay, splitView } from '../lib/logic/display.js'
 import { mergeSplits } from '../lib/logic/split.js'
 import { advanceCounted } from '../lib/logic/advance.js'
 import { toQueryFilters } from '../lib/logic/categoryFilter.js'
-import { isAll, presetRange } from '../lib/logic/period.js'
-import { rangeLabel } from '../lib/logic/display.js'
-
-// 空狀態（提案）：說明目前的搜尋範圍，並提供下一步
-const emptyRange = computed(() => (isAll(filters.range) ? '' : rangeLabel(filters.range)))
-const hasOtherFilters = computed(() => filters.types.length || filters.categoryIds.length || filters.tagIds.length || filters.pendingOnly)
-function searchAll() { filters.range = presetRange('all') }
+import { scopeParts, canWiden, widenedFilters, widenedText } from '../lib/logic/emptyState.js'
 
 // skeleton：還沒有任何資料可顯示（第一次讀取）時顯示骨架；之後重讀只把清單調淡
 const props = defineProps({ rows: { type: Array, default: () => [] }, loading: Boolean, skeleton: Boolean })
 const SKELETON_DAYS = [[46, 30, 38], [34, 42]]
 defineEmits(['open'])
+
+// 空狀態（2026-11-20）：寫出所有生效的條件；搜尋時另外查「只留關鍵字」的筆數，直接說其他地方有沒有
+const isEmpty = computed(() => !props.rows.length && !props.loading)
+const scope = computed(() => scopeParts(filters, { accountsById: accountsById.value, categories: refs.categories, tags: refs.tags }).join('・'))
+const widened = ref(null) // { count, text }
+let widenSeq = 0
+const widenKey = () => (isEmpty.value && filters.keyword.trim() && canWiden(filters) ? JSON.stringify(filters) : null)
+async function loadWidened(key) {
+  const my = ++widenSeq
+  widened.value = null
+  if (!key) return
+  const before = JSON.parse(key)
+  const wide = widenedFilters(before)
+  const q = toQueryFilters(wide, refs.categories)
+  try {
+    const server = await api.transactions.count(q)
+    const queued = queuedRows.value.filter((r) => matchesFilters(r, q, refs.tags)).length
+    if (my !== widenSeq) return
+    const count = server + queued
+    widened.value = { count, text: widenedText(before, count) }
+  } catch {
+    // 查不到就不顯示這行，不影響清單
+  }
+}
+watch([widenKey, dataVersion], ([key]) => loadWidened(key), { immediate: true })
+function widen() { Object.assign(filters, widenedFilters(filters)) }
+
 
 const TONE_COLOR = { income: 'var(--color-income)', expense: 'var(--color-expense)', transfer: 'var(--color-text)' }
 const AMOUNT_CLASS = { income: 'c-income', expense: 'c-expense', transfer: 'c-text' }
@@ -103,13 +127,19 @@ const days = computed(() => {
         </span>
       </button>
     </div>
-    <div v-if="!rows.length && !loading" class="empty">
-      <template v-if="filters.keyword">
-        <p class="body2">沒有符合「{{ filters.keyword }}」的紀錄</p>
-        <p v-if="emptyRange" class="caption">搜尋範圍：{{ emptyRange }}</p>
-        <BaseButton v-if="emptyRange" size="small" icon="search" class="mt" @click="searchAll">搜尋全部期間</BaseButton>
+    <div v-if="isEmpty" class="empty">
+      <template v-if="filters.keyword.trim()">
+        <p class="body2">沒有符合「{{ filters.keyword.trim() }}」的紀錄</p>
+        <p v-if="scope" class="caption">搜尋範圍：{{ scope }}</p>
+        <template v-if="widened">
+          <p class="body2 widened" :class="{ found: widened.count }">{{ widened.text }}</p>
+          <BaseButton v-if="widened.count" size="small" icon="search" class="mt" @click="widen">顯示這 {{ widened.count }} 筆</BaseButton>
+        </template>
       </template>
-      <p v-else class="body2">沒有符合的紀錄</p>
+      <template v-else>
+        <p class="body2">沒有符合的紀錄</p>
+        <p v-if="scope" class="caption">篩選範圍：{{ scope }}</p>
+      </template>
     </div>
   </div>
 </template>
@@ -139,6 +169,8 @@ const days = computed(() => {
 .split-detail { display: inline-flex; align-items: center; gap: var(--sp-2); margin-right: var(--sp-4); }
 .empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-8); padding: var(--sp-24) 0; color: var(--color-text); text-align: center; }
 .empty .mt { margin-top: var(--sp-8); }
+.empty .widened { margin-top: var(--sp-8); }
+.empty .widened.found { color: var(--color-title); }
 .amount-col { flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-end; gap: var(--sp-2); }
 .sub { font-size: 12px; color: var(--color-text); white-space: nowrap; }
 .note { border: 1px solid var(--color-line); border-radius: var(--r-4); padding: 0 var(--sp-4); line-height: 18px; }
