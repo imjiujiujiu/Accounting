@@ -246,6 +246,7 @@ describe('transactions.snapshot／restore（刪除後「復原」）', () => {
   const row = {
     id: 'x1', user_id: 'me', date: '2026-11-01', type: 'expense', account_id: 'a', category_id: 'c', amount: 120,
     recurring_rule_id: 'r1', occurrence_date: '2026-11-01', created_at: '2026-11-01T01:00:00Z',
+    split_id: 's1', line_note: '隔天早餐',
     category_kind: 'expense', is_pending: false, counted_amount: 120,
   }
 
@@ -261,7 +262,7 @@ describe('transactions.snapshot／restore（刪除後「復原」）', () => {
     expect(snap[0].row).not.toHaveProperty('counted_amount')
     expect(snap[0].row).not.toHaveProperty('is_pending')
     expect(snap[0].row).not.toHaveProperty('tags')
-    expect(snap[0].row).toMatchObject({ id: 'x1', recurring_rule_id: 'r1', occurrence_date: '2026-11-01', created_at: '2026-11-01T01:00:00Z' })
+    expect(snap[0].row).toMatchObject({ id: 'x1', recurring_rule_id: 'r1', occurrence_date: '2026-11-01', created_at: '2026-11-01T01:00:00Z', split_id: 's1', line_note: '隔天早餐' })
   })
 
   it('restore：原樣寫回各行，標籤用名稱重新取得或建立後補上關聯', async () => {

@@ -195,14 +195,14 @@ describe('demo：刪除後「復原」', () => {
     expect(back.tags.map((t) => t.name)).toEqual(['午餐'])
   })
 
-  it('拆帳：所有行一起復原', async () => {
+  it('拆帳：所有行一起復原（含各行備註 line_note）', async () => {
     const api = createDemoApi()
     const { rows } = await api.transactions.list({})
     const base = rows.find((r) => r.type === 'expense' && !r.split_id)
     const cats = (await api.categories.list()).filter((c) => c.kind === 'expense' && !c.parent_id && c.name === '交通')
     const sid = await api.transactions.saveSplit({
       split: { id: 's1', date: base.date, account_id: base.account_id, note: '合付', lines: [
-        { id: 'l1', category_id: base.category_id, amount: 100 }, { id: 'l2', category_id: cats[0].id, amount: 50 },
+        { id: 'l1', category_id: base.category_id, amount: 100, note: '隔天早餐' }, { id: 'l2', category_id: cats[0].id, amount: 50, note: '計程車' },
       ] },
       tagNames: [],
     })
@@ -213,5 +213,6 @@ describe('demo：刪除後「復原」', () => {
     const all = (await api.transactions.list({})).rows.filter((r) => r.split_id === 's1')
     expect(all.length).toBeGreaterThan(0)
     expect(all[0].split_lines.map((l) => l.amount)).toEqual([100, 50])
+    expect(all[0].split_lines.map((l) => l.line_note)).toEqual(['隔天早餐', '計程車'])
   })
 })
