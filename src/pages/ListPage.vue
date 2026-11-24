@@ -5,7 +5,7 @@ import OutboxNotice from '../components/OutboxNotice.vue'
 import FilterBar from '../components/FilterBar.vue'
 import TransactionList from '../components/TransactionList.vue'
 import CategoryBreakdown from '../components/CategoryBreakdown.vue'
-import Pager from '../components/Pager.vue'
+import LoadMore from '../components/LoadMore.vue'
 import { useTrip, useSummary, useTransactionList } from '../lib/useFiltered.js'
 import { openTransaction } from '../lib/dialog.js'
 import { scopeCurrency, refs, filters } from '../lib/store.js'
@@ -17,17 +17,12 @@ const bodyEl = ref(null)
 
 const { trip } = useTrip()
 const { summary, expense, income, error: sumError, loading: sumLoading } = useSummary()
-const { rows, page, pageCount, total, loading, error: listError } = useTransactionList()
+const { rows, total, hasMore, loading, loadingMore, error: listError, moreError, loadMore } = useTransactionList()
 useSwipePeriod(bodyEl, () => sumLoading.value || loading.value)
 
 // 第一次讀取：參考資料（帳戶、分類名稱）或清單還沒到 → 骨架
 const listSkeleton = computed(() => !refs.loaded || (loading.value && !rows.value.length))
 const sumSkeleton = computed(() => !refs.loaded || !summary.value)
-
-function go(p) {
-  page.value = p
-  window.scrollTo({ top: 0, behavior: 'smooth' })
-}
 </script>
 
 <template>
@@ -41,7 +36,7 @@ function go(p) {
     <section class="content">
       <div class="card main">
         <TransactionList :rows="rows" :loading="loading" :skeleton="listSkeleton" @open="openTransaction" />
-        <Pager v-if="!listSkeleton" :page="page" :page-count="pageCount" :total="total" @go="go" />
+        <LoadMore v-if="!listSkeleton && rows.length" :total="total" :has-more="hasMore" :loading="loadingMore" :error="moreError" @more="loadMore" />
       </div>
       <CategoryBreakdown class="breakdown" :expense="expense" :income="income" :currency="summary?.currency ?? scopeCurrency" :loading="sumSkeleton" />
     </section>

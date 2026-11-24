@@ -176,11 +176,11 @@ export function createDemoApi() {
 
   return {
     transactions: {
-      async list(f = {}, page = 0) {
+      async list(f = {}, page = 0, pages = 1) {
         const all = filtered(f)
         const lines = (sid) => db.transactions.filter((t) => t.split_id === sid).map(derive)
           .sort((a, b) => a.created_at.localeCompare(b.created_at))
-        const rows = all.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
+        const rows = all.slice(page * PAGE_SIZE, (page + pages) * PAGE_SIZE)
           .map((t) => (t.split_id ? { ...t, split_lines: lines(t.split_id) } : t))
         return delay({ rows, total: all.length, page, pageCount: Math.max(1, Math.ceil(all.length / PAGE_SIZE)) })
       },

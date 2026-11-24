@@ -47,6 +47,11 @@ describe('transactions.list', () => {
     expect(res.rows[0].tags.map((t) => t.name)).toEqual(['出差', '旅行'])
     expect(res.rows[1].tags).toEqual([])
   })
+  it('pages：一次讀多頁', async () => {
+    const db = fakeDb(() => ({ data: [], count: 0, error: null }))
+    await createApi(db).transactions.list({}, 0, 3)
+    expect(argsOf(db.calls[0], 'range')).toEqual([[0, PAGE_SIZE * 3 - 1]])
+  })
   it('沒有資料時不查標籤', async () => {
     const db = fakeDb(() => ({ data: [], count: 0, error: null }))
     const res = await createApi(db).transactions.list()
