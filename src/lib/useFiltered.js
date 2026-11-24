@@ -1,12 +1,13 @@
 // 依目前篩選條件讀取合計與分類加總（清單頁與統計頁共用）。篩選或資料變動時自動重讀。
 import { ref, watch, computed } from 'vue'
-import { api } from './api/index.js'
+import { api, PAGE_SIZE } from './api/index.js'
 import { filters, refs, dataVersion, baseCurrency } from './store.js'
 import { tripTagId, tripView } from './logic/trip.js'
 import { toQueryFilters } from './logic/categoryFilter.js'
 import { matchesFilters, mergeQueued } from './logic/outbox.js'
 import { queuedRows } from './outbox.js'
 import { trendBucket } from './logic/stats.js'
+import { appendRows } from './logic/paging.js'
 
 /** 目前篩選條件 → 查詢條件（分類的「全部」在這裡展開） */
 const query = () => toQueryFilters({ ...filters }, refs.categories)
@@ -48,27 +49,39 @@ export function useSummary() {
   return { summary, expense, income, error, loading, reload: load }
 }
 
-/** 分頁清單；篩選條件改變時回到第 1 頁。尚未同步的交易（離線時新增）併在第 1 頁 */
+/** Supabase 單次最多回傳 1000 筆：重讀已載入的部分時最多讀這麼多頁 */
+const REFRESH_MAX_PAGES = 1000 / PAGE_SIZE
+
+/**
+ * 清單：往下捲到底時再讀下一批（每批 PAGE_SIZE 筆）。
+ * 篩選條件改變 → 從第一批重來；資料變動（新增、編輯、刪除）→ 重讀已載入的範圍，捲動位置不變。
+ * 尚未同步的交易（離線時新增）併在最前面。
+ */
 export function useTransactionList() {
   const serverRows = ref([])
-  const page = ref(0)
+  const pages = ref(0) // 已載入幾批
   const pageCount = ref(1)
   const total = ref(0)
-  const loading = ref(false)
+  const loading = ref(false) // 第一次讀取或整份重讀
+  const loadingMore = ref(false)
   const error = ref('')
+  const moreError = ref('')
   let seq = 0
 
-  async function load() {
+  async function load(reset) {
     const my = ++seq
     loading.value = true
+    loadingMore.value = false
     error.value = ''
+    moreError.value = ''
+    const n = reset ? 1 : Math.min(Math.max(pages.value, 1), REFRESH_MAX_PAGES)
     try {
-      const r = await api.transactions.list(query(), page.value)
+      const r = await api.transactions.list(query(), 0, n)
       if (my !== seq) return
       serverRows.value = r.rows
       total.value = r.total
       pageCount.value = r.pageCount
-      if (page.value > r.pageCount - 1) page.value = r.pageCount - 1
+      pages.value = Math.min(n, r.pageCount)
     } catch (err) {
       if (my === seq) error.value = err.message
     } finally {
@@ -76,19 +89,38 @@ export function useTransactionList() {
     }
   }
 
+  const hasMore = computed(() => pages.value < pageCount.value)
+
+  async function loadMore() {
+    if (loading.value || loadingMore.value || !hasMore.value) return
+    const my = seq // 期間若整份重讀（seq 改變），這批結果就丟掉
+    loadingMore.value = true
+    moreError.value = ''
+    try {
+      const r = await api.transactions.list(query(), pages.value)
+      if (my !== seq) return
+      serverRows.value = appendRows(serverRows.value, r.rows)
+      total.value = r.total
+      pageCount.value = r.pageCount
+      pages.value += 1
+    } catch (err) {
+      if (my === seq) moreError.value = err.message
+    } finally {
+      if (my === seq) loadingMore.value = false
+    }
+  }
+
   const rows = computed(() => {
     const f = query()
     const mine = queuedRows.value.filter((r) => matchesFilters(r, f, refs.tags))
-    return mergeQueued(serverRows.value, mine, page.value)
+    return mergeQueued(serverRows.value, mine)
   })
 
-  watch(queryKey, () => {
-    page.value = 0
-    load()
-  })
-  watch([page, dataVersion], load, { immediate: true })
+  watch(queryKey, () => load(true))
+  watch(dataVersion, () => load(false))
+  load(true)
 
-  return { rows, page, pageCount, total, loading, error, reload: load }
+  return { rows, total, hasMore, loading, loadingMore, error, moreError, loadMore, reload: () => load(false) }
 }
 
 /** 旅程總覽：只選了一個標籤時，換算成主幣別的支出合計（其他情況為 null） */

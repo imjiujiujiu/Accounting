@@ -81,10 +81,11 @@ export function createTransactionsApi(db) {
     },
 
     /**
-     * 清單（電腦版分頁）。page 從 0 開始，每頁 50 筆，日期新到舊、同日依建立時間新到舊。
+     * 清單（往下捲動時一批一批讀取）。page 從 0 開始，每頁 50 筆，日期新到舊、同日依建立時間新到舊。
+     * pages：一次讀幾頁（重讀已載入的部分時用；Supabase 單次最多 1000 筆）。
      * 回傳 { rows, total, page, pageCount }
      */
-    async list(filters = {}, page = 0) {
+    async list(filters = {}, page = 0, pages = 1) {
       const start = page * PAGE_SIZE
       const { data, count } = await run(
         db
@@ -92,7 +93,7 @@ export function createTransactionsApi(db) {
           .order('date', { ascending: false })
           .order('created_at', { ascending: false })
           .order('id', { ascending: false })
-          .range(start, start + PAGE_SIZE - 1),
+          .range(start, start + PAGE_SIZE * pages - 1),
       )
       const total = count ?? 0
       return { rows: await withSplitLines(await attachTags(data)), total, page, pageCount: Math.max(1, Math.ceil(total / PAGE_SIZE)) }
