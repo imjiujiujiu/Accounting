@@ -241,3 +241,51 @@ describe('toApiError', () => {
     expect(e.message).toBe('發生錯誤，請重試')
   })
 })
+
+describe('transactions.snapshot／restore（刪除後「復原」）', () => {
+  const row = {
+    id: 'x1', user_id: 'me', date: '2026-11-01', type: 'expense', account_id: 'a', category_id: 'c', amount: 120,
+    recurring_rule_id: 'r1', occurrence_date: '2026-11-01', created_at: '2026-11-01T01:00:00Z',
+    split_id: 's1', line_note: '隔天早餐',
+    category_kind: 'expense', is_pending: false, counted_amount: 120,
+  }
+
+  it('snapshot：拿掉資料庫推導欄位，標籤記名稱；拆帳依 split_id 取所有行', async () => {
+    const db = fakeDb((c) => {
+      if (c.table === 'transactions') return { data: [row], error: null }
+      if (c.table === 'transaction_tags') return { data: [{ transaction_id: 'x1', tag_id: 't1' }], error: null }
+      if (c.table === 'tags') return { data: [{ id: 't1', name: '午餐' }], error: null }
+    })
+    const snap = await createApi(db).transactions.snapshot({ splitId: 's1' })
+    expect(argsOf(db.calls[0], 'eq')).toEqual([['split_id', 's1']])
+    expect(snap).toEqual([{ row: expect.not.objectContaining({ category_kind: expect.anything() }), tagNames: ['午餐'] }])
+    expect(snap[0].row).not.toHaveProperty('counted_amount')
+    expect(snap[0].row).not.toHaveProperty('is_pending')
+    expect(snap[0].row).not.toHaveProperty('tags')
+    expect(snap[0].row).toMatchObject({ id: 'x1', recurring_rule_id: 'r1', occurrence_date: '2026-11-01', created_at: '2026-11-01T01:00:00Z', split_id: 's1', line_note: '隔天早餐' })
+  })
+
+  it('restore：原樣寫回各行，標籤用名稱重新取得或建立後補上關聯', async () => {
+    const db = fakeDb((c) => (c.rpc === 'get_or_create_tag' ? { data: `id-${c.args.p_name}`, error: null } : { data: null, error: null }))
+    const { category_kind, is_pending, counted_amount, ...plain } = row
+    await createApi(db).transactions.restore([
+      { row: plain, tagNames: ['午餐', '旅行'] },
+      { row: { ...plain, id: 'x2' }, tagNames: ['午餐'] },
+    ])
+    expect(db.calls[0].table).toBe('transactions')
+    expect(argsOf(db.calls[0], 'insert')[0][0].map((r) => r.id)).toEqual(['x1', 'x2'])
+    expect(db.calls.filter((c) => c.rpc === 'get_or_create_tag').map((c) => c.args.p_name)).toEqual(['午餐', '旅行'])
+    const links = argsOf(db.calls.at(-1), 'insert')[0][0]
+    expect(links).toEqual([
+      { transaction_id: 'x1', tag_id: 'id-午餐' },
+      { transaction_id: 'x1', tag_id: 'id-旅行' },
+      { transaction_id: 'x2', tag_id: 'id-午餐' },
+    ])
+  })
+
+  it('restore：沒有標籤時不建立關聯', async () => {
+    const db = fakeDb()
+    await createApi(db).transactions.restore([{ row: { id: 'x1' }, tagNames: [] }])
+    expect(db.calls).toHaveLength(1)
+  })
+})

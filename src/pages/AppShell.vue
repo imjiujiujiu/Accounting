@@ -9,7 +9,7 @@ import TransactionDialog from '../components/TransactionDialog.vue'
 import RuleDialog from '../components/RuleDialog.vue'
 import { ConfirmDialog, BaseButton } from '../components/ui/index.js'
 import Icon from '../components/Icon.vue'
-import { refs, loadRefs, toast, afterTransactionChange, showToast } from '../lib/store.js'
+import { refs, loadRefs, toast, afterTransactionChange, showToast, pauseToast, resumeToast, runToastAction } from '../lib/store.js'
 import { startOutbox } from '../lib/outbox.js'
 import { openNewTransaction } from '../lib/dialog.js'
 import { accountDrawer, openAccountDrawer, closeAccountDrawer } from '../lib/accountDrawer.js'
@@ -55,7 +55,17 @@ async function retry() {
     <RuleDialog />
     <ConfirmDialog />
     <Transition name="toast">
-      <div v-if="toast.text" class="toast caption" :class="toast.tone">{{ toast.text }}</div>
+      <div
+        v-if="toast.text"
+        class="toast caption"
+        :class="[toast.tone, { 'has-action': toast.action }]"
+        role="status"
+        @mouseenter="pauseToast"
+        @mouseleave="resumeToast"
+      >
+        <span>{{ toast.text }}</span>
+        <button v-if="toast.action" type="button" class="toast-action caption" @click="runToastAction">{{ toast.action.label }}</button>
+      </div>
     </Transition>
   </div>
 </template>
@@ -79,6 +89,11 @@ async function retry() {
   border: 1px solid var(--color-line); padding: var(--sp-8) var(--sp-16); border-radius: var(--r-pill);
 }
 .toast.error { color: var(--color-error); border-color: var(--color-error); }
+/* 帶動作鈕（例：刪除後「復原」）：文字＋主色粗字按鈕，右側內距讓給按鈕的點擊範圍 */
+.toast.has-action { display: flex; align-items: center; gap: var(--sp-8); padding-right: var(--sp-4); }
+.toast-action { color: var(--color-primary); font-weight: 700; padding: var(--sp-4) var(--sp-12); border-radius: var(--r-pill); }
+.toast-action:hover { background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
+@media (pointer: coarse) { .toast-action { min-height: 32px; } }
 .toast-enter-active, .toast-leave-active { transition: opacity .2s, transform .2s; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -8px); }
 @media (max-width: 760px) {

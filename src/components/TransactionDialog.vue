@@ -20,7 +20,7 @@ import { BaseButton } from './ui/index.js'
 import { confirmDialog, confirmState, confirmDiscard } from '../lib/confirm.js'
 import { createDirty } from '../lib/dirty.js'
 import { txnDialog, closeTransaction } from '../lib/dialog.js'
-import { refs, baseCurrency, afterTransactionChange, showToast } from '../lib/store.js'
+import { refs, baseCurrency, afterTransactionChange, showToast, UNDO_TOAST_MS } from '../lib/store.js'
 import { api, ACCOUNT_TYPES } from '../lib/api/index.js'
 import { orderedAccounts } from '../lib/logic/accounts.js'
 import { isOnline, OFFLINE_MESSAGE, OFFLINE_QUEUE_MESSAGE } from '../lib/api/online.js'
@@ -223,7 +223,8 @@ async function saveRule() {
 
 async function remove() {
   const sid = splitId.value
-  const message = sid ? '拆帳的各行會一起刪除。刪除後無法復原。' : '刪除後無法復原。'
+  // 有「復原」可以救回，所以不寫「刪除後無法復原」
+  const message = sid ? '拆帳的各行會一起刪除。' : ''
   // 提案：對話框帶上這筆的名稱、金額、日期，確認是刪對的那一筆
   const t = txnDialog.txn
   const acc = refs.accounts.find((a) => a.id === t?.account_id)
@@ -232,26 +233,48 @@ async function remove() {
   const sign = t?.type === 'income' ? 1 : t?.type === 'expense' ? -1 : 0
   const detail = t ? { name: t.note || cat?.name || '轉帳', amount: formatSigned(sign * total, acc?.currency ?? 'TWD', refs.currencies), date: t.date.replaceAll('-', '/') } : null
   if (!(await confirmDialog({ title: '刪除這筆交易？', message, detail, confirmText: '刪除' }))) return
-  // 還沒同步的：只要從這台裝置的佇列移除
+  // 還沒同步的：只要從這台裝置的佇列移除；復原＝放回佇列
   if (queued.value) {
+    const item = outbox.items.find((i) => i.id === form.value.id)
     dequeue(form.value.id)
     closeTransaction()
-    showToast('已刪除')
+    showUndo(() => enqueue(item.payload))
     return
   }
   saving.value = true
   failMessage.value = ''
   try {
+    // 先記下整筆（含標籤、拆帳各行、固定收支關聯），再刪
+    const snapshot = await api.transactions.snapshot(sid ? { splitId: sid } : { id: form.value.id })
     if (sid) await api.transactions.removeSplit(sid)
     else await api.transactions.remove(form.value.id)
     closeTransaction()
-    showToast('已刪除')
+    showUndo(() => api.transactions.restore(snapshot))
     afterTransactionChange()
   } catch (e) {
     failMessage.value = e.message
   } finally {
     saving.value = false
   }
+}
+
+/** 「已刪除」toast 帶「復原」，停留 6 秒（新的 toast 會取代它，只能復原最後刪的那一筆） */
+function showUndo(restore) {
+  showToast('已刪除', 'ok', {
+    duration: UNDO_TOAST_MS,
+    action: {
+      label: '復原',
+      run: async () => {
+        try {
+          await restore()
+          showToast('已復原')
+          afterTransactionChange()
+        } catch (e) {
+          showToast(e.kind === 'offline' ? '目前離線，無法復原' : '復原失敗，請重試', 'error')
+        }
+      },
+    },
+  })
 }
 
 /** Esc、取消、點背景、✕：改過內容先問「放棄編輯？」 */
