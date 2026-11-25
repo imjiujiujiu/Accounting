@@ -16,6 +16,13 @@ describe('toast', () => {
     expect(toast.text).toBe('')
   })
 
+  it('圖示與倒數時間跟著 toast，換成一般 toast 時清掉圖示', () => {
+    showToast('已刪除', 'ok', { icon: 'delete', action: { label: '復原', run: () => {} }, duration: UNDO_TOAST_MS })
+    expect(toast).toMatchObject({ icon: 'delete', duration: UNDO_TOAST_MS, paused: false })
+    showToast('已儲存')
+    expect(toast).toMatchObject({ icon: null, action: null, duration: 2500 })
+  })
+
   it('帶「復原」的 toast 停 6 秒', () => {
     showToast('已刪除', 'ok', { action: { label: '復原', run: () => {} }, duration: UNDO_TOAST_MS })
     vi.advanceTimersByTime(5900)
@@ -31,7 +38,9 @@ describe('toast', () => {
     pauseToast()
     vi.advanceTimersByTime(60_000)
     expect(toast.text).toBe('已刪除')
+    expect(toast.paused).toBe(true)
     resumeToast()
+    expect(toast.paused).toBe(false)
     vi.advanceTimersByTime(1900)
     expect(toast.text).toBe('已刪除')
     vi.advanceTimersByTime(200)
