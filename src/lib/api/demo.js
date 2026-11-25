@@ -49,7 +49,7 @@ function seed() {
   ]
   const c = (kind, name) => `c-${kind}-${name}`
 
-  const tags = [{ id: 't-lunch', name: '午餐' }, { id: 't-jeju', name: '濟州生日慶' }]
+  const tags = [{ id: 't-lunch', name: '午餐' }, { id: 't-jeju', name: '濟州生日慶' }, { id: 't-friends', name: '朋友聚會' }]
 
   const tx = (o) => ({
     id: uid(), to_account_id: null, category_id: null, amount: null, to_amount: null, estimated_amount: null,
@@ -70,13 +70,13 @@ function seed() {
     tx({ date: d(2), type: 'expense', account_id: 'a-richart', category_id: c('expense', '交通'), amount: 240, fee: 6,
       original_amount: 10320, original_currency: 'KRW', note: '儲值 Tmoney', tags: ['t-jeju'], settled_at: at(100), created_at: at(3000) }),
     tx({ date: d(2), type: 'expense', account_id: 'a-krw', category_id: c('expense', '晚餐'), amount: 26300, note: '清沙浦小吃', tags: ['t-jeju'], created_at: at(3010) }),
-    tx({ date: d(2), type: 'expense', account_id: 'a-linepay', category_id: c('expense', '娛樂'), amount: 280, note: '電影', created_at: at(3020) }),
+    tx({ date: d(2), type: 'expense', account_id: 'a-linepay', category_id: c('expense', '娛樂'), amount: 280, note: '電影', tags: ['t-friends'], created_at: at(3020) }),
     // 代墊：幫別人付記支出「代墊」，對方還錢記收入「代墊」（小姿還了一部分）
     tx({ date: d(3), type: 'expense', account_id: 'a-cube', category_id: c('expense', '代墊'), amount: 860, note: '幫小姿代購', created_at: at(4400) }),
     tx({ date: d(0), type: 'income', account_id: 'a-linepay', category_id: c('income', '代墊'), amount: 500, note: '小姿還款', created_at: at(30) }),
     // 拆帳：合付三人份，自己的午餐＋幫朋友墊的
-    tx({ date: d(2), type: 'expense', account_id: 'a-cube', category_id: c('expense', '午餐'), amount: 528, note: '大戶屋 x3', line_note: '自己', split_id: 's-otoya', created_at: at(2900) }),
-    tx({ date: d(2), type: 'expense', account_id: 'a-cube', category_id: c('expense', '代墊'), amount: 770, note: '大戶屋 x3', line_note: '小姿、阿凱', split_id: 's-otoya', created_at: at(2899) }),
+    tx({ date: d(2), type: 'expense', account_id: 'a-cube', category_id: c('expense', '午餐'), amount: 528, note: '大戶屋 x3', line_note: '自己', split_id: 's-otoya', tags: ['t-friends'], created_at: at(2900) }),
+    tx({ date: d(2), type: 'expense', account_id: 'a-cube', category_id: c('expense', '代墊'), amount: 770, note: '大戶屋 x3', line_note: '小姿、阿凱', split_id: 's-otoya', tags: ['t-friends'], created_at: at(2899) }),
     tx({ date: d(40), type: 'transfer', account_id: 'a-esun', to_account_id: 'a-cube', amount: 3200, to_amount: 3200, note: '繳 Cube 卡費', created_at: at(60000) }),
   ]
 

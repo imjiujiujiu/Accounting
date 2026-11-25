@@ -7,8 +7,9 @@ import SummaryCards from '../components/SummaryCards.vue'
 import TripSummary from '../components/TripSummary.vue'
 import OutboxNotice from '../components/OutboxNotice.vue'
 import StatsBreakdown from '../components/StatsBreakdown.vue'
+import StatsTags from '../components/StatsTags.vue'
 import TrendChart from '../components/TrendChart.vue'
-import { useTrip, useSummary } from '../lib/useFiltered.js'
+import { useTrip, useSummary, useByTag } from '../lib/useFiltered.js'
 import { scopeCurrency, filters, refs } from '../lib/store.js'
 import { computed } from 'vue'
 import { useSwipePeriod } from '../lib/useSwipePeriod.js'
@@ -24,6 +25,12 @@ const currency = computed(() => summary.value?.currency ?? scopeCurrency.value)
 
 const KINDS = [{ key: 'expense', name: '支出' }, { key: 'income', name: '收入' }]
 const kind = ref('expense')
+
+// 分類｜標籤：切到標籤才讀依標籤統計
+const VIEWS = [{ key: 'category', name: '分類' }, { key: 'tag', name: '標籤' }]
+const view = ref('category')
+const byTag = useByTag(kind, computed(() => view.value === 'tag'))
+const kindName = computed(() => (kind.value === 'expense' ? '支出' : '收入'))
 </script>
 
 <template>
@@ -45,8 +52,18 @@ const kind = ref('expense')
 
       <div class="grid">
         <section class="card block">
-          <div class="block-head"><p class="h5">{{ kind === 'expense' ? '支出' : '收入' }}分類</p></div>
-          <StatsBreakdown :rows="kind === 'expense' ? expense : income" :kind="kind" :currency="currency" :loading="sumSkeleton" />
+          <div class="block-head">
+            <p class="h5">{{ kindName }}{{ view === 'category' ? '分類' : '標籤' }}</p>
+            <div class="seg small" role="tablist" aria-label="依分類或標籤">
+              <button
+                v-for="v in VIEWS" :key="v.key" type="button" role="tab"
+                class="seg-btn caption" :class="{ on: view === v.key }" :aria-selected="view === v.key"
+                @click="view = v.key"
+              >{{ v.name }}</button>
+            </div>
+          </div>
+          <StatsBreakdown v-if="view === 'category'" :rows="kind === 'expense' ? expense : income" :kind="kind" :currency="currency" :loading="sumSkeleton" />
+          <StatsTags v-else :rows="byTag.data.value" :kind="kind" :currency="currency" :loading="!byTag.loaded.value && !byTag.error.value" :error="byTag.error.value" />
         </section>
         <section class="card block">
           <TrendChart :kind="kind" :currency="currency" />
@@ -75,10 +92,13 @@ const kind = ref('expense')
 .grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: var(--sp-24); align-items: start; }
 .block { display: flex; flex-direction: column; gap: var(--sp-16); }
 .block-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-12); }
+/* 分類｜標籤：卡片標題右側的小分段切換 */
+.seg.small { align-self: center; border-radius: var(--r-10); }
+.seg.small .seg-btn { height: 28px; font-weight: 700; padding: 0 var(--sp-12); border-radius: var(--r-8); }
 @media (max-width: 760px) {
   .page, .swipe-body { gap: var(--sp-16); }
-  .seg { display: flex; align-self: stretch; }
-  .seg-btn { flex: 1; height: 40px; padding: 0; }
+  .seg:not(.small) { display: flex; align-self: stretch; }
+  .seg:not(.small) .seg-btn { flex: 1; height: 40px; padding: 0; }
   .grid { display: flex; flex-direction: column-reverse; gap: var(--sp-16); align-items: stretch; }
 }
 </style>
