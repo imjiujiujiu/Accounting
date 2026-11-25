@@ -261,6 +261,7 @@ async function remove() {
 /** 「已刪除」toast 帶「復原」，停留 6 秒（新的 toast 會取代它，只能復原最後刪的那一筆） */
 function showUndo(restore) {
   showToast('已刪除', 'ok', {
+    icon: 'delete',
     duration: UNDO_TOAST_MS,
     action: {
       label: '復原',

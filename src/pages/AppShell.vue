@@ -57,14 +57,22 @@ async function retry() {
     <Transition name="toast">
       <div
         v-if="toast.text"
-        class="toast caption"
-        :class="[toast.tone, { 'has-action': toast.action }]"
+        :key="toast.id"
+        class="toast"
+        :class="[toast.tone, toast.action ? 'has-action body2-bold' : 'caption']"
         role="status"
         @mouseenter="pauseToast"
         @mouseleave="resumeToast"
       >
+        <Icon v-if="toast.icon" :name="toast.icon" :size="20" />
         <span>{{ toast.text }}</span>
-        <button v-if="toast.action" type="button" class="toast-action caption" @click="runToastAction">{{ toast.action.label }}</button>
+        <button v-if="toast.action" type="button" class="toast-action body2-bold" @click="runToastAction">{{ toast.action.label }}</button>
+        <span
+          v-if="toast.action"
+          class="toast-bar"
+          :style="{ animationDuration: `${toast.duration}ms`, animationPlayState: toast.paused ? 'paused' : 'running' }"
+          aria-hidden="true"
+        />
       </div>
     </Transition>
   </div>
@@ -89,13 +97,29 @@ async function retry() {
   border: 1px solid var(--color-line); padding: var(--sp-8) var(--sp-16); border-radius: var(--r-pill);
 }
 .toast.error { color: var(--color-error); border-color: var(--color-error); }
-/* 帶動作鈕（例：刪除後「復原」）：文字＋主色粗字按鈕，右側內距讓給按鈕的點擊範圍 */
-.toast.has-action { display: flex; align-items: center; gap: var(--sp-8); padding-right: var(--sp-4); }
-.toast-action { color: var(--color-primary); font-weight: 700; padding: var(--sp-4) var(--sp-12); border-radius: var(--r-pill); }
-.toast-action:hover { background: color-mix(in srgb, var(--color-primary) 12%, transparent); }
-@media (pointer: coarse) { .toast-action { min-height: 32px; } }
+/* 帶動作鈕（例：刪除後「復原」，2026-11-25 使用者選 C 版）：淺色底＋深色字、14px 粗體、圖示、
+   放在畫面下方（手機在底部導覽上方）；「復原」為深底主色字的 pill 鈕；底部內縮的倒數線 */
+.toast.has-action {
+  top: auto; bottom: 40px; display: flex; align-items: center; gap: var(--sp-10);
+  min-height: 48px; padding: var(--sp-8) var(--sp-8) var(--sp-8) var(--sp-16);
+  background: var(--color-title); color: var(--color-page); border: none; box-shadow: var(--shadow-pop);
+}
+.toast.has-action.error { color: var(--color-error); }
+.toast-action {
+  background: var(--color-page); color: var(--color-primary);
+  padding: var(--sp-8) var(--sp-16); border-radius: var(--r-pill);
+}
+.toast-action:hover { color: var(--lime-300); }
+/* 倒數線：左右內縮 20px，不碰到 pill 圓角；滑鼠移上去時跟著暫停 */
+.toast-bar {
+  position: absolute; left: var(--sp-20); right: var(--sp-20); bottom: 3px; height: 2px;
+  border-radius: var(--r-pill); background: var(--lime-700); transform-origin: left;
+  animation: toast-countdown linear forwards;
+}
+@keyframes toast-countdown { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 .toast-enter-active, .toast-leave-active { transition: opacity .2s, transform .2s; }
 .toast-enter-from, .toast-leave-to { opacity: 0; transform: translate(-50%, -8px); }
+.toast.has-action.toast-enter-from, .toast.has-action.toast-leave-to { transform: translate(-50%, 8px); }
 @media (max-width: 760px) {
   .main { padding: var(--sp-16) var(--sp-16) 0; }
   .app { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
@@ -103,5 +127,8 @@ async function retry() {
   .fab { display: none; }
   /* 手機：跨在頁首底線上（同電腦版），不壓到「全部帳戶」 */
   .toast { top: calc(56px + env(safe-area-inset-top)); }
+  /* 帶動作鈕的 toast：底部導覽（64px）上方 16px */
+  .toast.has-action { top: auto; bottom: calc(64px + 16px + env(safe-area-inset-bottom)); }
+  html.kb-open .toast.has-action { bottom: 16px; }
 }
 </style>
