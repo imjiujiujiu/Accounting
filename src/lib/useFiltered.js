@@ -177,3 +177,39 @@ export function useTrend(kind) {
   watch([queryKey, dataVersion, kind], load, { immediate: true })
   return { data, bucket, loading, error }
 }
+
+/**
+ * 依標籤統計（統計頁「分類｜標籤」切到標籤時才讀）。由大到小；不含「無標籤」。
+ * 回傳的列帶上標籤名稱；已刪除的標籤略過。
+ */
+export function useByTag(kind, enabled) {
+  const data = ref([])
+  const loading = ref(false)
+  const error = ref('')
+  const loaded = ref(false)
+  let seq = 0
+
+  async function load() {
+    if (!enabled.value) return
+    const my = ++seq
+    const f = query()
+    loading.value = true
+    error.value = ''
+    try {
+      const rows = !f.types.length || f.types.includes(kind.value) ? await api.transactions.byTag(f, kind.value) : []
+      if (my !== seq) return
+      const names = new Map(refs.tags.map((t) => [t.id, t.name]))
+      data.value = rows.filter((r) => names.has(r.tagId)).map((r) => ({ ...r, name: names.get(r.tagId) }))
+      loaded.value = true
+    } catch (err) {
+      if (my === seq) error.value = err.message
+    } finally {
+      if (my === seq) loading.value = false
+    }
+  }
+
+  // 切換支出／收入或篩選時先顯示骨架，資料變動（記帳、刪除）時直接換新數字
+  watch([queryKey, kind], () => (loaded.value = false))
+  watch([queryKey, dataVersion, kind, enabled], load, { immediate: true })
+  return { data, loading, loaded, error }
+}
