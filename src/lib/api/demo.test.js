@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { createDemoApi } from './demo.js'
+import { today, addDays } from '../logic/period.js'
 
 // 示範模式比照資料庫：標籤不再被任何交易使用時自動刪除
 describe('demo：沒有交易使用的標籤自動刪除', () => {
@@ -177,6 +178,42 @@ describe('demo：拆帳行備註', () => {
     expect(hit.rows[0].split_lines.map((l) => l.line_note)).toEqual(['隔天早餐', '宵夜'])
     await api.transactions.saveSplit({ split: { ...split, lines: [split.lines[0]] }, tagNames: [] })
     expect((await api.transactions.list({ keyword: '隔天' })).rows).toHaveLength(0)
+  })
+})
+
+describe('demo：拆帳的固定收支（比照資料庫 20261126_recurring_split.sql）', () => {
+  it('每期產生一筆拆帳；規則的 category_id／amount 取第一行與總額；筆數一筆算一次', async () => {
+    const api = createDemoApi()
+    const cats = await api.categories.list()
+    const ent = cats.find((c) => c.name === '娛樂').id
+    const other = cats.find((c) => c.name === '其他' && c.kind === 'expense').id
+    const rule = {
+      id: 'r-split', type: 'expense', account_id: 'a-cube', category_id: null, amount: null, note: 'Spotify',
+      freq: 'daily', interval: 1, weekdays: null, month_day: null, month_of_year: null, weekend_adjust: 'none',
+      start_date: addDays(today(), -1), end_date: null, max_count: null,
+      lines: [{ category_id: ent, amount: 268, note: '' }, { category_id: other, amount: 4, note: '手續費' }],
+    }
+    const { generatedCount } = await api.recurring.save({ rule, tagNames: [] })
+    expect(generatedCount).toBe(2)
+    expect(await api.recurring.txnCount('r-split')).toBe(2)
+    const saved = (await api.recurring.list()).find((r) => r.id === 'r-split')
+    expect(saved).toMatchObject({ category_id: ent, amount: 272 })
+    expect(saved.lines.map((l) => l.note)).toEqual(['', '手續費'])
+    const { rows } = await api.transactions.list({ range: { from: addDays(today(), -1), to: today() } })
+    const mine = rows.filter((t) => t.recurring_rule_id === 'r-split')
+    expect(mine).toHaveLength(4)
+    expect(new Set(mine.map((t) => t.split_id)).size).toBe(2)
+    expect(mine.map((t) => t.line_note).sort()).toEqual(['', '', '手續費', '手續費'])
+  })
+  it('收入不能拆', async () => {
+    const api = createDemoApi()
+    const rule = {
+      id: 'r-bad', type: 'income', account_id: 'a-esun', category_id: null, amount: null, note: '',
+      freq: 'monthly', interval: 1, weekdays: null, month_day: 1, month_of_year: null, weekend_adjust: 'none',
+      start_date: addDays(today(), 30), end_date: null, max_count: null,
+      lines: [{ category_id: 'x', amount: 1, note: '' }, { category_id: 'y', amount: 2, note: '' }],
+    }
+    await expect(api.recurring.save({ rule, tagNames: [] })).rejects.toThrow('只有支出可以拆帳')
   })
 })
 

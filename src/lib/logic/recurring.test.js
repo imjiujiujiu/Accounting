@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isoDow, createRepeat, repeatOptions, canRepeat, showsWeekendAdjust, validateRepeat, repeatToRule, ruleToRepeat,
-  ruleLabel, ruleMeta, sortRules, formToRulePayload, ruleToForm, savedRuleToast, removeRuleMessage,
+  ruleLabel, ruleMeta, sortRules, formToRulePayload, ruleToForm, ruleDetail, savedRuleToast, removeRuleMessage,
   adjustWeekend, nextOccurrence, isRuleFinished,
 } from './recurring.js'
 
@@ -112,10 +112,30 @@ describe('表單 ⇄ 規則', () => {
     expect(formToRulePayload(form, createRepeat('monthly'), ctx)).toEqual({
       rule: {
         id: 'r1', type: 'expense', account_id: 'a1', category_id: 'c1', amount: 18000, note: '房租', start_date: FRI,
-        freq: 'monthly', interval: 1, weekdays: null, month_day: 23, month_of_year: null, weekend_adjust: 'none', end_date: null, max_count: null,
+        freq: 'monthly', interval: 1, weekdays: null, month_day: 23, month_of_year: null, weekend_adjust: 'none', end_date: null, max_count: null, lines: [],
       },
       tagNames: ['固定'],
     })
+  })
+  it('拆帳＋重複 → 規則帶各行（行備註去空白）', () => {
+    const form = {
+      id: 'r2', date: FRI, type: 'expense', accountId: 'a1', categoryId: null, amount: '272', note: 'Spotify', tags: [],
+      split: { id: 's1', lines: [{ id: 'r2', categoryId: 'c1', amount: '268', note: '' }, { id: 'l2', categoryId: 'c9', amount: '4', note: ' 手續費 ' }] },
+    }
+    const { rule } = formToRulePayload(form, createRepeat('monthly'), ctx)
+    expect(rule).toMatchObject({ type: 'expense', amount: 272, lines: [{ category_id: 'c1', amount: 268, note: '' }, { category_id: 'c9', amount: 4, note: '手續費' }] })
+  })
+  it('拆帳規則 → 表單進入拆帳；明細文字', () => {
+    const rule = {
+      id: 'r2', start_date: FRI, type: 'expense', account_id: 'a1', category_id: 'c1', amount: 272, note: 'Spotify',
+      lines: [{ category_id: 'c1', amount: 268, note: '' }, { category_id: 'c9', amount: 4, note: '手續費' }],
+    }
+    const f = ruleToForm(rule, [], ctx)
+    expect(f).toMatchObject({ id: 'r2', amount: '272', categoryId: 'c1' })
+    expect(f.split.lines.map((l) => [l.id === 'r2', l.categoryId, l.amount, l.note])).toEqual([[true, 'c1', '268', ''], [false, 'c9', '4', '手續費']])
+    const cats = new Map([['c1', { name: '娛樂' }], ['c9', { name: '其他' }]])
+    expect(ruleDetail(rule, cats, ctx)).toBe('娛樂 $268・手續費 $4')
+    expect(ruleDetail({ ...rule, lines: [] }, cats, ctx)).toBe('')
   })
   it('規則 → 表單：日期欄位為開始日', () => {
     const f = ruleToForm({ id: 'r1', start_date: FRI, type: 'income', account_id: 'a1', category_id: 'c2', amount: 60000, note: '薪水' }, [{ name: '固定' }], ctx)

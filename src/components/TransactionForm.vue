@@ -232,7 +232,7 @@ defineExpose({ flushTag })
             :disabled="splitDisabled && !splitOn"
             :aria-pressed="splitOn"
             aria-label="拆帳"
-            :title="splitOn ? '取消拆帳' : splitDisabled ? '只有台幣支出可以拆帳（離線、外幣、重複時不行）' : '拆帳：一筆消費分成多個分類'"
+            :title="splitOn ? '取消拆帳' : splitDisabled ? '只有台幣支出可以拆帳（離線、外幣時不行）' : '拆帳：一筆消費分成多個分類'"
             @click="toggleSplit"
           >
             <Icon name="call_split" :size="20" :color="splitOn ? 'var(--color-primary)' : 'var(--color-text)'" />

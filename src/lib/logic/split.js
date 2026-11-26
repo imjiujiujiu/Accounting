@@ -3,7 +3,7 @@
 //   表單：form.split = { id, lines: [{ id, categoryId, amount, note, auto }] }；form.amount＝總額（帳單上的數字）。
 //     form.note＝整筆共用的備註（例：「7-11」）；line.note＝這一行自己的備註（例：「宵夜」，存在 line_note，可空白）。
 //     最後一行 auto＝true 時自動補差額（總額 − 其他行），使用者改了那一行就變成手動。
-//   第一版只有台幣支出可以拆：外幣刷卡、離線、固定收支時拆帳鈕停用。
+//   第一版只有台幣支出可以拆：外幣刷卡、離線時拆帳鈕停用。固定收支也可以拆（2026-11-26，規則存各行，每期產生一筆拆帳）。
 import { parseAmount, minorUnitOf, toInputString } from './money.js'
 import { newId } from './transactionForm.js'
 
@@ -21,9 +21,9 @@ const num = (v, ctx) => {
 }
 
 /** 能不能拆（拆帳鈕停用的條件；已在拆帳中則一律可以繼續編輯） */
-export function canSplit(form, { online = true, accountCurrency, baseCurrency = 'TWD', repeating = false } = {}) {
+export function canSplit(form, { online = true, accountCurrency, baseCurrency = 'TWD' } = {}) {
   if (form.split) return true
-  return form.type === 'expense' && !form.isForeign && online && !repeating && (!accountCurrency || accountCurrency === baseCurrency)
+  return form.type === 'expense' && !form.isForeign && online && (!accountCurrency || accountCurrency === baseCurrency)
 }
 
 /** 開始拆帳：第一行帶入原本的分類，第二行自動補差額 */

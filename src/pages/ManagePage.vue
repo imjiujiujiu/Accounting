@@ -26,9 +26,9 @@ import { confirmDialog, confirmDiscard } from '../lib/confirm.js'
 import { createDirty } from '../lib/dirty.js'
 import { onBeforeRouteLeave } from 'vue-router'
 import { focusFirstInvalid } from '../lib/focusInvalid.js'
-import { accountsById, categoriesById, categoryColor } from '../lib/store.js'
+import { accountsById, categoriesById, categoryColor, baseCurrency } from '../lib/store.js'
 import { formatSigned } from '../lib/logic/display.js'
-import { ruleMeta, sortRules } from '../lib/logic/recurring.js'
+import { ruleMeta, ruleDetail, sortRules } from '../lib/logic/recurring.js'
 import { manageTab, openRule } from '../lib/ruleDialog.js'
 
 const TABS = [
@@ -48,6 +48,8 @@ const ruleRows = computed(() =>
       icon: categoryIcon(cat),
       iconColor: categoryColor(cat),
       meta: ruleMeta(r),
+      // 拆帳規則：名稱下一行小字列出各行（同交易清單）
+      detail: ruleDetail(r, categoriesById.value, { baseCurrency: baseCurrency.value, currencies: refs.currencies }),
       accountName: acc?.name ?? '—',
       amountText: formatSigned(r.type === 'income' ? r.amount : -r.amount, acc?.currency ?? 'TWD', refs.currencies),
     }
@@ -282,6 +284,7 @@ async function removeTag(t) {
           <span class="desc">
             <span class="desc-title">{{ r.title }}</span>
             <span class="desc-meta"><Icon name="repeat" :size="14" color="var(--color-text)" />{{ r.meta }}</span>
+            <span v-if="r.detail" class="desc-detail"><Icon name="call_split" :size="14" color="var(--color-text)" />{{ r.detail }}</span>
           </span>
           <span class="wallet"><span class="tag"><Icon name="wallet" :size="16" color="var(--color-text)" />{{ r.accountName }}</span></span>
           <span class="amount" :class="r.rule.type === 'income' ? 'c-income' : 'c-expense'">{{ r.amountText }}</span>
@@ -404,6 +407,7 @@ button.rule:hover { background: rgba(32, 42, 58, .5); }
 .desc { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--sp-4); justify-content: center; }
 .desc-title { font-size: 16px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
 .desc-meta { display: flex; align-items: center; gap: var(--sp-4); font-size: 12px; color: var(--color-text); }
+.desc-detail { display: flex; align-items: center; gap: var(--sp-4); font-size: 12px; color: var(--color-text); overflow-wrap: anywhere; }
 .wallet { width: 230px; flex-shrink: 0; display: flex; align-items: center; }
 .amount { flex-shrink: 0; min-width: 150px; text-align: right; font-size: 16px; font-weight: 700; white-space: nowrap; }
 .divider { width: 100%; border: 0; border-top: 1px solid var(--color-line); margin: var(--sp-8) 0; }

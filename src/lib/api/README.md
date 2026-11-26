@@ -33,7 +33,7 @@ if (ok) await api.transactions.save(formToPayload(form, ctx))
 | `api.accounts` | `list`（含餘額、預估筆數、`canDelete`）`create` `update` `setActive` `reorder`（拖曳排序）`remove` |
 | `api.categories` | `list`（含 txn_count、canDelete、小分類的 `parent_icon`）`save`（`save_category`：新增／編輯／換組／顏色）`recent`（最近使用）`create` `update` `remove`（`delete_category`：交易與規則改套「其他」或「其他X」並加同名標籤） |
 | `api.tags` | `list` `getOrCreate` `rename` `remove` |
-| `api.recurring` | 固定收支規則：`list`（含 `is_finished`、`next_run_date`、`tags`）`save`（回傳 `{ id, generatedCount }`）`remove` `txnCount`；純邏輯在 `logic/recurring.js` |
+| `api.recurring` | 固定收支規則：`list`（含 `is_finished`、`next_run_date`、`tags`、`lines`＝拆帳規則的各行）`save`（`rule.lines` 2 行以上＝拆帳規則，每期產生一筆拆帳；回傳 `{ id, generatedCount }`）`remove` `txnCount`（拆帳一筆算一次）；純邏輯在 `logic/recurring.js` |
 | `api.settings` | `currencies` `get` `defaultRates` `setDefaultRate` `removeDefaultRate` |
 | `api.export` | `fetchAll` `download`（設定頁「匯出 CSV」） |
 

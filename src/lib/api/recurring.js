@@ -12,6 +12,7 @@ export function createRecurringApi(db) {
      *   is_finished    已結束（達到次數或超過結束日）
      *   next_run_date  下次產生日（已套用遇週末調整；已結束為 null）
      *   tags           [{ id, name }]
+     *   lines          拆帳規則的各行 [{ category_id, amount, note }]（2 行以上才是拆帳；一般規則為 []）
      */
     async list() {
       let data
@@ -27,6 +28,7 @@ export function createRecurringApi(db) {
       return data.map((r) => ({
         ...r,
         amount: Number(r.amount),
+        lines: (r.lines ?? []).map((l) => ({ ...l, amount: Number(l.amount) })),
         tags: (r.tag_ids ?? []).map((id) => byId.get(id)).filter(Boolean),
       }))
     },
@@ -49,12 +51,10 @@ export function createRecurringApi(db) {
       await run(db.from('recurring_rules').delete().eq('id', id))
     },
 
-    /** 這條規則產生、目前還在的交易筆數（刪除確認文案用） */
+    /** 這條規則產生、目前還在的交易筆數（刪除確認文案用；拆帳的各行算一筆） */
     async txnCount(id) {
-      const { count } = await run(
-        db.from('transactions').select('id', { count: 'exact', head: true }).eq('recurring_rule_id', id),
-      )
-      return count ?? 0
+      const { data } = await run(db.from('transactions').select('id, split_id').eq('recurring_rule_id', id))
+      return new Set((data ?? []).map((t) => t.split_id ?? t.id)).size
     },
   }
 }

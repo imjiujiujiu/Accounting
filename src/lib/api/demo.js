@@ -85,7 +85,7 @@ function seed() {
   const rule = (o) => {
     const r = {
       interval: 1, weekdays: null, month_day: null, month_of_year: null, weekend_adjust: 'none',
-      end_date: null, max_count: null, note: '', tags: [], last_date: null, generated_count: 3, created_at: at(90000), ...o,
+      end_date: null, max_count: null, note: '', tags: [], lines: [], last_date: null, generated_count: 3, created_at: at(90000), ...o,
     }
     if (r.next_date === undefined) r.next_date = nextOccurrence(r, addDays(t, 1))
     return r
@@ -95,6 +95,10 @@ function seed() {
       freq: 'monthly', month_day: 1, start_date: monthStart(3) }),
     rule({ id: 'r-salary', type: 'income', account_id: 'a-esun', category_id: c('income', '薪水'), amount: 49738, note: '薪水',
       freq: 'monthly', month_day: 5, weekend_adjust: 'before', start_date: monthStart(3).slice(0, 8) + '05' }),
+    // 拆帳規則：訂閱費＋海外刷卡手續費同一筆（信用卡帳單上是一筆）
+    rule({ id: 'r-spotify', type: 'expense', account_id: 'a-cube', category_id: c('expense', '娛樂'), amount: 272, note: 'Spotify',
+      freq: 'monthly', month_day: 3, start_date: monthStart(3).slice(0, 8) + '03',
+      lines: [{ category_id: c('expense', '娛樂'), amount: 268, note: '' }, { category_id: c('expense', '其他'), amount: 4, note: '手續費' }] }),
     rule({ id: 'r-lunch', type: 'expense', account_id: 'a-cash', category_id: c('expense', '午餐'), amount: 450, note: '訂便當',
       freq: 'weekly', weekdays: [1], start_date: d(60) }),
     rule({ id: 'r-laptop', type: 'expense', account_id: 'a-cube', category_id: c('expense', '3C'), amount: 3500, note: '筆電分期',
@@ -550,6 +554,7 @@ export function createDemoApi() {
               ...r,
               is_finished,
               next_run_date: is_finished ? null : adjustWeekend(r.next_date, r.weekend_adjust),
+              lines: r.lines ?? [],
               tags: r.tags.map((id) => db.tags.find((x) => x.id === id)).filter(Boolean),
             }
           }),
@@ -562,6 +567,15 @@ export function createDemoApi() {
           if (!tag) db.tags.push((tag = { id: uid(), name }))
           return tag.id
         })
+        // 拆帳規則（比照資料庫）：category_id＝第一行、amount＝總額；不到 2 行＝一般規則
+        const lines = (rule.lines ?? []).length > 1 ? rule.lines.map((l) => ({ ...l, note: (l.note ?? '').trim() })) : []
+        if (lines.length) {
+          const acc = db.accounts.find((a) => a.id === rule.account_id)
+          if (rule.type !== 'expense') throw new ApiError('invalid', '只有支出可以拆帳')
+          if (acc?.currency !== 'TWD') throw new ApiError('invalid', '拆帳目前只支援台幣帳戶')
+          rule = { ...rule, category_id: lines[0].category_id, amount: lines.reduce((s, l) => s + l.amount, 0) }
+        }
+        rule = { ...rule, lines }
         let r = db.rules.find((x) => x.id === rule.id)
         if (!r) {
           r = { ...rule, tags, generated_count: 0, last_date: null, created_at: new Date().toISOString() }
@@ -577,12 +591,22 @@ export function createDemoApi() {
           dropUnusedTags(removed)
         }
         while (!isRuleFinished(r) && adjustWeekend(r.next_date, r.weekend_adjust) <= t) {
-          db.transactions.push({
-            id: uid(), date: adjustWeekend(r.next_date, r.weekend_adjust), type: r.type, account_id: r.account_id, to_account_id: null,
-            category_id: r.category_id, amount: r.amount, to_amount: null, estimated_amount: null, original_amount: null,
-            original_currency: null, fee: null, note: r.note, settled_at: null, tags: [...r.tags],
-            recurring_rule_id: r.id, occurrence_date: r.next_date, created_at: new Date().toISOString(),
-          })
+          const base = {
+            date: adjustWeekend(r.next_date, r.weekend_adjust), type: r.type, account_id: r.account_id, to_account_id: null,
+            to_amount: null, estimated_amount: null, original_amount: null, original_currency: null, fee: null,
+            note: r.note, line_note: '', settled_at: null, split_id: null, recurring_rule_id: r.id, occurrence_date: r.next_date,
+          }
+          if (r.lines?.length > 1) {
+            // 拆帳規則：一筆拆帳（各行共用 split_id，行的順序＝created_at）
+            const sid = uid()
+            const now = Date.now()
+            r.lines.forEach((l, i) => db.transactions.push({
+              ...base, id: uid(), category_id: l.category_id, amount: l.amount, line_note: l.note, split_id: sid,
+              tags: [...r.tags], created_at: new Date(now + i).toISOString(),
+            }))
+          } else {
+            db.transactions.push({ ...base, id: uid(), category_id: r.category_id, amount: r.amount, tags: [...r.tags], created_at: new Date().toISOString() })
+          }
           r.generated_count++
           r.last_date = r.next_date
           r.next_date = nextOccurrence(r, addDays(r.next_date, 1))
@@ -597,7 +621,7 @@ export function createDemoApi() {
         return delay(null)
       },
       async txnCount(id) {
-        return delay(db.transactions.filter((t) => t.recurring_rule_id === id).length)
+        return delay(new Set(db.transactions.filter((t) => t.recurring_rule_id === id).map((t) => t.split_id ?? t.id)).size)
       },
     },
 

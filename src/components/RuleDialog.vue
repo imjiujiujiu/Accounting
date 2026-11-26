@@ -3,6 +3,7 @@
 // 沿用交易表單（金額、分類、帳戶、備註、標籤）＋重複選單＋結束條件；「日期」改為「開始日」，已產生過交易的規則不可改。
 // 修改規則只影響之後產生的交易。刪除在左下（同編輯交易）：已產生的交易保留，刪除前跳出確認對話框。
 // 規則需要連線才能儲存、刪除（不進離線暫存）。
+// 拆帳規則（2026-11-26）：分類旁的拆帳鈕同交易表單；存檔時各行一起存，之後每期產生一筆拆帳。
 import { ref, reactive, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import Icon from './Icon.vue'
 import TransactionForm from './TransactionForm.vue'
@@ -17,6 +18,7 @@ import { isOnline, OFFLINE_MESSAGE } from '../lib/api/online.js'
 import { createEmptyForm, validateForm } from '../lib/logic/transactionForm.js'
 import { focusFirstInvalid, isSubmitEnter } from '../lib/focusInvalid.js'
 import { createRepeat, validateRepeat, ruleToRepeat, ruleToForm, formToRulePayload, savedRuleToast, removeRuleMessage } from '../lib/logic/recurring.js'
+import { canSplit, validateSplit } from '../lib/logic/split.js'
 
 const form = ref(null)
 const repeat = reactive(createRepeat('monthly'))
@@ -34,6 +36,13 @@ const statusText = computed(() => failMessage.value || (isOnline.value ? '' : OF
 const ctx = () => ({ accounts: refs.accounts, currencies: refs.currencies, baseCurrency: baseCurrency.value })
 const noAccounts = computed(() => !refs.accounts.length)
 // 編輯到一半離開要提醒
+// 拆帳：只有台幣支出、連線中
+const splitDisabled = computed(() => {
+  const f = form.value
+  if (!f) return true
+  const acc = refs.accounts.find((a) => a.id === f.accountId)
+  return !canSplit(f, { online: isOnline.value, accountCurrency: acc?.currency, baseCurrency: baseCurrency.value })
+})
 const dirty = createDirty(() => (form.value ? { form: form.value, repeat } : null))
 
 watch(
@@ -60,10 +69,11 @@ watch(
 async function save() {
   formRef.value?.flushTag()
   const { ok, errors: errs } = validateForm(form.value, ctx())
-  errors.value = errs
+  const sp = form.value.split ? validateSplit(form.value, ctx()) : { ok: true, errors: {} }
+  errors.value = { ...errs, ...sp.errors }
   const rp = validateRepeat(repeat, form.value.date)
   repeatErrors.value = rp.errors
-  if (!ok || !rp.ok) return nextTick(() => focusFirstInvalid(dialogEl.value))
+  if (!ok || !sp.ok || !rp.ok) return nextTick(() => focusFirstInvalid(dialogEl.value))
   const before = ruleDialog.rule?.generated_count ?? 0
   const updated = editing.value
   saving.value = true
@@ -141,6 +151,7 @@ onBeforeUnmount(() => {
           :repeat-errors="repeatErrors"
           rule-mode
           :lock-date="lockDate"
+          :split-disabled="splitDisabled"
         >
           <template #actions>
             <span class="msg body2 c-expense">{{ statusText }}</span>

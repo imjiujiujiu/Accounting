@@ -116,7 +116,8 @@ describe('拆帳表單', () => {
     expect(canSplit({ type: 'expense', isForeign: true }, {})).toBe(false)
     expect(canSplit({ type: 'expense' }, { online: false })).toBe(false)
     expect(canSplit({ type: 'expense' }, { accountCurrency: 'JPY' })).toBe(false)
-    expect(canSplit({ type: 'expense' }, { repeating: true })).toBe(false)
+    // 固定收支也可以拆（2026-11-26）
+    expect(canSplit({ type: 'expense' }, { repeating: true })).toBe(true)
     expect(canSplit({ type: 'expense', split: {} }, { online: false })).toBe(true)
   })
 
