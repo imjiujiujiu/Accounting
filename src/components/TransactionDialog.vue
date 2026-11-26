@@ -10,7 +10,8 @@ import { openAccountDrawer } from '../lib/accountDrawer.js'
 // 只有收入／支出、非外幣、連線中可以設定。由規則產生的交易顯示「來自固定收支 ›」，點擊跳到管理頁的該規則。
 // 「儲存後再記一筆」（需求 3.8）：新增時勾選，儲存成功（或暫存）後不關閉，換成新的一筆並帶入帳戶、日期、幣別、分類。
 // 每次開啟對話框都是未勾選；設定了重複時不顯示。
-// 拆帳（專案文件 claude/advance-and-split.md）：只有台幣支出、連線中、沒設重複時可以拆；存檔走 api.transactions.saveSplit。
+// 拆帳（專案文件 claude/advance-and-split.md）：只有台幣支出、連線中可以拆；存檔走 api.transactions.saveSplit。
+// 拆帳＋重複（2026-11-26）：存成拆帳規則（各行一起存），每期產生一筆拆帳。
 // 編輯拆帳時表單載入整筆的所有行；刪除＝刪除整筆。
 import { ref, reactive, watch, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
@@ -82,7 +83,7 @@ const splitDisabled = computed(() => {
   const f = form.value
   if (!f) return true
   const acc = refs.accounts.find((a) => a.id === f.accountId)
-  return !canSplit(f, { online: isOnline.value, accountCurrency: acc?.currency, baseCurrency: baseCurrency.value, repeating: repeat.mode !== 'none' })
+  return !canSplit(f, { online: isOnline.value, accountCurrency: acc?.currency, baseCurrency: baseCurrency.value })
 })
 /** 編輯的是（或原本是）拆帳：存檔與刪除要處理整筆 */
 const splitId = computed(() => form.value?.split?.id ?? form.value?.splitWas ?? null)

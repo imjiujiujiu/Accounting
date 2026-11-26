@@ -2,7 +2,9 @@
 // 手機與電腦共用。規則見需求 3.10 與 supabase/migrations/20261023_recurring_rules.sql。
 // 星期一律用 ISO 編號（1＝星期一 … 7＝星期日），與資料庫的 weekdays 相同。
 import { addDays, daysInMonth } from './period.js'
-import { formToPayload, txnToForm } from './transactionForm.js'
+import { formToPayload, txnToForm, newId } from './transactionForm.js'
+import { splitToPayload } from './split.js'
+import { minorUnitOf, toInputString } from './money.js'
 
 const WD = ['日', '一', '二', '三', '四', '五', '六'] // 以 getUTCDay() 為索引
 const parts = (d) => d.split('-').map(Number)
@@ -73,7 +75,8 @@ export function repeatOptions(date, { allowNone = true } = {}) {
 
 /** 只有收入與支出可以設定重複；轉帳與外幣刷卡不行 */
 export function canRepeat(form) {
-  return (form.type === 'income' || form.type === 'expense') && !form.isForeign && !form.split
+  // 拆帳也可以設定重複（2026-11-26）：規則存各行，每期產生一筆拆帳
+  return (form.type === 'income' || form.type === 'expense') && !form.isForeign
 }
 
 /** 目前設定實際的週期單位（決定要不要顯示「遇週末」） */
@@ -184,11 +187,27 @@ export function sortRules(rules) {
 
 /** 規則 → 交易表單（編輯規則用）：「日期」欄位放開始日。tags 為標籤名稱或 { name } */
 export function ruleToForm(rule, tags = [], ctx = {}) {
-  return txnToForm(
+  const form = txnToForm(
     { id: rule.id, date: rule.start_date, type: rule.type, account_id: rule.account_id, category_id: rule.category_id, amount: rule.amount, note: rule.note },
     tags,
     ctx,
   )
+  // 拆帳規則：表單進入拆帳狀態（行 id 只給畫面用，存檔時整組換掉）
+  if (rule.lines?.length > 1) {
+    const mu = minorUnitOf(ctx.baseCurrency ?? 'TWD', ctx.currencies)
+    form.split = {
+      id: newId(),
+      lines: rule.lines.map((l, i) => ({
+        id: i === 0 ? form.id : newId(),
+        categoryId: l.category_id,
+        amount: toInputString(Number(l.amount), mu),
+        note: l.note ?? '',
+        auto: false,
+      })),
+    }
+    form.categoryId = rule.lines[0].category_id
+  }
+  return form
 }
 
 /** 交易表單＋重複設定 → save_recurring_rule 的參數 { rule, tagNames }。請先驗證表單與重複設定。 */
@@ -204,9 +223,23 @@ export function formToRulePayload(form, repeat, ctx = {}) {
       note: txn.note,
       start_date: txn.date,
       ...repeatToRule(repeat, txn.date),
+      // 拆帳規則：各行（2 行以上）；一般規則送空陣列，資料庫會清掉舊的各行
+      lines: form.split
+        ? splitToPayload(form, tagNames, ctx).split.lines.map(({ category_id, amount, note }) => ({ category_id, amount, note }))
+        : [],
     },
     tagNames,
   }
+}
+
+/** 拆帳規則的明細文字（管理頁清單）：「Spotify $268・手續費 $4」，每項＝行備註，空白時為分類名稱；一般規則回傳 '' */
+export function ruleDetail(rule, categoriesById = new Map(), ctx = {}) {
+  if (!(rule.lines?.length > 1)) return ''
+  const d = minorUnitOf(ctx.baseCurrency ?? 'TWD', ctx.currencies)
+  const f = new Intl.NumberFormat('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })
+  return rule.lines
+    .map((l) => `${l.note || categoriesById.get(l.category_id)?.name || '—'} $${f.format(Number(l.amount) / 10 ** d)}`)
+    .join('・')
 }
 
 /** 儲存固定收支後的短提示。generated：這次立刻建立了幾筆交易 */
